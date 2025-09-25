@@ -1,0 +1,15 @@
+# project runtime
+pandas>=2.2
+numpy>=1.26
+tqdm>=4.66
+
+# NLP
+transformers>=4.44
+tokenizers>=0.15
+
+# parsing / http
+lxml>=5.2
+requests>=2.32
+
+# plotting
+matplotlib>=3.8

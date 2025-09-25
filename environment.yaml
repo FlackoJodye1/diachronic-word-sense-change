@@ -1,0 +1,26 @@
+name: de-wsd
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pandas>=2.2
+  - numpy>=1.26
+  - tqdm>=4.66
+  - matplotlib>=3.8
+  - lxml>=5.2
+  - requests>=2.32
+  - dotenv
+  - pyarrow>=17.0
+  - seaborn
+  - pip
+  - pip:
+      - transformers>=4.44
+      - tokenizers>=0.15
+      - pytest>=8.0
+      - black>=24.0
+      - isort>=5.13
+      - python-dotenv>=1.0
+      - sphinx>=7.0
+      - coverage>=7.4
+      # Torch (CPU-only)
+      - torch --index-url https://download.pytorch.org/whl/cpu
