@@ -1,0 +1,11 @@
+lemma,pos,n_senses,polysemy_category,selection_rationale
+Doktor,NOUN,3,low,Common noun with clear sense distinctions (academic title vs medical doctor)
+Antwort,NOUN,2,low,Simple polysemy baseline case
+wagen,VERB,3,low,Low-polysemy verb for baseline comparison
+Glas,NOUN,4,medium,Material vs container vs eyeglasses - distinct semantic domains
+Schatz,NOUN,4,medium,Treasure vs term of endearment - concrete vs abstract
+springen,VERB,6,medium,Physical jumping with metaphorical extensions
+bitter,ADJ,4,medium,Taste vs emotional - tests adjective handling
+Bahn,NOUN,7,high,Railway/path/lane/orbit - tests fine distinctions within Artefakt class
+sitzen,VERB,7,high,Physical/location/membership/prison/mastery - diverse semantic classes
+hören,VERB,8,high,Perception/obey/learn - tests abstract sense distinctions

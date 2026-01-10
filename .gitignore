@@ -2,6 +2,7 @@
 # Python bytecode / builds
 # ------------------------
 __pycache__/
+.claude
 *.py[cod]
 *.so
 *.egg
@@ -24,6 +25,18 @@ var/
 .venv/
 env/
 .Python
+
+# ------------------------
+# Node.js (if any)
+# ------------------------
+node_modules/
+package-lock.json
+
+# ------------------------
+# Secrets / Environment
+# ------------------------
+.env
+.env.local
 
 # ------------------------
 # Logs / reports
@@ -67,14 +80,42 @@ docs/_build/
 *.rdb
 
 # ------------------------
-# Data (do not commit corpora)
+# Data (selective tracking)
 # ------------------------
-data/raw
-data/interim
-data/external
+
+# Ignore raw data (large corpora)
+data/raw/
+data/interim/
+data/external/
+data/dwds_contexts/
+
+# Ignore large generated files
+data/**/*.parquet
+data/**/*.npz
+data/**/*.pkl
+
+# Ignore germanet_base (large, can regenerate)
+data/processed/germanet_base/
+
+# Ignore pilot data (old)
+data/evaluation/pilot/
+
+# Ignore analysis outputs
+data/processed/germanet/analysis*/
+
+# Ignore all CSV/JSON by default
 data/**/*.csv
 data/**/*.json
-data/**/*.parquet
+data/**/*.jsonl
+
+# BUT track these important small files:
+!data/evaluation/quick_eval/*.csv
+!data/processed/germanet/wsd_senses.csv
+!data/processed/target_words/*.tsv
+!data/README.md
+
+# Track .gitkeep files for folder structure
+!data/**/.gitkeep
 
 # ------------------------
 # Results (generated outputs)
@@ -83,7 +124,16 @@ results/logs/
 results/figures/
 results/reports/
 
+notebooks/data/
+
 # ------------------------
 # Typing / mypy
 # ------------------------
 .mypy_cache/
+
+# ------------------------
+# Test / temporary files
+# ------------------------
+*_test.csv
+*.tmp
+.pytest_cache/
