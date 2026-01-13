@@ -610,6 +610,51 @@ class EmbeddingBuilder:
 | **Examples** | Include usage examples | Text + example sentences |
 | **Hierarchical** | Include hypernym chain | Text + hypernym lemmas |
 
+### 6.5 LLM-Generated Text Variants
+
+In addition to template-based approaches, we use LLMs to generate natural language sense representations.
+
+#### Module: `src/data/llm/`
+
+| File | Purpose |
+|------|---------|
+| `client.py` | LLM client wrapper (OpenAI/Claude) |
+| `sense_generator.py` | Generates definitions and examples per sense |
+
+#### Prompt Templates: `config/prompts/`
+
+| Prompt | Output |
+|--------|--------|
+| `definition.txt` | 1-2 sentence natural definition |
+| `example_single.txt` | Single example sentence |
+| `examples_multiple.txt` | N varied example sentences |
+
+Each prompt receives the GermaNet baseline text (`sense_description`) to specify which sense to generate for.
+
+#### Usage
+
+```python
+from src.data.llm import LLMClient, SenseTextGenerator
+
+client = LLMClient(provider="openai")  # or "claude"
+generator = SenseTextGenerator(client)
+
+variants = generator.generate_all_variants(
+    lemma="Bank",
+    pos="NOUN",
+    sense_description="Bank ist eine Art von Sitzgelegenheit..."
+)
+# Returns: {'definition': ..., 'example_1': ..., 'examples_5': [...]}
+```
+
+#### Script
+
+```bash
+python scripts/data_preparation/generate_llm_sense_texts.py --provider openai
+```
+
+Output: `data/evaluation/quick_eval/sense_variants.csv`
+
 ### 6.2 Disambiguation Algorithm
 
 #### Context Embedding
@@ -1147,5 +1192,5 @@ Date: 1995 (supports modern sense)
 
 ---
 
-*Last updated: 2024*
-*Version: 1.0*
+*Last updated: 2026-01-13*
+*Version: 1.1*

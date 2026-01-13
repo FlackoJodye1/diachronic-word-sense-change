@@ -234,6 +234,132 @@ Successfully annotated 93 instances using the Flask annotation interface (`scrip
 
 ---
 
+## 2026-01-10: Repo Cleanup & Embedding Experiment Design
+
+### Repo Cleanup
+
+Reorganized repository structure:
+
+**Deleted (redundant/broken):**
+- `notebooks/data/Build_Embeddings.ipynb` - duplicate of scripts
+- `notebooks/data/Map_Candidates.ipynb` - duplicate of scripts
+- `notebooks/data/Map_Sense_Texts.ipynb` - duplicate of scripts
+- `notebooks/exploration/dwds.ipynb` - simple API test
+- `scripts/data_preparation/calculate_germanet_senses_750.py` - broken import
+- `scripts/refetch_eval_contexts.py` - one-time utility
+- `analysis/analyze_current_dwds_progress.py` - one-time progress check
+- `documentation/eval_set_planning.md` - merged into this file
+
+**Reorganized scripts/:**
+- Moved annotation-related scripts → `scripts/annotation/`
+- Moved data prep scripts → `scripts/data_preparation/`
+- Kept only evaluation runners in `scripts/evaluation/`
+
+### Embedding Text Variants Experiment
+
+**Status**: In Design
+
+**Goal**: Compare different text-to-embedding strategies for sense representations to determine which produces the best WSD accuracy.
+
+**Current baseline approach**:
+Template-based using GermaNet relations:
+```
+{lemma} ist eine Art von {hypernym}. {lemma} ist ein Begriff aus {class}
+```
+Example: "Bank ist eine Art von Sitzgelegenheit. Bank ist ein Begriff aus Artefakt"
+
+**Proposed approaches to compare**:
+
+| # | Method | Description | Text for Embedding |
+|---|--------|-------------|-------------------|
+| 0 | Baseline (GermaNet) | Template with hypernym + class | `{lemma} ist eine Art von {hypernym}...` |
+| 1 | LLM Definition | LLM generates natural definition | "Eine Bank ist ein längliches Sitzmöbel..." |
+| 2 | LLM 1 Example | LLM generates example sentence | "Die alte Frau setzte sich auf die Bank im Park." |
+| 3 | LLM 5 Examples | Average embeddings of 5 examples | 5 varied usage sentences |
+
+**Key design question**: How to specify the target sense when prompting the LLM?
+
+For polysemous words like "Bank" (bench vs. financial institution vs. sandbank), the LLM needs context to know which sense to generate for. Options:
+- Provide GermaNet hypernym (e.g., "Sitzgelegenheit")
+- Provide semantic class (e.g., "Artefakt")
+- Provide synonyms from the synset
+
+This creates some circularity - LLM approaches still depend on GermaNet info for sense specification.
+
+**Evaluation setup**:
+- 10 eval words, 48 senses total
+- 93 gold-annotated test instances
+- Stratified by polysemy level (low/medium/high) and POS
+- Metric: WSD accuracy (predicted sense matches gold sense)
+
+**Evaluation process**:
+1. Embed each sense representation (per method)
+2. Embed each test sentence (context)
+3. Predict sense = highest cosine similarity to context
+4. Compare prediction to gold → compute accuracy per method
+
+**Next steps**:
+1. [x] Create LLM prompts for sense-specific generation
+2. [x] Generate text variants for 48 senses (10 eval words)
+3. [ ] Run WSD evaluation for each variant
+4. [ ] Compare results and analyze
+
+---
+
+## 2026-01-13: LLM Text Generation Implementation
+
+**Status**: Completed
+
+### Implementation
+
+Created LLM text generation module for sense representations:
+
+**New files:**
+- `src/data/llm/client.py` - LLM client wrapper (OpenAI/Claude)
+- `src/data/llm/sense_generator.py` - Sense text generator
+- `config/prompts/definition.txt` - Definition prompt template
+- `config/prompts/example_single.txt` - Single example prompt
+- `config/prompts/examples_multiple.txt` - Multiple examples prompt
+- `scripts/data_preparation/generate_llm_sense_texts.py` - Runner script
+
+**Prompt design:**
+Each prompt receives:
+- `lemma` - The word (e.g., "Bank")
+- `pos_german` - Part of speech in German (e.g., "Nomen")
+- `sense_description` - Full GermaNet baseline text (e.g., "Bank ist eine Art von Sitzgelegenheit...")
+
+The prompts instruct the LLM to generate text that clearly distinguishes this sense from other senses of the word.
+
+### Generation Results
+
+**Run details:**
+- Model: `gpt-4o-mini`
+- Temperature: 0.7
+- Cost: ~$0.02
+- Time: ~3 minutes
+
+**Output:** `data/evaluation/quick_eval/sense_variants.csv`
+
+| Column | Description |
+|--------|-------------|
+| `lemma` | Word |
+| `pos` | Part of speech |
+| `synset_id` | GermaNet sense ID |
+| `class` | Semantic class |
+| `text_baseline` | Original GermaNet template |
+| `text_llm_definition` | LLM-generated definition |
+| `text_llm_example_1` | LLM-generated single example |
+| `text_llm_examples_5` | LLM-generated 5 examples (`;`-separated) |
+
+**Stats:** 48 senses × 3 variants = 144 LLM-generated texts
+
+### Next Steps
+
+- [ ] Run WSD evaluation comparing all 4 text representations
+- [ ] Analyze which representation works best per polysemy level
+
+---
+
 ## Open Questions
 
 ### OQ1: Which embedding models to compare?
@@ -250,17 +376,9 @@ Successfully annotated 93 instances using the Flask annotation interface (`scrip
 
 ### OQ2: What text variations to test?
 
-Beyond the embedding model, we can vary the input text:
+**Status**: Superseded by 2026-01-10 entry above.
 
-| Variation | Description | Example |
-|-----------|-------------|---------|
-| Lemma only | Just the word | "Bank" |
-| + Paraphrase | Add GermaNet gloss | "Bank: Geldinstitut" |
-| + Relations | Add hypernym/meronym | "Bank ist eine Art von..." |
-| + Examples | Add usage examples | "Bank: Er ging zur Bank..." |
-| + All | Kitchen sink | Everything combined |
-
-**Decision needed**: Test all? Or prioritize based on hypothesis?
+New plan: Compare GermaNet template baseline vs. LLM-generated variants (definition, 1 example, 5 examples).
 
 ---
 
@@ -298,4 +416,4 @@ How to represent the sentence context being disambiguated?
 
 ---
 
-*Last updated: 2025-01-10*
+*Last updated: 2026-01-13*

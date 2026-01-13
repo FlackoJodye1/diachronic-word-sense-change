@@ -1,0 +1,6 @@
+Generiere eine präzise deutsche Definition für folgende Wortbedeutung:
+
+Wort: {lemma} ({pos_german})
+Bedeutungsbeschreibung: {sense_description}
+
+Schreibe eine Definition (1-2 Sätze), die diese spezifische Bedeutung klar von anderen Bedeutungen des Wortes unterscheidet.

@@ -1,0 +1,8 @@
+Generiere einen natürlichen deutschen Beispielsatz für folgende Wortbedeutung:
+
+Wort: {lemma} ({pos_german})
+Bedeutungsbeschreibung: {sense_description}
+
+Schreibe nur den Beispielsatz.
+Der Satz soll klar zeigen, dass es um diese spezifische Bedeutung geht.
+Der Satz darf keine andere mögliche Bedeutung des Wortes nahelegen.

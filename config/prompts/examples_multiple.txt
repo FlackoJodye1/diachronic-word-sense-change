@@ -1,0 +1,9 @@
+Generiere {n} verschiedene natürliche deutsche Beispielsätze für folgende Wortbedeutung:
+
+Wort: {lemma} ({pos_german})
+Bedeutungsbeschreibung: {sense_description}
+
+Schreibe {n} Beispielsätze, jeden auf einer neuen Zeile (nummeriert 1-{n}).
+Die Sätze sollen verschiedene, klar unterscheidbare Kontexte zeigen.
+Alle Sätze müssen diese spezifische Bedeutung verwenden.
+Keiner der Sätze darf eine andere mögliche Bedeutung des Wortes nahelegen.
