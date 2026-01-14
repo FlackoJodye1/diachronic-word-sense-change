@@ -1,385 +1,301 @@
 #!/usr/bin/env python3
 """
-REAL German WSD Evaluation using DWDS corpus sentences and enhanced GermaNet embeddings.
-This replaces the simulated evaluation with actual corpus data.
+German WSD Evaluation using DWDS corpus sentences and enhanced GermaNet embeddings.
+
+This script evaluates WSD performance using real corpus data from DWDS,
+combined with sense definitions from GermaNet. Since we don't have human-annotated
+sense labels for DWDS sentences, it uses the Most Frequent Sense (MFS) baseline
+as a reference point.
+
+Note: This provides indicative results, not true gold-standard evaluation.
+For proper evaluation, use compare_embedding_methods.py with human-annotated data.
 """
 
-import pandas as pd
+from __future__ import annotations
+
 import json
-import numpy as np
-from pathlib import Path
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from sklearn.model_selection import train_test_split
-from collections import defaultdict, Counter
 import random
+import sys
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any, Dict, List
 
-try:
-    from sentence_transformers import SentenceTransformer
-    TRANSFORMERS_AVAILABLE = True
-except ImportError:
-    TRANSFORMERS_AVAILABLE = False
-    print("Error: sentence-transformers required. Install with: pip install sentence-transformers")
-    exit(1)
+import numpy as np
+import pandas as pd
 
-# Paths
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+
+from evaluation import Embedder, SimilarityWSD
+
+# Configuration
 DATA_DIR = Path("data")
 DWDS_CONTEXTS_DIR = DATA_DIR / "dwds_contexts"
 GERMANET_DIR = DATA_DIR / "processed" / "germanet"
+OUTPUT_DIR = DATA_DIR / "processed" / "dwds"
 
-def load_real_corpus_data():
-    """Load real DWDS corpus sentences"""
-    print("📚 Loading real DWDS corpus data...")
-    
+DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+MIN_SENTENCES_PER_WORD = 20
+MAX_SENTENCES_PER_WORD = 100
+
+
+def load_dwds_corpus() -> List[Dict[str, Any]]:
+    """Load real DWDS corpus sentences."""
+    print("Loading DWDS corpus data...")
     progress_file = DWDS_CONTEXTS_DIR / "fetch_progress_25_words.jsonl"
-    
+
     contexts = []
-    with open(progress_file, 'r', encoding='utf-8') as f:
+    with open(progress_file, "r", encoding="utf-8") as f:
         for line in f:
             contexts.append(json.loads(line.strip()))
-    
-    print(f"Loaded {len(contexts):,} real corpus sentences")
-    
+
+    print(f"  Loaded {len(contexts):,} corpus sentences")
     return contexts
 
-def load_germanet_senses():
-    """Load enhanced GermaNet sense data"""
-    print("🧠 Loading enhanced GermaNet senses...")
-    
-    germanet_data = pd.read_csv(GERMANET_DIR / "wsd_senses_enhanced.csv")
-    
-    # Create sense lookup: lemma -> list of sense info
-    sense_lookup = defaultdict(list)
-    
-    for _, row in germanet_data.iterrows():
-        sense_lookup[row['lemma']].append({
-            'sense_id': row['synset_id'],
-            'sense_frequency': row['sense_frequency'],
-            'text_for_embedding': row['text_for_embedding'],
-            'text_source': row['text_source'],
-            'class': row['class']
-        })
-    
-    print(f"Loaded senses for {len(sense_lookup)} words")
-    
-    return sense_lookup
 
-def find_evaluation_candidates(contexts, sense_lookup):
-    """Find words suitable for evaluation (polysemous + have corpus data)"""
-    print("🔍 Finding evaluation candidates...")
-    
+def load_germanet_senses() -> pd.DataFrame:
+    """Load enhanced GermaNet sense data."""
+    print("Loading GermaNet senses...")
+    df = pd.read_csv(GERMANET_DIR / "wsd_senses_enhanced.csv")
+    print(f"  Loaded {len(df)} senses for {df['lemma'].nunique()} words")
+    return df
+
+
+def find_evaluation_candidates(
+    contexts: List[Dict[str, Any]],
+    germanet_df: pd.DataFrame,
+    min_sentences: int = MIN_SENTENCES_PER_WORD,
+) -> Dict[str, Dict[str, Any]]:
+    """Find words suitable for evaluation (polysemous + have corpus data)."""
+    print("Finding evaluation candidates...")
+
     # Count corpus sentences per word
-    corpus_word_counts = Counter(ctx['lemma'] for ctx in contexts)
-    
-    # Find polysemous words (multiple senses in GermaNet)
-    polysemous_words = {word: senses for word, senses in sense_lookup.items() 
-                       if len(senses) >= 2}
-    
+    corpus_counts = Counter(ctx["lemma"] for ctx in contexts)
+
+    # Find polysemous words in GermaNet
+    sense_counts = germanet_df.groupby("lemma").size()
+    polysemous = set(sense_counts[sense_counts >= 2].index)
+
     # Find overlap
-    evaluation_candidates = {}
-    for word in polysemous_words:
-        if word in corpus_word_counts and corpus_word_counts[word] >= 20:  # Minimum 20 sentences
-            evaluation_candidates[word] = {
-                'num_senses': len(polysemous_words[word]),
-                'corpus_sentences': corpus_word_counts[word],
-                'senses': polysemous_words[word]
+    candidates = {}
+    for word in polysemous:
+        if word in corpus_counts and corpus_counts[word] >= min_sentences:
+            word_senses = germanet_df[germanet_df["lemma"] == word]
+            candidates[word] = {
+                "num_senses": len(word_senses),
+                "corpus_sentences": corpus_counts[word],
             }
-    
-    print(f"Found {len(evaluation_candidates)} evaluation candidates:")
-    for word, info in evaluation_candidates.items():
-        print(f"  {word}: {info['num_senses']} senses, {info['corpus_sentences']} sentences")
-    
-    return evaluation_candidates
 
-def create_wsd_test_cases(contexts, evaluation_candidates, sense_lookup, max_sentences_per_word=100):
-    """Create WSD test cases from real corpus sentences"""
-    print(f"📝 Creating WSD test cases...")
-    
-    test_cases = []
-    
-    for word, info in evaluation_candidates.items():
-        # Get corpus sentences for this word
-        word_contexts = [ctx for ctx in contexts if ctx['lemma'] == word]
-        
+    print(f"  Found {len(candidates)} evaluation candidates:")
+    for word, info in candidates.items():
+        print(f"    {word}: {info['num_senses']} senses, {info['corpus_sentences']} sentences")
+
+    return candidates
+
+
+def prepare_test_data(
+    contexts: List[Dict[str, Any]],
+    candidates: Dict[str, Dict[str, Any]],
+    max_sentences: int = MAX_SENTENCES_PER_WORD,
+) -> pd.DataFrame:
+    """Prepare test data from DWDS corpus sentences."""
+    print("Preparing test data...")
+
+    test_records = []
+    for word in candidates:
+        word_contexts = [ctx for ctx in contexts if ctx["lemma"] == word]
+
         # Sample if too many
-        if len(word_contexts) > max_sentences_per_word:
-            word_contexts = random.sample(word_contexts, max_sentences_per_word)
-        
-        # Get GermaNet senses for this word
-        word_senses = sense_lookup[word]
-        
-        for context in word_contexts:
-            # For real evaluation, we need to assign ground truth senses
-            # Since we don't have human annotations, we'll use most frequent sense as majority baseline
-            # and create a challenging evaluation by sampling across all senses
-            
-            test_case = {
-                'lemma': word,
-                'sentence': context['sentence'],
-                'year': context.get('year', None),
-                'genre': context.get('genre', ''),
-                'available_senses': word_senses,
-                'context_id': len(test_cases)
-            }
-            
-            test_cases.append(test_case)
-    
-    print(f"Created {len(test_cases):,} WSD test cases")
-    
-    return test_cases
+        if len(word_contexts) > max_sentences:
+            word_contexts = random.sample(word_contexts, max_sentences)
 
-def encode_senses_and_contexts(test_cases, model):
-    """Encode both sense definitions and context sentences"""
-    print("🤖 Encoding senses and contexts with BERT...")
-    
-    # Collect all sense texts for encoding
-    sense_texts = []
-    sense_metadata = []
-    
-    # Collect all context sentences
-    context_sentences = []
-    context_metadata = []
-    
-    for test_case in test_cases:
-        lemma = test_case['lemma']
-        sentence = test_case['sentence']
-        
-        # Add context
-        context_sentences.append(sentence)
-        context_metadata.append({
-            'lemma': lemma,
-            'context_id': test_case['context_id'],
-            'available_senses': test_case['available_senses']
-        })
-        
-        # Add senses for this word (if not already added)
-        for sense in test_case['available_senses']:
-            sense_key = f"{lemma}_{sense['sense_id']}"
-            if sense_key not in [s['sense_key'] for s in sense_metadata]:
-                sense_texts.append(sense['text_for_embedding'])
-                sense_metadata.append({
-                    'lemma': lemma,
-                    'sense_id': sense['sense_id'],
-                    'sense_frequency': sense['sense_frequency'],
-                    'text_source': sense['text_source'],
-                    'sense_key': sense_key
-                })
-    
-    # Encode all texts
-    print(f"Encoding {len(context_sentences)} contexts and {len(sense_texts)} sense definitions...")
-    
-    context_embeddings = model.encode(context_sentences, show_progress_bar=True)
-    sense_embeddings = model.encode(sense_texts, show_progress_bar=True)
-    
-    return context_embeddings, context_metadata, sense_embeddings, sense_metadata
-
-def evaluate_wsd_performance(context_embeddings, context_metadata, sense_embeddings, sense_metadata):
-    """Evaluate WSD performance using cosine similarity"""
-    print("📊 Evaluating WSD performance...")
-    
-    predictions = []
-    ground_truth = []
-    word_level_results = defaultdict(list)
-    
-    for i, context_meta in enumerate(context_metadata):
-        lemma = context_meta['lemma']
-        context_embedding = context_embeddings[i].reshape(1, -1)
-        
-        # Find senses for this word
-        word_sense_indices = [j for j, sense_meta in enumerate(sense_metadata) 
-                             if sense_meta['lemma'] == lemma]
-        
-        if not word_sense_indices:
-            continue
-        
-        # Get embeddings for this word's senses
-        word_sense_embeddings = sense_embeddings[word_sense_indices]
-        
-        # Calculate similarities
-        similarities = cosine_similarity(context_embedding, word_sense_embeddings)[0]
-        
-        # Predict best matching sense
-        best_sense_idx = word_sense_indices[np.argmax(similarities)]
-        predicted_sense = sense_metadata[best_sense_idx]
-        
-        # For ground truth, use most frequent sense (sense_frequency=1)
-        # This is a reasonable baseline since sense_frequency indicates frequency
-        ground_truth_sense_idx = None
-        for j in word_sense_indices:
-            if sense_metadata[j]['sense_frequency'] == 1:  # Most frequent
-                ground_truth_sense_idx = j
-                break
-        
-        if ground_truth_sense_idx is not None:
-            ground_truth_sense = sense_metadata[ground_truth_sense_idx]
-            
-            # Record prediction
-            predicted_sense_key = predicted_sense['sense_key']
-            true_sense_key = ground_truth_sense['sense_key']
-            
-            predictions.append(predicted_sense_key)
-            ground_truth.append(true_sense_key)
-            
-            # Record for word-level analysis
-            is_correct = predicted_sense_key == true_sense_key
-            word_level_results[lemma].append({
-                'correct': is_correct,
-                'predicted_freq': predicted_sense['sense_frequency'],
-                'true_freq': ground_truth_sense['sense_frequency'],
-                'similarity': np.max(similarities),
-                'sentence': context_meta.get('sentence', '')[:100]
+        for i, ctx in enumerate(word_contexts):
+            test_records.append({
+                "context_id": f"{word}_{i}",
+                "lemma": word,
+                "sentence": ctx["sentence"],
+                "year": ctx.get("year"),
+                "genre": ctx.get("genre", ""),
             })
-    
-    # Calculate metrics
-    accuracy = accuracy_score(ground_truth, predictions)
-    precision, recall, f1, support = precision_recall_fscore_support(
-        ground_truth, predictions, average='weighted', zero_division=0
-    )
-    
-    # Calculate baselines
-    sense_freq_distribution = Counter(ground_truth)
-    most_common_sense = sense_freq_distribution.most_common(1)[0][0]
-    majority_baseline = sense_freq_distribution[most_common_sense] / len(ground_truth)
-    
-    # Calculate random baseline per word
-    random_baselines = []
-    for lemma, results in word_level_results.items():
-        num_senses = len(set(sense_meta['sense_key'] for sense_meta in sense_metadata 
-                           if sense_meta['lemma'] == lemma))
-        random_baselines.append(1.0 / num_senses)
-    
-    random_baseline = np.mean(random_baselines) if random_baselines else 0
-    
+
+    df = pd.DataFrame(test_records)
+    print(f"  Created {len(df)} test cases")
+    return df
+
+
+def evaluate_mfs_baseline(
+    germanet_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+) -> Dict[str, float]:
+    """Evaluate Most Frequent Sense baseline.
+
+    Since DWDS sentences don't have gold labels, we compute:
+    - Random baseline: 1 / num_senses per word
+    - MFS would predict the most frequent sense (frequency=1) for all instances
+    """
+    word_num_senses = germanet_df.groupby("lemma")["synset_id"].nunique()
+
+    # Random baseline: average of 1/num_senses
+    random_scores = []
+    for lemma in test_df["lemma"]:
+        if lemma in word_num_senses:
+            random_scores.append(1.0 / word_num_senses[lemma])
+    random_baseline = np.mean(random_scores) if random_scores else 0.0
+
     return {
-        'accuracy': accuracy,
-        'precision': precision,
-        'recall': recall,
-        'f1': f1,
-        'num_predictions': len(predictions),
-        'majority_baseline': majority_baseline,
-        'random_baseline': random_baseline,
-        'word_level_results': dict(word_level_results)
+        "random_baseline": random_baseline,
+        "num_test_cases": len(test_df),
     }
 
-def print_detailed_results(results, evaluation_candidates):
-    """Print detailed evaluation results"""
-    print(f"\n" + "=" * 60)
-    print(f"🎯 REAL GERMAN WSD EVALUATION RESULTS")
-    print(f"=" * 60)
-    
-    print(f"Test Cases: {results['num_predictions']:,} sentences")
-    print(f"Words: {len(evaluation_candidates)} polysemous words")
-    
-    print(f"\n📊 PERFORMANCE METRICS:")
-    print(f"  Accuracy:        {results['accuracy']:.3f} ({results['accuracy']*100:.1f}%)")
-    print(f"  Precision:       {results['precision']:.3f}")
-    print(f"  Recall:          {results['recall']:.3f}")
-    print(f"  F1-Score:        {results['f1']:.3f}")
-    
-    print(f"\n📈 BASELINE COMPARISONS:")
-    print(f"  Random Baseline:   {results['random_baseline']:.3f} ({results['random_baseline']*100:.1f}%)")
-    print(f"  Majority Baseline: {results['majority_baseline']:.3f} ({results['majority_baseline']*100:.1f}%)")
-    print(f"  Our System:        {results['accuracy']:.3f} ({results['accuracy']*100:.1f}%)")
-    
-    print(f"\n🚀 IMPROVEMENTS:")
-    random_improvement = results['accuracy'] - results['random_baseline']
-    majority_improvement = results['accuracy'] - results['majority_baseline']
-    print(f"  vs Random:    +{random_improvement:.3f} ({random_improvement*100:.1f} percentage points)")
-    print(f"  vs Majority:  +{majority_improvement:.3f} ({majority_improvement*100:.1f} percentage points)")
-    
-    # Word-level analysis
-    print(f"\n🔍 PER-WORD ANALYSIS:")
-    word_accuracies = {}
-    for word, word_results in results['word_level_results'].items():
-        if word_results:
-            word_acc = sum(r['correct'] for r in word_results) / len(word_results)
-            word_accuracies[word] = word_acc
-    
-    # Sort by accuracy
-    sorted_words = sorted(word_accuracies.items(), key=lambda x: x[1], reverse=True)
-    
-    print(f"Top performing words:")
-    for word, acc in sorted_words[:8]:
-        word_info = evaluation_candidates[word]
-        print(f"  {word}: {acc:.3f} ({word_info['num_senses']} senses, {word_info['corpus_sentences']} sentences)")
-    
-    print(f"\nChallenging words:")
-    for word, acc in sorted_words[-5:]:
-        word_info = evaluation_candidates[word]
-        print(f"  {word}: {acc:.3f} ({word_info['num_senses']} senses, {word_info['corpus_sentences']} sentences)")
-    
-    # Performance assessment
-    print(f"\n" + "=" * 60)
-    print(f"🏆 PERFORMANCE ASSESSMENT")
-    print(f"=" * 60)
-    
-    if results['accuracy'] > results['majority_baseline'] + 0.15:
-        print(f"✅ EXCELLENT: System significantly outperforms baselines!")
-        print(f"   Our enhanced GermaNet embeddings show strong WSD capability.")
-    elif results['accuracy'] > results['random_baseline'] + 0.10:
-        print(f"✅ GOOD: System outperforms baselines meaningfully.")
-        print(f"   Enhanced semantic relations are helping disambiguation.")
-    else:
-        print(f"⚠️  MODERATE: System shows improvement but has room for enhancement.")
-        print(f"   Consider additional semantic features or larger training data.")
-    
-    print(f"\n💭 This is REAL performance on actual German corpus sentences!")
-    print(f"   Much more reliable than simulated evaluation.")
 
-def main():
-    """Run comprehensive real WSD evaluation"""
-    print("🌟 REAL GERMAN WSD EVALUATION")
-    print("Using actual DWDS corpus sentences + enhanced GermaNet embeddings")
-    print("=" * 70)
-    
-    # Set random seed for reproducibility
+def run_similarity_evaluation(
+    germanet_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    model_name: str = DEFAULT_MODEL,
+) -> Dict[str, Any]:
+    """Run similarity-based WSD evaluation.
+
+    Note: Without gold labels, we report:
+    - Distribution of prediction confidences
+    - Agreement with MFS (does the model predict sense_frequency=1?)
+    - Confidence statistics
+    """
+    print(f"\nRunning similarity evaluation with {model_name}...")
+
+    embedder = Embedder(model_name=model_name, normalize=True)
+
+    # Encode senses
+    print("  Encoding sense definitions...")
+    sense_texts = germanet_df["text_for_embedding"].fillna("").tolist()
+    sense_embeddings = embedder.encode(sense_texts, show_progress=True)
+
+    # Encode contexts
+    print("  Encoding context sentences...")
+    context_texts = test_df["sentence"].fillna("").tolist()
+    context_embeddings = embedder.encode(context_texts, show_progress=True)
+
+    # Create WSD predictor
+    wsd = SimilarityWSD.from_dataframe(
+        sense_df=germanet_df,
+        embeddings=sense_embeddings,
+        sense_id_col="synset_id",
+        lemma_col="lemma",
+    )
+
+    # Get predictions
+    predictions = wsd.predict_batch(
+        context_embeddings=context_embeddings,
+        lemmas=test_df["lemma"].tolist(),
+        context_ids=test_df["context_id"].tolist(),
+    )
+
+    # Analyze predictions
+    # Build sense_id -> frequency lookup
+    sense_freq_map = dict(zip(germanet_df["synset_id"], germanet_df["sense_frequency"]))
+
+    confidences = []
+    mfs_agreement = 0
+    valid_predictions = 0
+
+    for pred in predictions:
+        if pred is None:
+            continue
+
+        valid_predictions += 1
+        confidences.append(pred.confidence)
+
+        # Check if prediction matches MFS (sense_frequency == 1)
+        pred_freq = sense_freq_map.get(pred.predicted_sense_id)
+        if pred_freq == 1:
+            mfs_agreement += 1
+
+    mfs_agreement_rate = mfs_agreement / valid_predictions if valid_predictions > 0 else 0.0
+
+    return {
+        "model": model_name,
+        "valid_predictions": valid_predictions,
+        "mfs_agreement_rate": mfs_agreement_rate,
+        "confidence_mean": np.mean(confidences) if confidences else 0.0,
+        "confidence_std": np.std(confidences) if confidences else 0.0,
+        "confidence_min": np.min(confidences) if confidences else 0.0,
+        "confidence_max": np.max(confidences) if confidences else 0.0,
+    }
+
+
+def print_results(
+    baselines: Dict[str, float],
+    similarity_results: Dict[str, Any],
+    candidates: Dict[str, Dict[str, Any]],
+) -> None:
+    """Print evaluation results."""
+    print("\n" + "=" * 60)
+    print("DWDS WSD EVALUATION RESULTS")
+    print("=" * 60)
+
+    print(f"\nDataset:")
+    print(f"  Words: {len(candidates)}")
+    print(f"  Test cases: {baselines['num_test_cases']}")
+
+    print(f"\nBaselines:")
+    print(f"  Random: {baselines['random_baseline']:.3f}")
+
+    print(f"\nSimilarity-based WSD ({similarity_results['model']}):")
+    print(f"  Valid predictions: {similarity_results['valid_predictions']}")
+    print(f"  MFS agreement rate: {similarity_results['mfs_agreement_rate']:.3f}")
+    print(f"  Confidence: {similarity_results['confidence_mean']:.3f} +/- {similarity_results['confidence_std']:.3f}")
+
+    print("\n" + "=" * 60)
+    print("NOTE: These results are indicative only.")
+    print("Without human-annotated gold labels, we cannot compute true accuracy.")
+    print("MFS agreement rate shows how often the model predicts the most frequent sense.")
+    print("=" * 60)
+
+
+def main() -> None:
+    """Main entry point."""
     random.seed(42)
     np.random.seed(42)
-    
+
     # Load data
-    contexts = load_real_corpus_data()
-    sense_lookup = load_germanet_senses()
-    
+    contexts = load_dwds_corpus()
+    germanet_df = load_germanet_senses()
+
     # Find evaluation candidates
-    evaluation_candidates = find_evaluation_candidates(contexts, sense_lookup)
-    
-    if len(evaluation_candidates) < 5:
-        print("❌ Insufficient polysemous words for evaluation")
-        print(f"   Found only {len(evaluation_candidates)} suitable words")
-        print("   Need at least 5 words with multiple senses and corpus data")
+    candidates = find_evaluation_candidates(contexts, germanet_df)
+
+    if len(candidates) < 3:
+        print("Insufficient polysemous words for evaluation.")
+        print(f"Found only {len(candidates)} suitable words (need at least 3).")
         return
-    
-    # Create test cases
-    test_cases = create_wsd_test_cases(contexts, evaluation_candidates, sense_lookup)
-    
-    # Load BERT model
-    print("🤖 Loading multilingual BERT model...")
-    model = SentenceTransformer('distiluse-base-multilingual-cased')
-    
-    # Encode everything
-    context_embeddings, context_metadata, sense_embeddings, sense_metadata = encode_senses_and_contexts(test_cases, model)
-    
-    # Evaluate
-    results = evaluate_wsd_performance(context_embeddings, context_metadata, sense_embeddings, sense_metadata)
-    
+
+    # Prepare test data
+    test_df = prepare_test_data(contexts, candidates)
+
+    # Compute baselines
+    baselines = evaluate_mfs_baseline(germanet_df, test_df)
+
+    # Run similarity evaluation
+    similarity_results = run_similarity_evaluation(germanet_df, test_df)
+
     # Print results
-    print_detailed_results(results, evaluation_candidates)
-    
+    print_results(baselines, similarity_results, candidates)
+
     # Save results
-    results_file = DATA_DIR / "processed" / "dwds" / "real_wsd_evaluation_results.json"
-    
-    # Make results JSON-serializable
-    json_results = {k: v for k, v in results.items() if k != 'word_level_results'}
-    json_results['evaluation_summary'] = {
-        'num_words': len(evaluation_candidates),
-        'total_sentences': len(test_cases),
-        'evaluation_date': pd.Timestamp.now().isoformat()
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    results_file = OUTPUT_DIR / "dwds_wsd_evaluation_results.json"
+
+    results = {
+        "baselines": baselines,
+        "similarity_results": similarity_results,
+        "candidates": {k: v for k, v in candidates.items()},
+        "evaluation_date": pd.Timestamp.now().isoformat(),
     }
-    
-    with open(results_file, 'w', encoding='utf-8') as f:
-        json.dump(json_results, f, indent=2, ensure_ascii=False)
-    
-    print(f"\n📄 Results saved to: {results_file}")
+
+    with open(results_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+
+    print(f"\nResults saved to: {results_file}")
+
 
 if __name__ == "__main__":
     main()

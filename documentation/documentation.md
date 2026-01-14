@@ -929,6 +929,183 @@ See `src/evaluation/error_analysis.py` for:
 - High-error word identification
 - Sense pair confusion analysis
 
+### 8.5 Evaluation Framework
+
+#### Shared Modules (`src/evaluation/`)
+
+The evaluation package provides reusable components for embedding-based WSD:
+
+| Module | Class | Purpose |
+|--------|-------|---------|
+| `embedder.py` | `Embedder` | Unified text embedding using sentence-transformers |
+| `similarity_wsd.py` | `SimilarityWSD` | Cosine similarity-based WSD predictor |
+| `wsd_evaluator.py` | `WSDEvaluator` | Evaluates predictions against gold standard |
+| `metrics.py` | `WSDMetrics` | Detailed metrics (precision, recall, F1, confusion matrix) |
+| `error_analysis.py` | `ErrorAnalyzer` | Error pattern analysis |
+
+##### Embedder
+
+Unified text embedder with L2 normalization for cosine similarity:
+
+```python
+from src.evaluation import Embedder
+
+embedder = Embedder(
+    model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    normalize=True  # L2 normalization for cosine similarity
+)
+
+# Encode texts
+embeddings = embedder.encode(texts, batch_size=32, show_progress=True)
+```
+
+**Recommended models:**
+
+| Model | Dimension | Speed | Quality |
+|-------|-----------|-------|---------|
+| `paraphrase-multilingual-MiniLM-L12-v2` | 384 | Fast | Good |
+| `paraphrase-multilingual-mpnet-base-v2` | 768 | Medium | Higher |
+| `distiluse-base-multilingual-cased-v2` | 512 | Medium | Good |
+| `intfloat/multilingual-e5-large` | 1024 | Slow | Best |
+
+##### SimilarityWSD
+
+Performs WSD by comparing context embeddings to sense embeddings:
+
+```python
+from src.evaluation import SimilarityWSD
+
+# Create predictor from sense embeddings
+wsd = SimilarityWSD.from_dataframe(
+    sense_df=sense_variants,
+    embeddings=sense_embeddings,
+    sense_id_col="synset_id",
+    lemma_col="lemma",
+)
+
+# Evaluate against gold standard
+result = wsd.evaluate(
+    context_embeddings=context_embeddings,
+    lemmas=lemmas,
+    gold_sense_ids=gold_sense_ids,
+)
+
+print(f"Accuracy: {result.accuracy:.3f}")
+print(f"Top-3: {result.top3_accuracy:.3f}")
+print(f"MRR: {result.mrr:.3f}")
+```
+
+#### Evaluation Scripts (`scripts/evaluation/`)
+
+Three scripts for different evaluation purposes:
+
+| Script | Purpose | Data Source | Output |
+|--------|---------|-------------|--------|
+| `compare_embedding_methods.py` | Benchmark models + text variants | `quick_eval/` gold annotations | Accuracy, Top-k, MRR |
+| `real_dwds_wsd_evaluation.py` | Indicative evaluation on corpus | DWDS + GermaNet | MFS agreement, confidence |
+| `evaluate_embeddings.py` | Quality analysis (not WSD accuracy) | GermaNet senses | Similarity stats, clustering |
+
+##### compare_embedding_methods.py
+
+**Purpose:** Benchmark different embedding models and text variants for WSD accuracy.
+
+**Input:**
+- `data/evaluation/quick_eval/sense_variants.csv` — sense definitions with text variants
+- `data/evaluation/quick_eval/gold_annotations.csv` — human-annotated gold labels
+
+**Process:**
+1. For each model × text variant combination:
+   - Embed all sense definition texts (with `passage:` prefix for E5 models)
+   - Embed all context sentences (with `query:` prefix for E5 models)
+   - Use cosine similarity to predict the best-matching sense
+   - Compare predictions against gold labels
+   - Aggressively free RAM after each variant and model
+
+**Output:**
+- `data/evaluation/quick_eval/embedding_comparison.csv`
+- Console summary with best configuration
+
+**Metrics reported:**
+- **Accuracy** — % correct top-1 predictions
+- **Top-3/Top-5** — % where correct sense is in top k predictions
+- **MRR** — Mean Reciprocal Rank
+
+**Usage:**
+```bash
+python scripts/evaluation/compare_embedding_methods.py                # Normal run
+python scripts/evaluation/compare_embedding_methods.py --clear-cache  # Clear disk cache after each model
+```
+
+**Features:**
+- **Memory safety**: Aggressive RAM cleanup after each text variant and model
+- **E5 prefix handling**: Automatically applies `query:`/`passage:` prefixes for E5 models
+- **Disk cache management**: `--clear-cache` flag deletes models from HuggingFace cache after evaluation
+- **Fair comparison**: Only includes sentence-transformer models (excludes base BERT models)
+
+**Models compared:**
+
+| Model | Type | Notes |
+|-------|------|-------|
+| `paraphrase-multilingual-MiniLM-L12-v2` | Multilingual | Fast, 384 dim |
+| `distiluse-base-multilingual-cased-v2` | Multilingual | Classic, 512 dim |
+| `paraphrase-multilingual-mpnet-base-v2` | Multilingual | Higher quality, 768 dim |
+| `LaBSE` | Multilingual | Cross-lingual, 768 dim |
+| `multilingual-e5-base` | E5 | Retrieval-optimized, 768 dim |
+| `multilingual-e5-large` | E5 | Best quality, 1024 dim |
+
+**Benchmark Results (January 2026):**
+
+| Rank | Model | Text Variant | Accuracy | MRR |
+|------|-------|--------------|----------|-----|
+| 1 | multilingual-e5-large | text_llm_examples_5 | **0.527** | 0.723 |
+| 2 | multilingual-e5-large | text_llm_definition | 0.516 | 0.693 |
+| 3 | mpnet-base-v2 | text_llm_examples_5 | 0.516 | 0.707 |
+| 4 | distiluse-v2 | text_llm_examples_5 | 0.505 | 0.697 |
+
+**Key findings:**
+- LLM-generated examples (`text_llm_examples_5`) consistently outperform baseline and definitions
+- E5 models benefit significantly from proper query/passage prefixes
+- Best configuration: `multilingual-e5-large` + `text_llm_examples_5` → 52.7% accuracy
+
+##### real_dwds_wsd_evaluation.py
+
+**Purpose:** Evaluate WSD on real corpus sentences (indicative, no gold labels).
+
+**Input:**
+- DWDS corpus sentences (`data/dwds_contexts/`)
+- GermaNet sense inventory (`data/processed/germanet/wsd_senses_enhanced.csv`)
+
+**Process:**
+1. Find polysemous words with sufficient corpus coverage
+2. Embed senses and contexts
+3. Predict senses via cosine similarity
+4. Compute MFS agreement rate (how often model predicts most frequent sense)
+
+**Output:**
+- `data/processed/dwds/dwds_wsd_evaluation_results.json`
+
+**Note:** Without human-annotated gold labels, this provides indicative results only. Use `compare_embedding_methods.py` for true accuracy evaluation.
+
+**Usage:**
+```bash
+python scripts/evaluation/real_dwds_wsd_evaluation.py
+```
+
+##### evaluate_embeddings.py
+
+**Purpose:** Exploratory quality analysis of sense embeddings (NOT WSD accuracy).
+
+**Analyses:**
+- Text quality metrics (word counts, sources)
+- Semantic diversity (class distribution, POS distribution)
+- Embedding similarity analysis (same-word vs different-word senses)
+- Clustering analysis (silhouette score)
+
+**Usage:**
+```bash
+python scripts/evaluation/evaluate_embeddings.py
+```
+
 ---
 
 ## 9. Data Formats & Schema
