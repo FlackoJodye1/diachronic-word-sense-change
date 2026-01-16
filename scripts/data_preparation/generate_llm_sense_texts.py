@@ -5,6 +5,10 @@ Generate LLM-based text variants for sense representations.
 Creates definitions and example sentences for eval word senses
 to compare against the baseline GermaNet template approach.
 
+Output: JSONL file with one sense per line:
+    {"lemma": "...", "pos": "...", "synset_id": "...", "class": "...",
+     "baseline": "...", "llm_definition": "...", "llm_examples": ["...", ...]}
+
 Usage:
     python scripts/data_preparation/generate_llm_sense_texts.py --provider openai
     python scripts/data_preparation/generate_llm_sense_texts.py --provider claude
@@ -12,6 +16,7 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -52,8 +57,13 @@ def generate_variants(
     senses_df: pd.DataFrame,
     generator: SenseTextGenerator,
     dry_run: bool = False
-) -> pd.DataFrame:
-    """Generate LLM text variants for all senses."""
+) -> list[dict]:
+    """Generate LLM text variants for all senses.
+
+    Returns:
+        List of dicts with keys: lemma, pos, synset_id, class, baseline,
+        llm_definition, llm_examples (list of 5 examples)
+    """
     results = []
 
     for _, row in senses_df.iterrows():
@@ -70,13 +80,12 @@ def generate_variants(
             'pos': pos,
             'synset_id': synset_id,
             'class': semantic_class,
-            'text_baseline': sense_description,
+            'baseline': sense_description,
         }
 
         if dry_run:
-            result['text_llm_definition'] = f"[DRY RUN] Definition for {lemma}"
-            for i in range(1, 6):
-                result[f'text_llm_example_{i}'] = f"[DRY RUN] Example {i} for {lemma}"
+            result['llm_definition'] = f"[DRY RUN] Definition for {lemma}"
+            result['llm_examples'] = [f"[DRY RUN] Example {i} for {lemma}" for i in range(1, 6)]
         else:
             try:
                 variants = generator.generate_all_variants(
@@ -84,20 +93,16 @@ def generate_variants(
                     pos=pos,
                     sense_description=sense_description
                 )
-                result['text_llm_definition'] = variants['definition']
-                # Store each example in its own column
-                examples = variants['examples_5']
-                for i in range(5):
-                    result[f'text_llm_example_{i+1}'] = examples[i] if i < len(examples) else ""
+                result['llm_definition'] = variants['definition']
+                result['llm_examples'] = variants['examples_5']
             except Exception as e:
                 logger.error(f"Failed to generate for {lemma} ({synset_id}): {e}")
-                result['text_llm_definition'] = f"[ERROR] {e}"
-                for i in range(1, 6):
-                    result[f'text_llm_example_{i}'] = f"[ERROR] {e}"
+                result['llm_definition'] = f"[ERROR] {e}"
+                result['llm_examples'] = []
 
         results.append(result)
 
-    return pd.DataFrame(results)
+    return results
 
 
 def main():
@@ -138,14 +143,18 @@ def main():
         logger.info("DRY RUN - no API calls will be made")
 
     logger.info("Generating text variants...")
-    results_df = generate_variants(senses_df, generator, dry_run=args.dry_run)
+    results = generate_variants(senses_df, generator, dry_run=args.dry_run)
 
-    output_path = Path(args.output) if args.output else EVAL_DIR / "sense_variants.csv"
+    output_path = Path(args.output) if args.output else EVAL_DIR / "sense_text_representations.jsonl"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    results_df.to_csv(output_path, index=False)
-    logger.info(f"Saved {len(results_df)} sense variants to {output_path}")
 
-    print(f"Generated text variants for {len(results_df)} senses")
+    with open(output_path, 'w', encoding='utf-8') as f:
+        for record in results:
+            f.write(json.dumps(record, ensure_ascii=False) + '\n')
+
+    logger.info(f"Saved {len(results)} sense variants to {output_path}")
+
+    print(f"Generated text variants for {len(results)} senses")
     print(f"Output: {output_path}")
 
 

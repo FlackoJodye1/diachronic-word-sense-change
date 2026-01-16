@@ -34,7 +34,7 @@ from evaluation import Embedder, SimilarityWSD, WSDResult
 # Configuration
 DATA_DIR = Path("data")
 QUICK_EVAL_DIR = DATA_DIR / "evaluation" / "quick_eval"
-SENSE_VARIANTS_PATH = QUICK_EVAL_DIR / "sense_variants.csv"
+SENSE_REPRESENTATIONS_PATH = QUICK_EVAL_DIR / "sense_text_representations.jsonl"
 GOLD_ANNOTATIONS_PATH = QUICK_EVAL_DIR / "gold_annotations.csv"
 
 # Models to compare (only sentence-transformer compatible models for fair comparison)
@@ -52,15 +52,16 @@ MODELS = [
     "BAAI/bge-m3",
 ]
 
-# Text variants to evaluate (None = auto-detect from columns starting with "text_")
+# Text variants to evaluate (None = auto-detect)
+# Available variants after loading: baseline, llm_definition, llm_example_0..4
 TEXT_VARIANTS: Optional[List[str]] = None
 
 # Special weighted variant: 0.5 * def_embedding + 0.5 * mean(example_embeddings)
 # Computes true mean over NON-EMPTY example embeddings only (per sense)
 # Prefix __ indicates this is a synthetic variant computed on-the-fly
-WEIGHTED_VARIANT_NAME = "__weighted_def_plus_5ex"
-WEIGHTED_DEF_COL = "text_llm_definition"
-WEIGHTED_EX_COLS = [f"text_llm_example_{i}" for i in range(1, 6)]
+WEIGHTED_VARIANT_NAME = "__weighted_def_plus_examples"
+WEIGHTED_DEF_COL = "llm_definition"
+WEIGHTED_EX_COLS = [f"llm_example_{i}" for i in range(5)]
 WEIGHTED_DEF_WEIGHT = 0.5
 WEIGHTED_EX_WEIGHT = 0.5
 
@@ -314,6 +315,23 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def load_sense_representations(path: Path) -> pd.DataFrame:
+    """Load sense representations from JSONL and expand examples into columns.
+
+    The JSONL has fields: lemma, pos, synset_id, class, baseline, llm_definition, llm_examples
+    This expands llm_examples (a list) into llm_example_0, llm_example_1, etc.
+    """
+    df = pd.read_json(path, lines=True)
+
+    # Expand llm_examples list into separate columns
+    if "llm_examples" in df.columns:
+        examples_expanded = df["llm_examples"].apply(pd.Series)
+        examples_expanded.columns = [f"llm_example_{i}" for i in range(len(examples_expanded.columns))]
+        df = pd.concat([df.drop(columns=["llm_examples"]), examples_expanded], axis=1)
+
+    return df
+
+
 def main() -> None:
     """Main entry point."""
     args = parse_args()
@@ -322,21 +340,25 @@ def main() -> None:
         print("Running with --clear-cache: models will be removed after evaluation")
 
     print("Loading data...")
-    sense_variants = pd.read_csv(SENSE_VARIANTS_PATH)
+    sense_df = load_sense_representations(SENSE_REPRESENTATIONS_PATH)
     gold = pd.read_csv(GOLD_ANNOTATIONS_PATH)
 
     # Auto-detect text variants if not specified
+    # Available: baseline, llm_definition, llm_example_0..N
     text_variants = TEXT_VARIANTS
     if not text_variants:
-        text_variants = [col for col in sense_variants.columns if col.startswith("text_")]
+        text_cols = ["baseline", "llm_definition"]
+        example_cols = [c for c in sense_df.columns if c.startswith("llm_example_")]
+        text_variants = text_cols + sorted(example_cols)
+
         # Add weighted variant if required columns exist
-        has_def_col = WEIGHTED_DEF_COL in sense_variants.columns
-        has_ex_cols = all(c in sense_variants.columns for c in WEIGHTED_EX_COLS)
+        has_def_col = WEIGHTED_DEF_COL in sense_df.columns
+        has_ex_cols = all(c in sense_df.columns for c in WEIGHTED_EX_COLS)
         if has_def_col and has_ex_cols:
             text_variants.append(WEIGHTED_VARIANT_NAME)
 
     if not text_variants:
-        raise SystemExit("No text variants found. Expected columns starting with 'text_'.")
+        raise SystemExit("No text variants found in sense representations.")
 
     print(f"Found {len(text_variants)} text variants: {text_variants}")
     print(f"Comparing {len(MODELS)} models")
@@ -345,7 +367,7 @@ def main() -> None:
     results = run_comparison(
         models=MODELS,
         text_variants=text_variants,
-        sense_variants=sense_variants,
+        sense_variants=sense_df,
         gold=gold,
         clear_cache=args.clear_cache,
     )
