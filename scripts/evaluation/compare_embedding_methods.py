@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Sequence
 
+import numpy as np
 import pandas as pd
 
 # Add src to path for imports
@@ -38,9 +39,8 @@ GOLD_ANNOTATIONS_PATH = QUICK_EVAL_DIR / "gold_annotations.csv"
 
 # Models to compare (only sentence-transformer compatible models for fair comparison)
 MODELS = [
-    # Fast multilingual models
-    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-    "sentence-transformers/distiluse-base-multilingual-cased-v2",
+    # German-specific models
+    # "T-Systems-onsite/german-roberta-sentence-transformer-v2",
     # Higher quality multilingual
     "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
     "sentence-transformers/LaBSE",
@@ -48,10 +48,21 @@ MODELS = [
     # Note: E5 models require "query: " / "passage: " prefixes, handled automatically
     "intfloat/multilingual-e5-base",
     "intfloat/multilingual-e5-large",
+    # BGE-M3: strong multilingual model, competitive for German
+    "BAAI/bge-m3",
 ]
 
 # Text variants to evaluate (None = auto-detect from columns starting with "text_")
 TEXT_VARIANTS: Optional[List[str]] = None
+
+# Special weighted variant: 0.5 * def_embedding + 0.5 * mean(example_embeddings)
+# Computes true mean over NON-EMPTY example embeddings only (per sense)
+# Prefix __ indicates this is a synthetic variant computed on-the-fly
+WEIGHTED_VARIANT_NAME = "__weighted_def_plus_5ex"
+WEIGHTED_DEF_COL = "text_llm_definition"
+WEIGHTED_EX_COLS = [f"text_llm_example_{i}" for i in range(1, 6)]
+WEIGHTED_DEF_WEIGHT = 0.5
+WEIGHTED_EX_WEIGHT = 0.5
 
 OUTPUT_PATH = QUICK_EVAL_DIR / "embedding_comparison.csv"
 
@@ -139,16 +150,91 @@ def run_comparison(
         for text_variant in text_variants:
             print(f"  Evaluating variant: {text_variant}")
 
-            # Prepare sense texts (with prefix if E5)
-            raw_sense_texts = sense_variants[text_variant].fillna("").tolist()
-            sense_texts = (
-                add_e5_prefix(raw_sense_texts, "passage: ")
-                if use_e5_prefix
-                else raw_sense_texts
-            )
+            # Handle weighted variant specially
+            if text_variant == WEIGHTED_VARIANT_NAME:
+                # Validate required columns exist
+                if WEIGHTED_DEF_COL not in sense_variants.columns:
+                    raise KeyError(f"Weighted variant requires column '{WEIGHTED_DEF_COL}'")
+                missing_ex_cols = [c for c in WEIGHTED_EX_COLS if c not in sense_variants.columns]
+                if missing_ex_cols:
+                    raise KeyError(f"Weighted variant requires columns: {missing_ex_cols}")
 
-            # Encode sense texts for this variant
-            sense_embeddings = embedder.encode(sense_texts, show_progress=False)
+                # Encode definition
+                raw_def_texts = sense_variants[WEIGHTED_DEF_COL].fillna("").tolist()
+                def_texts = (
+                    add_e5_prefix(raw_def_texts, "passage: ")
+                    if use_e5_prefix
+                    else raw_def_texts
+                )
+                def_embeddings = embedder.encode(def_texts, show_progress=False)
+
+                # Encode each example column and compute mean over NON-EMPTY examples
+                example_embeddings_list = []
+                example_masks = []  # Track which examples are non-empty per sense
+
+                for ex_col in WEIGHTED_EX_COLS:
+                    raw_ex_texts = sense_variants[ex_col].fillna("").tolist()
+                    # Create mask: True if example text is non-empty
+                    is_nonempty = [bool(t.strip()) for t in raw_ex_texts]
+                    example_masks.append(is_nonempty)
+
+                    ex_texts = (
+                        add_e5_prefix(raw_ex_texts, "passage: ")
+                        if use_e5_prefix
+                        else raw_ex_texts
+                    )
+                    ex_emb = embedder.encode(ex_texts, show_progress=False)
+                    example_embeddings_list.append(ex_emb)
+
+                # Stack: (5, n_senses, dim)
+                examples_stacked = np.stack(example_embeddings_list, axis=0)
+                # Mask: (5, n_senses) -> (5, n_senses, 1) for broadcasting
+                masks_stacked = np.array(example_masks, dtype=np.float32)  # (5, n_senses)
+                masks_expanded = masks_stacked[:, :, np.newaxis]  # (5, n_senses, 1)
+
+                # Apply mask and sum
+                masked_embeddings = examples_stacked * masks_expanded
+                sum_embeddings = np.sum(masked_embeddings, axis=0)  # (n_senses, dim)
+
+                # Count non-empty examples per sense
+                counts = np.sum(masks_stacked, axis=0, keepdims=True).T  # (n_senses, 1)
+                counts = np.maximum(counts, 1)  # Avoid division by zero
+
+                # Compute mean over available examples only
+                mean_example_embeddings = sum_embeddings / counts
+
+                # Weighted average: v = 0.5 * def_emb + 0.5 * mean(example_embs)
+                sense_embeddings = (
+                    WEIGHTED_DEF_WEIGHT * def_embeddings
+                    + WEIGHTED_EX_WEIGHT * mean_example_embeddings
+                )
+                # Re-normalize after averaging
+                norms = np.linalg.norm(sense_embeddings, axis=1, keepdims=True)
+                sense_embeddings = sense_embeddings / np.where(norms == 0, 1, norms)
+
+                del (
+                    def_embeddings,
+                    example_embeddings_list,
+                    example_masks,
+                    examples_stacked,
+                    masks_stacked,
+                    masks_expanded,
+                    masked_embeddings,
+                    sum_embeddings,
+                    counts,
+                    mean_example_embeddings,
+                )
+            else:
+                # Standard: encode single text column
+                raw_sense_texts = sense_variants[text_variant].fillna("").tolist()
+                sense_texts = (
+                    add_e5_prefix(raw_sense_texts, "passage: ")
+                    if use_e5_prefix
+                    else raw_sense_texts
+                )
+
+                # Encode sense texts for this variant
+                sense_embeddings = embedder.encode(sense_texts, show_progress=False)
 
             # Create WSD predictor and evaluate
             wsd = SimilarityWSD.from_dataframe(
@@ -243,6 +329,11 @@ def main() -> None:
     text_variants = TEXT_VARIANTS
     if not text_variants:
         text_variants = [col for col in sense_variants.columns if col.startswith("text_")]
+        # Add weighted variant if required columns exist
+        has_def_col = WEIGHTED_DEF_COL in sense_variants.columns
+        has_ex_cols = all(c in sense_variants.columns for c in WEIGHTED_EX_COLS)
+        if has_def_col and has_ex_cols:
+            text_variants.append(WEIGHTED_VARIANT_NAME)
 
     if not text_variants:
         raise SystemExit("No text variants found. Expected columns starting with 'text_'.")

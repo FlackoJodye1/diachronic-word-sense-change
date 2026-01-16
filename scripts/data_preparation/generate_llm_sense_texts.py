@@ -75,8 +75,8 @@ def generate_variants(
 
         if dry_run:
             result['text_llm_definition'] = f"[DRY RUN] Definition for {lemma}"
-            result['text_llm_example_1'] = f"[DRY RUN] Example for {lemma}"
-            result['text_llm_examples_5'] = "[DRY RUN] Example 1; Example 2; Example 3; Example 4; Example 5"
+            for i in range(1, 6):
+                result[f'text_llm_example_{i}'] = f"[DRY RUN] Example {i} for {lemma}"
         else:
             try:
                 variants = generator.generate_all_variants(
@@ -85,13 +85,15 @@ def generate_variants(
                     sense_description=sense_description
                 )
                 result['text_llm_definition'] = variants['definition']
-                result['text_llm_example_1'] = variants['example_1']
-                result['text_llm_examples_5'] = "; ".join(variants['examples_5'])
+                # Store each example in its own column
+                examples = variants['examples_5']
+                for i in range(5):
+                    result[f'text_llm_example_{i+1}'] = examples[i] if i < len(examples) else ""
             except Exception as e:
                 logger.error(f"Failed to generate for {lemma} ({synset_id}): {e}")
                 result['text_llm_definition'] = f"[ERROR] {e}"
-                result['text_llm_example_1'] = f"[ERROR] {e}"
-                result['text_llm_examples_5'] = f"[ERROR] {e}"
+                for i in range(1, 6):
+                    result[f'text_llm_example_{i}'] = f"[ERROR] {e}"
 
         results.append(result)
 
@@ -114,11 +116,22 @@ def main():
 
     if not args.dry_run:
         logger.info(f"Initializing {args.provider} client...")
-        client = LLMClient(
-            provider=args.provider,
-            model=args.model,
-            temperature=args.temperature
-        )
+        try:
+            client = LLMClient(
+                provider=args.provider,
+                model=args.model,
+                temperature=args.temperature
+            )
+        except ValueError as e:
+            # Missing API key -> exit with clear message
+            logger.error(str(e))
+            env_var = "OPENAI_API_KEY" if args.provider == "openai" else "ANTHROPIC_API_KEY"
+            print(f"ERROR: {e}")
+            print(f"\nTo fix, set the environment variable:")
+            print(f"  export {env_var}='your-api-key-here'")
+            print(f"\nOr create a .env file in the project root with:")
+            print(f"  {env_var}=your-api-key-here")
+            sys.exit(1)
         generator = SenseTextGenerator(client)
     else:
         generator = None
@@ -132,10 +145,8 @@ def main():
     results_df.to_csv(output_path, index=False)
     logger.info(f"Saved {len(results_df)} sense variants to {output_path}")
 
-    print(f"\n{'='*60}")
     print(f"Generated text variants for {len(results_df)} senses")
     print(f"Output: {output_path}")
-    print(f"{'='*60}")
 
 
 if __name__ == "__main__":
