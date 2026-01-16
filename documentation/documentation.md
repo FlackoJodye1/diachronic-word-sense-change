@@ -1106,6 +1106,123 @@ python scripts/evaluation/real_dwds_wsd_evaluation.py
 python scripts/evaluation/evaluate_embeddings.py
 ```
 
+### 8.6 Diachronic Analysis Pipeline
+
+The diachronic analysis pipeline tracks how word sense distributions change over time (decades). It consists of four scripts that form a complete workflow.
+
+#### Pipeline Overview
+
+```
+predict_dwds_senses.py → aggregate_temporal.py → compute_change_metrics.py → visualize_trajectories.py
+```
+
+| Script | Input | Output | Purpose |
+|--------|-------|--------|---------|
+| `predict_dwds_senses.py` | DWDS contexts + senses | `dwds_predictions.csv` | Predict sense for each context |
+| `aggregate_temporal.py` | predictions | `temporal_*_sense_counts.csv`, `temporal_*_stats.csv` | Aggregate by decade |
+| `compute_change_metrics.py` | sense counts | `metrics_*_entropy.csv`, `metrics_*_divergence.csv`, emergence/decline CSVs | Compute change metrics |
+| `visualize_trajectories.py` | counts + metrics | PNG plots | Generate visualizations |
+
+#### Script 1: predict_dwds_senses.py
+
+**Purpose:** Apply embedding-based WSD to DWDS corpus contexts.
+
+**Key features:**
+- Configurable sense input file (`--senses-file`)
+- Configurable text column (`--text-column`) — use `text_llm_examples_5` for best accuracy
+- E5 model prefix handling (query:/passage:)
+- Memory-safe with garbage collection
+
+**Usage:**
+```bash
+# Default (baseline text)
+python scripts/diachronic/predict_dwds_senses.py
+
+# With LLM-generated text variants (recommended when available)
+python scripts/diachronic/predict_dwds_senses.py \
+    --senses-file data/evaluation/quick_eval/sense_variants.csv \
+    --text-column text_llm_examples_5
+```
+
+#### Script 2: aggregate_temporal.py
+
+**Purpose:** Aggregate predictions by time period (decade or year).
+
+**Output:**
+- `temporal_decade_sense_counts.csv` — sense counts and proportions per lemma per decade
+- `temporal_decade_stats.csv` — summary stats (n_contexts, n_senses, dominant sense, mean confidence)
+
+**Usage:**
+```bash
+python scripts/diachronic/aggregate_temporal.py
+python scripts/diachronic/aggregate_temporal.py --period-column year  # aggregate by year
+```
+
+#### Script 3: compute_change_metrics.py
+
+**Purpose:** Compute quantitative metrics for sense change.
+
+**Metrics computed:**
+- **Entropy** — higher entropy = more uniform distribution across senses (more ambiguous)
+- **Jensen-Shannon Divergence** — measures how different distributions are between adjacent periods
+- **Emergence events** — senses that appear above threshold in period N but were absent/low in N-1
+- **Decline events** — senses that drop below threshold
+
+**Usage:**
+```bash
+python scripts/diachronic/compute_change_metrics.py
+python scripts/diachronic/compute_change_metrics.py --threshold 0.05  # more sensitive detection
+```
+
+#### Script 4: visualize_trajectories.py
+
+**Purpose:** Generate publication-quality visualizations.
+
+**Plot types:**
+- Stacked area charts showing sense proportions over time
+- Entropy over time line plots
+- Sense-period heatmaps
+- Summary statistics plots
+
+**Usage:**
+```bash
+python scripts/diachronic/visualize_trajectories.py --lemma Bahn  # single word
+python scripts/diachronic/visualize_trajectories.py --all-lemmas  # all words
+```
+
+#### Complete Pipeline Example
+
+```bash
+# Step 1: Predict senses for DWDS contexts
+python scripts/diachronic/predict_dwds_senses.py
+
+# Step 2: Aggregate by decade
+python scripts/diachronic/aggregate_temporal.py
+
+# Step 3: Compute change metrics
+python scripts/diachronic/compute_change_metrics.py
+
+# Step 4: Generate visualizations
+python scripts/diachronic/visualize_trajectories.py --all-lemmas
+```
+
+**Output files:**
+```
+data/diachronic/
+├── dwds_predictions.csv           # Raw predictions
+├── temporal_decade_sense_counts.csv
+├── temporal_decade_stats.csv
+├── metrics_decade_entropy.csv
+├── metrics_decade_divergence.csv
+├── metrics_decade_emergence.csv
+├── metrics_decade_decline.csv
+└── plots/
+    ├── trajectory_*.png
+    ├── heatmap_*.png
+    ├── entropy_*.png
+    └── summary_entropy.png
+```
+
 ---
 
 ## 9. Data Formats & Schema
