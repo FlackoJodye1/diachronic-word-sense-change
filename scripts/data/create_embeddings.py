@@ -48,9 +48,9 @@ def main():
     output_dir = args.sense_texts_csv.parent.parent
     embeddings_path, metadata_path = builder.save_embeddings(output_dir)
     
-    print(f"✅ Saved embeddings: {embeddings_path}")
-    print(f"✅ Saved metadata: {metadata_path}")
-    print(f"✅ Shape: {embeddings.shape}")
+    print(f"Saved embeddings: {embeddings_path}")
+    print(f"Saved metadata: {metadata_path}")
+    print(f"Shape: {embeddings.shape}")
 
 
 if __name__ == "__main__":

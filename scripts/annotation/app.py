@@ -153,6 +153,6 @@ def submit_annotation(word):
     return f'<script>window.location.href="/annotate/{word}";</script>'
 
 if __name__ == '__main__':
-    print("🎯 Starting simple annotation server...")
-    print("📁 Open http://localhost:8000")
+    print("Starting simple annotation server...")
+    print("Open http://localhost:8000")
     app.run(host='127.0.0.1', port=8000, debug=True)

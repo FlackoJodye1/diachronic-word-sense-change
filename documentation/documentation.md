@@ -653,7 +653,7 @@ variants = generator.generate_all_variants(
 python scripts/data_preparation/generate_llm_sense_texts.py --provider openai
 ```
 
-Output: `data/evaluation/quick_eval/sense_variants.csv`
+Output: `data/evaluation/quick_eval/sense_text_representations.jsonl`
 
 ### 6.2 Disambiguation Algorithm
 
@@ -882,24 +882,58 @@ class WSDEvaluator:
         """
 ```
 
-### 8.2 Preliminary Results
+### 8.2 Evaluation Results
 
-#### Current Baseline (Embedding-Based)
+#### Dataset Summary
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Overall accuracy | 48.6% | On 25-word pilot set |
-| Coverage | 100% | All instances have predictions |
-| Avg. text length | 15.7 words | Enriched sense texts |
-| Improvement over random | +42.4% | Significant |
+| Metric | Value |
+|--------|-------|
+| Total instances | 93 |
+| Lemmas evaluated | 10 |
+| Models compared | 5 |
+| Text variants | 8 |
 
-#### Per-POS Performance
+#### Best Model Configurations
 
-| POS | Accuracy | N instances | Avg. senses |
-|-----|----------|-------------|-------------|
-| NOUN | TBD | TBD | 2.8 |
-| VERB | TBD | TBD | 4.2 |
-| ADJ | TBD | TBD | 2.1 |
+| Rank | Model | Text Variant | Accuracy | Top-3 | Top-5 | MRR |
+|------|-------|--------------|----------|-------|-------|-----|
+| 1 | multilingual-e5-large | weighted (def + avg examples) | **54.8%** | 96.8% | 100% | 0.725 |
+| 2 | bge-m3 | weighted (def + avg examples) | 51.6% | 96.8% | 100% | 0.717 |
+| 3 | multilingual-e5-large | llm_example_4 | 47.3% | 90.3% | 100% | 0.679 |
+| 4 | mpnet-base-v2 | weighted (def + avg examples) | 47.3% | 89.2% | 98.9% | 0.677 |
+| 5 | LaBSE | weighted (def + avg examples) | 46.2% | 92.5% | 100% | 0.680 |
+
+#### Model Comparison (Best Variant per Model)
+
+| Model | Best Accuracy | Best Variant |
+|-------|---------------|--------------|
+| `intfloat/multilingual-e5-large` | 54.8% | weighted def+examples |
+| `BAAI/bge-m3` | 51.6% | weighted def+examples |
+| `paraphrase-multilingual-mpnet-base-v2` | 47.3% | weighted def+examples |
+| `LaBSE` | 46.2% | weighted def+examples |
+| `intfloat/multilingual-e5-base` | 46.2% | weighted def+examples |
+
+#### Text Variant Comparison (E5-large)
+
+| Text Variant | Accuracy | Notes |
+|--------------|----------|-------|
+| weighted (def + avg examples) | 54.8% | Best overall |
+| llm_example_4 | 47.3% | Single example varies |
+| llm_example_3 | 46.2% | |
+| llm_definition | 41.9% | Definition alone |
+| baseline | 36.6% | GermaNet enriched text |
+
+#### Key Findings
+
+1. **Weighted combination wins**: Combining definition embedding (0.5) with averaged example embeddings (0.5) consistently outperforms single-text approaches across all models.
+
+2. **E5-large is best**: The `multilingual-e5-large` model achieves the highest accuracy (54.8%), with proper query/passage prefix handling.
+
+3. **LLM examples help**: LLM-generated example sentences improve over baseline GermaNet text (+18.2 percentage points for E5-large).
+
+4. **High Top-k scores**: Top-3 accuracy of 96.8% and Top-5 of 100% indicate the correct sense is almost always in the top candidates—the challenge is ranking it first.
+
+5. **Individual examples vary**: Single example sentences (llm_example_0 through llm_example_4) show high variance (34-47% for E5-large), supporting the value of averaging multiple examples.
 
 ### 8.3 Diachronic Analysis Results
 
@@ -913,18 +947,71 @@ class WSDEvaluator:
 
 ### 8.4 Error Analysis
 
+Detailed error analysis based on predictions from the best model (E5-large + weighted def+examples).
+
+#### Gold Rank Distribution
+
+| Gold Rank | Count | Interpretation |
+|-----------|-------|----------------|
+| 1 (correct) | 51 | Model predicted correctly |
+| 2 (near-miss) | 27 | Correct sense was second choice |
+| 3 | 10 | Correct sense ranked third |
+| 4+ | 5 | Correct sense ranked low |
+
+**Key insight**: 64% of errors (27/42) are near-misses where the correct sense was the model's second choice. This suggests the model captures relevant distinctions but struggles with final ranking.
+
+#### Performance by Polysemy Level
+
+| Polysemy | Lemmas | Instances | Accuracy | Avg Senses |
+|----------|--------|-----------|----------|------------|
+| Low (2-3) | 4 | 37 | 62.2% | 2.5 |
+| Medium (4-6) | 4 | 37 | 59.5% | 4.8 |
+| High (7+) | 2 | 19 | 31.6% | 9.0 |
+
+**Key insight**: Accuracy drops sharply for high-polysemy words. Low and medium polysemy perform similarly, but words with 7+ senses are substantially harder.
+
+#### Hardest Lemmas
+
+The two worst-performing lemmas show systematic confusion patterns:
+
+**Lemma 1** (0% accuracy, 9 errors):
+- All errors: Gold=Kommunikation, Predicted=Mensch
+- Pattern: Communication-act senses consistently confused with human-agent senses
+
+**Lemma 2** (0% accuracy, 6 errors):
+- All errors: Gold=Kommunikation, Predicted=Geschehen
+- Pattern: Communication senses confused with event/process senses
+
+**Root cause**: These lemmas have senses spanning semantic classes (Kommunikation, Mensch, Geschehen) that share contextual vocabulary, making disambiguation difficult with surface-level embeddings alone.
+
 #### Common Error Types
 
-| Error Type | Description | Example |
-|------------|-------------|---------|
-| **Sense confusion** | Similar senses conflated | Bank (bench) vs Bank (river bank) |
-| **Context poverty** | Insufficient context | Short sentences |
-| **Rare sense miss** | Low-frequency senses underrepresented | Technical meanings |
-| **Metaphorical use** | Figurative vs. literal | "Das sitzt!" (idiomatic) |
+| Error Type | Description | Example | Frequency |
+|------------|-------------|---------|-----------|
+| **Cross-class confusion** | Senses from different semantic classes conflated | Kommunikation → Mensch | High |
+| **Near-miss ranking** | Correct sense is rank 2 | 64% of errors | High |
+| **High-polysemy failure** | Too many candidate senses | Words with 7+ senses | Medium |
+| **Context poverty** | Insufficient disambiguating context | Short sentences | Low |
+
+#### Implications for Improvement
+
+1. **Semantic class features**: Incorporating explicit semantic class information could help distinguish Kommunikation from Mensch senses.
+
+2. **Reranking**: A two-stage approach (retrieve top-k, then rerank) could convert near-misses to correct predictions.
+
+3. **Polysemy-aware models**: High-polysemy words may benefit from hierarchical sense clustering or specialized handling.
+
+4. **More examples**: The high variance across individual LLM examples (34-47% for single examples) suggests more diverse examples could help.
 
 #### Error Analysis Tools
 
-See `src/evaluation/error_analysis.py` for:
+See `analysis/error_analysis.ipynb` for interactive exploration:
+- Per-lemma accuracy breakdown with polysemy visualization
+- Confusion matrices for worst-performing lemmas
+- Near-miss analysis with example sentences
+- Gold rank distribution plots
+
+See `src/evaluation/error_analysis.py` for programmatic analysis:
 - Confusion matrix generation
 - High-error word identification
 - Sense pair confusion analysis
@@ -1010,7 +1097,7 @@ Three scripts for different evaluation purposes:
 **Purpose:** Benchmark different embedding models and text variants for WSD accuracy.
 
 **Input:**
-- `data/evaluation/quick_eval/sense_variants.csv` — sense definitions with text variants
+- `data/evaluation/quick_eval/sense_text_representations.jsonl` — sense definitions with LLM-generated text (JSONL format with `llm_examples` as list)
 - `data/evaluation/quick_eval/gold_annotations.csv` — human-annotated gold labels
 
 **Process:**
@@ -1057,15 +1144,16 @@ python scripts/evaluation/compare_embedding_methods.py --clear-cache  # Clear di
 
 | Rank | Model | Text Variant | Accuracy | MRR |
 |------|-------|--------------|----------|-----|
-| 1 | multilingual-e5-large | text_llm_examples_5 | **0.527** | 0.723 |
-| 2 | multilingual-e5-large | text_llm_definition | 0.516 | 0.693 |
-| 3 | mpnet-base-v2 | text_llm_examples_5 | 0.516 | 0.707 |
-| 4 | distiluse-v2 | text_llm_examples_5 | 0.505 | 0.697 |
+| 1 | multilingual-e5-large | Weighted (Def + Avg Examples) | **0.527** | 0.723 |
+| 2 | multilingual-e5-large | llm_definition | 0.516 | 0.693 |
+| 3 | mpnet-base-v2 | llm_examples (concatenated) | 0.516 | 0.707 |
+| 4 | distiluse-v2 | llm_examples (concatenated) | 0.505 | 0.697 |
 
 **Key findings:**
-- LLM-generated examples (`text_llm_examples_5`) consistently outperform baseline and definitions
+- Weighted combination (0.5 × definition + 0.5 × avg(examples)) achieves best results
+- LLM-generated examples consistently outperform baseline and definitions alone
 - E5 models benefit significantly from proper query/passage prefixes
-- Best configuration: `multilingual-e5-large` + `text_llm_examples_5` → 52.7% accuracy
+- Best configuration: `multilingual-e5-large` + weighted def+examples → 52.7% accuracy
 
 ##### real_dwds_wsd_evaluation.py
 
@@ -1486,5 +1574,5 @@ Date: 1995 (supports modern sense)
 
 ---
 
-*Last updated: 2026-01-13*
-*Version: 1.1*
+*Last updated: 2026-01-17*
+*Version: 1.2*

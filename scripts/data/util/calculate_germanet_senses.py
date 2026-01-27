@@ -16,17 +16,18 @@ def calculate_germanet_senses():
     with open(words_path, 'r', encoding='utf-8') as f:
         target_words = set(word.strip() for word in f if word.strip())
     
-    print(f"🔍 Calculating GermaNet senses for {len(target_words)} words...")
+    print(f"Calculating GermaNet senses for {len(target_words)} words...")
     
     # Load GermaNet lemma senses
-    lemma_senses_path = Path(__file__).parent.parent / 'data' / 'processed' / 'germanet_base' / 'lexical_layer' / 'lemma_senses.csv'
+    lemma_senses_path = (Path(__file__).parent.parent / 'data'
+                         / 'processed' / 'germanet_base' / 'lexical_layer' / 'lemma_senses.csv')
     
     if not lemma_senses_path.exists():
-        print(f"❌ GermaNet data not found: {lemma_senses_path}")
+        print(f"GermaNet data not found: {lemma_senses_path}")
         return
         
     lemma_senses = pd.read_csv(lemma_senses_path)
-    print(f"📚 Loaded {len(lemma_senses)} lemma-sense mappings from GermaNet")
+    print(f"Loaded {len(lemma_senses)} lemma-sense mappings from GermaNet")
     
     # Count synsets per lemma for our target words
     word_sense_counts = []
@@ -43,7 +44,7 @@ def calculate_germanet_senses():
         })
         
         if sense_count == 0:
-            print(f"⚠️  '{word}' not found in GermaNet")
+            print(f"'{word}' not found in GermaNet")
     
     # Convert to DataFrame
     df = pd.DataFrame(word_sense_counts)
@@ -52,7 +53,7 @@ def calculate_germanet_senses():
     words_with_senses = df['has_senses'].sum()
     words_without_senses = len(df) - words_with_senses
     
-    print(f"\\n✅ Processing complete:")
+    print(f"Processing complete:")
     print(f"Words with senses: {words_with_senses}")
     print(f"Words without senses: {words_without_senses}")
     
@@ -76,7 +77,7 @@ def calculate_germanet_senses():
     if len(words_with_senses_df) > 0:
         # Show distribution
         sense_counts = words_with_senses_df['num_senses'].value_counts().sort_index()
-        print(f"\\n📊 Sense count distribution:")
+        print(f"Sense count distribution:")
         for senses, count in sense_counts.head(15).items():
             print(f"  {senses} senses: {count} words")
         
@@ -85,7 +86,7 @@ def calculate_germanet_senses():
         medium_words = words_with_senses_df[(words_with_senses_df['num_senses'] >= 3) & (words_with_senses_df['num_senses'] <= 4)]
         hard_words = words_with_senses_df[words_with_senses_df['num_senses'] >= 5]
         
-        print(f"\\n🎯 Words available for selection:")
+        print(f"Words available for selection:")
         print(f"Easy (1-2 senses): {len(easy_words)} words")
         print(f"Medium (3-4 senses): {len(medium_words)} words")
         print(f"Hard (5+ senses): {len(hard_words)} words")
@@ -100,7 +101,7 @@ def calculate_germanet_senses():
         
         # Check our previous selection against new sense counts
         previous_selection = ['klein', 'Autobahn', 'Vampir', 'dauern', 'Musik', 'merken', 'Leute', 'Geheimnis', 'Zeit', 'Einsicht']
-        print(f"\\n🔍 Checking previous selection against new GermaNet counts:")
+        print(f"Checking previous selection against new GermaNet counts:")
         
         for word in previous_selection:
             if word in words_with_senses_df['word'].values:
@@ -113,7 +114,7 @@ def calculate_germanet_senses():
                     difficulty = "Hard"
                 print(f"  {word}: {senses} senses → {difficulty}")
             else:
-                print(f"  {word}: ❌ Not found in GermaNet")
+                print(f"  {word}: Not found in GermaNet")
     
     return df
 

@@ -96,7 +96,7 @@ def export_tasks_to_json():
     with open(summary_path, 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
     
-    print(f"✅ Created summary at: {summary_path}")
+    print(f"Created summary at: {summary_path}")
 
 if __name__ == '__main__':
     export_tasks_to_json()

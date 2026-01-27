@@ -110,7 +110,7 @@ data/**/*.jsonl
 
 # BUT track these important small files:
 !data/evaluation/quick_eval/*.csv
-!data/processed/germanet/wsd_senses.csv
+!data/processed/germanet/target_word_senses.csv
 !data/processed/target_words/*.tsv
 !data/README.md
 

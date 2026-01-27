@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```python
 import pandas as pd
 
-data = pd.read_csv('data/processed/germanet/wsd_senses.csv')
+data = pd.read_csv('data/processed/germanet/target_word_senses.csv')
 print(f"Enhanced senses: {len(data)}")
 ```
 

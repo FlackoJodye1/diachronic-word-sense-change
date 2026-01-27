@@ -113,19 +113,16 @@ def main():
     print(f"✅ Saved: {json_path}")
 
     # Summary
-    print("\n" + "="*50)
-    print("SUMMARY")
-    print("="*50)
+    print("Summary")
     total = 0
     for word, task in annotation_tasks.items():
         n = len(task.instances)
         s = len(task.instances[0].candidate_senses) if task.instances else 0
         print(f"  {word:12} {n:2} instances, {s:2} senses")
         total += n
-    print("-"*50)
     print(f"  {'TOTAL':12} {total:2} instances")
 
-    print("\n🚀 To start annotation, run:")
+    print("\nTo start annotation, run:")
     print("   python scripts/annotation/simple_app.py")
     print("   Then open: http://localhost:8000")
 
