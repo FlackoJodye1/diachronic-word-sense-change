@@ -339,7 +339,7 @@ Include a **balanced mix of POS categories**:
 
 ### 4.3 Current Target Word Statistics
 
-**Total target words**: 752 unique lemmas
+**Total target words**: 750 unique lemmas
 
 | POS | Count | Percentage |
 |-----|-------|------------|
@@ -356,7 +356,39 @@ Include a **balanced mix of POS categories**:
 | 5-7 senses | ~150 | Arbeit, Art, Rolle |
 | 8+ senses | ~50 | halten (26), gehen (19), geben (11) |
 
-### 4.4 Example Target Words
+### 4.4 Diachronic Pilot Subset
+
+For the diachronic pilot study, a strategic subset of 116 words was selected from the 750-word list to maximize coverage of interesting temporal patterns while keeping the initial analysis manageable.
+
+#### Selection Strategy
+
+1. **All high-polysemy words (8+ senses)**: 36 words
+   - Hypothesis: More senses → more likely to show temporal variation
+   - Examples: halten (26), gehen (19), schlagen (15), zeigen (15), Zug (14)
+
+2. **Medium-polysemy sample (4-7 senses)**: 65 words
+   - All 50 words with 6-7 senses (upper medium range)
+   - Random sample of 15 words with 4-5 senses
+   - Examples: Bahn (7), Fall (7), Feld (7), Art (4), Bass (4)
+
+3. **Low-polysemy controls (2-3 senses)**: 15 words
+   - Random sample for baseline comparison
+   - Examples: Anfang (2), Berg (2), Flasche (2), Frosch (3)
+
+#### Pilot Distribution
+
+| Category | Sense Range | Count | Percentage |
+|----------|-------------|-------|------------|
+| High | 8+ senses | 36 | 31.0% |
+| Medium | 4-7 senses | 65 | 56.0% |
+| Low | 2-3 senses | 15 | 13.0% |
+| **Total** | | **116** | **100%** |
+
+**Rationale**: This distribution over-samples high-polysemy words (31% vs 4.8% in full set) to maximize the likelihood of detecting interesting temporal patterns in the pilot phase.
+
+**File**: `data/raw/target_words/pilot_words_diachronic.txt`
+
+### 4.5 Example Target Words
 
 | Word | POS | Senses | Semantic Classes | Diachronic Interest |
 |------|-----|--------|------------------|---------------------|
@@ -938,13 +970,40 @@ class WSDEvaluator:
 
 ### 8.3 Diachronic Analysis Results
 
-*To be completed after annotation*
+#### Pilot Study Setup
 
-#### Planned Analyses
+**Dataset:** 116 strategically selected words from 750-word target list
+- 36 high-polysemy words (8+ senses) - most likely to show temporal change
+- 65 medium-polysemy words (4-7 senses) - good variation
+- 15 low-polysemy controls (2-3 senses) - baseline comparison
 
-1. **Case studies**: Deep dive on 5-10 words with interesting patterns
-2. **Aggregate patterns**: Cross-word trends by semantic class
-3. **Correlation with frequency**: Does overall frequency predict sense stability?
+**Corpus Data:** 6,474 DWDS contexts (1900-1999)
+- Time period: 10 decades (1900s-1990s)
+- Average: 55.8 contexts per word
+- Distributed across all decades (639-882 contexts per decade)
+- Quality filters: 8-35 tokens, near-duplicate removal, max 1 per document
+
+**WSD Method:** Unsupervised prediction using best atemporal model
+- Model: `intfloat/multilingual-e5-large` (54.8% atemporal accuracy)
+- Text representation: `text_for_embedding` (GermaNet enriched)
+- No manual annotation required for pilot phase
+
+#### Analysis Pipeline
+
+1. **Sense Prediction**: Apply E5-large WSD to all 6,474 historical contexts
+2. **Temporal Aggregation**: Group predictions by lemma × decade
+3. **Change Metrics**: Compute entropy, divergence, emergence/decline events
+4. **Visualization**: Generate trajectory plots, heatmaps, summary statistics
+
+#### Research Questions
+
+1. **Temporal stability**: Which words show the most sense distribution change over time?
+2. **Historical patterns**: Are there periods of high instability (e.g., 1940s war period)?
+3. **Sense dynamics**: Which senses emerge or decline across the century?
+4. **Polysemy effects**: Does polysemy level predict change rate?
+5. **WSD reliability**: How does unsupervised WSD perform on historical data?
+
+*Results to be added after pipeline completion*
 
 ### 8.4 Error Analysis
 
