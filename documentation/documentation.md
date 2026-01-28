@@ -14,9 +14,10 @@ A comprehensive methodology document for building a German WSD benchmark dataset
 6. [Methodology: Embedding-Based WSD](#6-methodology-embedding-based-wsd)
 7. [Methodology: Diachronic Analysis](#7-methodology-diachronic-analysis)
 8. [Experiments & Evaluation](#8-experiments--evaluation)
-9. [Data Formats & Schema](#9-data-formats--schema)
-10. [Limitations & Future Work](#10-limitations--future-work)
-11. [References](#11-references)
+9. [Project Architecture](#9-project-architecture)
+10. [Data Formats & Schema](#10-data-formats--schema)
+11. [Limitations & Future Work](#11-limitations--future-work)
+12. [References](#12-references)
 
 ---
 
@@ -650,7 +651,7 @@ variants = generator.generate_all_variants(
 #### Script
 
 ```bash
-python scripts/data_preparation/generate_llm_sense_texts.py --provider openai
+python scripts/data/generate_llm_sense_texts.py --provider openai
 ```
 
 Output: `data/evaluation/quick_eval/sense_text_representations.jsonl`
@@ -1161,7 +1162,7 @@ python scripts/evaluation/compare_embedding_methods.py --clear-cache  # Clear di
 
 **Input:**
 - DWDS corpus sentences (`data/dwds_contexts/`)
-- GermaNet sense inventory (`data/processed/germanet/wsd_senses_enhanced.csv`)
+- GermaNet sense inventory (`data/processed/germanet/target_word_senses.csv`)
 
 **Process:**
 1. Find polysemous words with sufficient corpus coverage
@@ -1313,13 +1314,344 @@ data/diachronic/
 
 ---
 
-## 9. Data Formats & Schema
+## 9. Project Architecture
 
-### 9.1 Key Files
+### 9.1 Code Organization Principles
+
+This project follows best practices for research software engineering by separating **reusable library code** (`src/`) from **executable entry points** (`scripts/`).
+
+#### Design Philosophy
+
+**`src/` = Library Code (Reusable Components)**
+- Classes and functions that are **imported** by scripts, notebooks, and tests
+- Core algorithms and business logic
+- API clients and data processing utilities
+- Pure functions with well-defined interfaces
+- No CLI/argparse code
+
+**`scripts/` = Executable Entry Points**
+- Programs you **run** from the command line
+- Data processing pipelines and experiment runners
+- Contains `argparse`, `if __name__ == "__main__"`, logging setup
+- Glue code that chains `src/` components together
+- One-off analyses and utilities
+
+**Golden Rule:** If you'd want to `import` it elsewhere, put it in `src/`.
+
+### 9.2 Source Code Structure (`src/`)
+
+```
+src/
+├── annotation/              # Annotation task management
+│   ├── __init__.py
+│   └── task.py             # AnnotationTask class
+├── data/                    # Data processing modules
+│   ├── __init__.py
+│   ├── dwds/               # DWDS corpus integration
+│   │   ├── __init__.py
+│   │   ├── client.py       # DWDSClient API wrapper
+│   │   ├── fetcher.py      # Context fetching & filtering
+│   │   └── context_utils.py # Text cleaning, deduplication
+│   ├── germanet/           # GermaNet processing
+│   │   ├── __init__.py
+│   │   ├── make_dataset.py # GermaNetProcessor class
+│   │   ├── parsing/        # XML parsing
+│   │   ├── transforms/     # Data transformations
+│   │   └── io/             # Data I/O
+│   └── llm/                # LLM integration
+│       ├── __init__.py
+│       ├── client.py       # LLM API client
+│       └── sense_generator.py # Sense text generation
+├── diachronic/             # Temporal analysis library
+│   ├── __init__.py
+│   ├── io.py              # Data loading utilities
+│   ├── metrics.py         # Entropy, divergence, change detection
+│   ├── aggregation.py     # Temporal aggregation functions
+│   ├── predictor.py       # Sense prediction for temporal data
+│   └── visualization.py   # Plotting functions
+└── evaluation/             # WSD evaluation
+    ├── __init__.py
+    ├── embedder.py        # Embedding wrapper
+    ├── similarity_wsd.py  # WSD algorithms
+    ├── wsd_evaluator.py   # Evaluation harness
+    ├── metrics.py         # Evaluation metrics
+    └── error_analysis.py  # Error analysis utilities
+```
+
+#### Module Descriptions
+
+**`src/data/dwds/`**
+- `DWDSClient`: API client for fetching corpus data, timeseries, dictionary entries
+- `FetchOptions`: Configuration for context fetching (filtering, sampling)
+- `fetch_contexts_for_word()`: Main fetching function with filtering pipeline
+- Context utilities: cleaning, deduplication, temporal parsing
+
+**`src/data/germanet/`**
+- `GermaNetProcessor`: Complete pipeline for processing GermaNet XML
+- Parsing: Extract synsets, lexical units, relations
+- Transforms: Build sense texts, embeddings, candidate mappings
+- I/O: Save/load processed data
+
+**`src/diachronic/`**
+- `load_*()`: Data loading functions for predictions, contexts, senses
+- `compute_entropy_per_period()`: Sense distribution entropy metrics
+- `compute_period_divergence()`: Jensen-Shannon divergence between periods
+- `detect_sense_changes()`: Emergence and decline detection
+- `aggregate_by_period()`: Group predictions by time
+- `predict_senses()`: Apply WSD to temporal data
+- Visualization functions: trajectories, heatmaps, entropy plots
+
+**`src/evaluation/`**
+- `Embedder`: Wrapper for sentence transformer models
+- `SimilarityWSD`: Cosine similarity-based WSD
+- `WSDEvaluator`: Evaluation pipeline with metrics
+- Error analysis utilities
+
+### 9.3 Scripts Structure
+
+```
+scripts/
+├── annotation/              # Annotation tools
+│   ├── app.py              # Streamlit annotation interface
+│   └── util/               # Annotation utilities
+│       ├── annotate_eval_set.py
+│       ├── create_gold_standard.py
+│       ├── export_annotation_tasks_json.py
+│       ├── generate_annotation_tasks.py
+│       ├── generate_quick_eval_tasks.py
+│       └── select_eval_words.py
+├── data/                    # Data preparation scripts
+│   ├── create_embeddings.py
+│   ├── extract_eval_contexts.py
+│   ├── fetch_dwds_contexts.py      # DWDS context fetcher (CLI)
+│   ├── generate_llm_sense_texts.py
+│   ├── process_germanet.py         # GermaNet processor (CLI)
+│   ├── rebuild_complete_wsd_senses.py
+│   ├── sample_from_wsd_senses.py
+│   └── util/
+│       └── calculate_germanet_senses.py
+├── diachronic/             # Temporal analysis runners
+│   ├── aggregate_temporal.py       # Aggregate by time period
+│   ├── compute_change_metrics.py   # Compute temporal metrics
+│   ├── predict_dwds_senses.py      # Apply WSD to historical data
+│   └── visualize_trajectories.py   # Generate plots
+└── evaluation/             # Evaluation runners
+    ├── compare_embedding_methods.py
+    ├── evaluate_embeddings.py
+    ├── generate_predictions.py
+    └── real_dwds_wsd_evaluation.py
+```
+
+#### Typical Usage Pattern
+
+```python
+# In a script:
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from diachronic import load_dwds_contexts, predict_senses  # Import from src
+from evaluation import Embedder, SimilarityWSD
+
+def main():
+    # Use library functions
+    contexts = load_dwds_contexts(args.file)
+    results = predict_senses(contexts, model_name=args.model)
+    save_results(results)
+```
+
+### 9.4 Notebooks Structure
+
+```
+notebooks/
+├── WSD-Atemporal.ipynb     # Main atemporal WSD analysis
+├── analysis/
+│   └── preliminary/
+│       ├── combination_analysis.ipynb  # Embedding method comparison
+│       └── error_analysis.ipynb        # Detailed error analysis
+└── exploration/
+    └── germanet.ipynb      # GermaNet data exploration
+```
+
+Notebooks import directly from `src/`:
+```python
+from evaluation import Embedder, WSDEvaluator
+from diachronic.visualization import plot_sense_trajectory
+```
+
+### 9.5 Diachronic Module API Reference
+
+The `src/diachronic/` module provides a complete toolkit for temporal sense analysis.
+
+#### Data Loading (`io.py`)
+
+```python
+from diachronic import load_dwds_contexts, load_senses, load_predictions
+
+# Load DWDS contexts from JSONL
+contexts_df = load_dwds_contexts(Path("data/dwds_contexts/contexts.jsonl"))
+# Returns: DataFrame with columns [lemma, sentence, year, decade, genre, bibl, corpus]
+
+# Load GermaNet senses
+senses_df = load_senses(
+    filepath=Path("data/processed/germanet/target_word_senses.csv"),
+    text_column="text_for_embedding",
+    target_lemmas=["Bank", "Bahn"]  # Optional filter
+)
+# Returns: DataFrame with sense information for specified lemmas
+
+# Load WSD predictions
+predictions_df = load_predictions(Path("data/diachronic/dwds_predictions.csv"))
+# Returns: DataFrame with predicted sense IDs and confidence scores
+```
+
+#### Sense Prediction (`predictor.py`)
+
+```python
+from diachronic import predict_senses
+
+# Apply WSD to historical contexts
+results_df = predict_senses(
+    contexts_df=contexts_df,           # DWDS contexts
+    senses_df=senses_df,               # GermaNet senses
+    text_column="text_for_embedding",  # Column to embed
+    model_name="intfloat/multilingual-e5-large"
+)
+# Returns: contexts_df with added columns: predicted_sense_id, confidence, sense_class
+```
+
+#### Temporal Aggregation (`aggregation.py`)
+
+```python
+from diachronic import aggregate_by_period, compute_period_stats
+
+# Aggregate sense distributions by decade
+agg_df = aggregate_by_period(predictions_df, period_column="decade")
+# Returns: DataFrame with columns [lemma, decade, predicted_sense_id, count, total, proportion]
+
+# Compute summary statistics per period
+stats_df = compute_period_stats(predictions_df, period_column="decade")
+# Returns: DataFrame with [lemma, decade, n_contexts, n_senses, dominant_sense,
+#                          dominant_proportion, mean_confidence]
+```
+
+#### Change Metrics (`metrics.py`)
+
+```python
+from diachronic import (
+    compute_entropy_per_period,
+    compute_period_divergence,
+    detect_sense_changes
+)
+
+# Compute entropy (sense ambiguity) per period
+entropy_df = compute_entropy_per_period(agg_df, period_column="decade")
+# Returns: [lemma, decade, entropy, max_entropy, normalized_entropy, n_senses]
+
+# Compute Jensen-Shannon divergence between adjacent periods
+divergence_df = compute_period_divergence(agg_df, period_column="decade")
+# Returns: [lemma, decade_from, decade_to, jsd, n_senses_from, n_senses_to]
+
+# Detect sense emergence and decline
+emergence_df, decline_df = detect_sense_changes(
+    agg_df,
+    period_column="decade",
+    emergence_threshold=0.1,  # Min proportion to count as "emerged"
+    decline_threshold=0.1      # Max proportion to count as "declined"
+)
+# Returns: Two DataFrames with emergence/decline events
+```
+
+#### Visualization (`visualization.py`)
+
+```python
+from diachronic.visualization import (
+    plot_sense_trajectory,
+    plot_entropy_over_time,
+    plot_sense_heatmap,
+    plot_all_lemmas_summary
+)
+
+# Plot sense proportions over time (stacked area chart)
+plot_sense_trajectory(
+    counts_df=agg_df,
+    lemma="Bank",
+    period_column="decade",
+    output_dir=Path("data/diachronic/plots")
+)
+
+# Plot entropy trends for multiple lemmas
+plot_entropy_over_time(
+    entropy_df=entropy_df,
+    lemmas=["Bank", "Bahn", "Kraft"],
+    period_column="decade",
+    output_dir=Path("data/diachronic/plots")
+)
+
+# Plot heatmap of sense distributions
+plot_sense_heatmap(
+    counts_df=agg_df,
+    lemma="Bank",
+    period_column="decade",
+    output_dir=Path("data/diachronic/plots")
+)
+
+# Plot summary statistics across all lemmas
+plot_all_lemmas_summary(
+    entropy_df=entropy_df,
+    period_column="decade",
+    output_dir=Path("data/diachronic/plots")
+)
+```
+
+#### Complete Pipeline Example
+
+```python
+from pathlib import Path
+from diachronic import *
+
+# 1. Load data
+contexts = load_dwds_contexts(Path("data/dwds_contexts/historical.jsonl"))
+senses = load_senses(
+    Path("data/processed/germanet/target_word_senses.csv"),
+    text_column="text_for_embedding"
+)
+
+# 2. Predict senses
+predictions = predict_senses(
+    contexts, senses,
+    text_column="text_for_embedding",
+    model_name="intfloat/multilingual-e5-large"
+)
+
+# 3. Aggregate by decade
+agg = aggregate_by_period(predictions, period_column="decade")
+stats = compute_period_stats(predictions, period_column="decade")
+
+# 4. Compute metrics
+entropy = compute_entropy_per_period(agg)
+divergence = compute_period_divergence(agg)
+emergence, decline = detect_sense_changes(agg, emergence_threshold=0.1)
+
+# 5. Visualize
+output_dir = Path("data/diachronic/plots")
+for lemma in agg["lemma"].unique():
+    plot_sense_trajectory(agg, lemma, output_dir=output_dir)
+    plot_sense_heatmap(agg, lemma, output_dir=output_dir)
+
+plot_entropy_over_time(entropy, output_dir=output_dir)
+plot_all_lemmas_summary(entropy, output_dir=output_dir)
+```
+
+---
+
+## 10. Data Formats & Schema
+
+### 10.1 Key Files
 
 #### Sense Inventory
 
-**File**: `data/processed/germanet/wsd_senses.csv`
+**File**: `data/processed/germanet/target_word_senses.csv`
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -1363,33 +1695,41 @@ data/diachronic/
 | `date_annotated` | str | Annotation date |
 | `confidence` | int | Annotator confidence (1-5) |
 
-### 9.2 Directory Structure
+### 10.2 Directory Structure
 
 ```
 data/
 ├── raw/
-│   └── target_word_lists/          # Source word lists
+│   └── target_words/               # Source word lists
 ├── external/
 │   └── germanet_v190/              # Original GermaNet XML
 ├── processed/
 │   ├── germanet/
-│   │   ├── wsd_senses.csv          # Main sense inventory
-│   │   └── wsd_senses_enhanced.csv # Enhanced version
+│   │   └── target_word_senses.csv  # Main sense inventory with enriched text
 │   ├── germanet_base/
 │   │   ├── synsets.parquet         # Parsed synsets
 │   │   ├── lexical_units.parquet   # Parsed lexical units
 │   │   ├── relations.parquet       # Semantic relations
 │   │   └── lemma_senses.parquet    # Lemma-sense mappings
-│   └── target_words/
-│       └── target_words_with_germanet_sense_counts.tsv
+│   ├── target_words/
+│   │   └── target_words_sense_counts.tsv  # GermaNet sense counts per word
+│   └── dwds/                       # Processed DWDS data
 ├── dwds_contexts/
 │   └── fetch_progress_*.jsonl      # DWDS corpus sentences
+├── diachronic/                     # Temporal analysis outputs
+│   ├── dwds_predictions.csv
+│   ├── temporal_decade_*.csv
+│   ├── metrics_decade_*.csv
+│   └── plots/
 └── evaluation/
-    ├── gold_standard.csv           # Annotated data
+    ├── preliminary/                # Preliminary evaluation results
+    │   └── input/
+    │       └── sense_text_representations.jsonl
+    ├── quick_eval/                 # Quick evaluation sets
     └── results/                    # Evaluation outputs
 ```
 
-### 9.3 Reproducibility
+### 10.3 Reproducibility
 
 #### Environment Setup
 
@@ -1410,23 +1750,23 @@ pip install -r requirements.txt
 
 ```bash
 # 1. Process GermaNet data
-python scripts/data_preparation/process_germanet.py
+python scripts/data/process_germanet.py
 
 # 2. Fetch DWDS contexts
-python scripts/data_preparation/fetch_dwds_contexts.py
+python scripts/data/fetch_dwds_contexts.py
 
 # 3. Build embeddings
-python scripts/data_preparation/build_embeddings.py
+python scripts/data/create_embeddings.py
 
 # 4. Run WSD evaluation
-python scripts/evaluation/run_wsd_evaluation.py
+python scripts/evaluation/compare_embedding_methods.py
 ```
 
 ---
 
-## 10. Limitations & Future Work
+## 11. Limitations & Future Work
 
-### 10.1 Current Limitations
+### 11.1 Current Limitations
 
 #### Data Limitations
 
@@ -1445,7 +1785,7 @@ python scripts/evaluation/run_wsd_evaluation.py
 | **Embedding model** | May not capture German well | Test German BERT |
 | **Context window** | Full sentence may be noisy | Experiment with window |
 
-### 10.2 Future Work
+### 11.2 Future Work
 
 #### Short-Term
 
@@ -1470,7 +1810,7 @@ python scripts/evaluation/run_wsd_evaluation.py
 
 ---
 
-## 11. References
+## 12. References
 
 ### Lexical Resources
 
