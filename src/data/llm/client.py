@@ -3,6 +3,7 @@
 
 import os
 import logging
+import time
 from typing import Optional
 from abc import ABC, abstractmethod
 
@@ -25,69 +26,116 @@ class BaseLLMClient(ABC):
 
 
 class OpenAIClient(BaseLLMClient):
-    """OpenAI API client."""
+    """OpenAI API client with retry logic."""
 
     def __init__(
         self,
         model: str = "gpt-4o-mini",
         api_key: Optional[str] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        max_retries: int = 3,
+        timeout_seconds: int = 120
     ):
         self.model = model
         self.temperature = temperature
+        self.max_retries = max_retries
+        self.timeout_seconds = timeout_seconds
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
 
         if not self.api_key:
             raise ValueError("OpenAI API key not found. Set OPENAI_API_KEY environment variable.")
 
-        self.client = OpenAI(api_key=self.api_key)
+        # Configure OpenAI client with custom timeout
+        self.client = OpenAI(
+            api_key=self.api_key,
+            timeout=timeout_seconds,
+            max_retries=max_retries
+        )
 
     def generate(self, prompt: str, max_tokens: int = 256) -> str:
-        """Generate text using OpenAI API."""
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=self.temperature
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            raise
+        """Generate text using OpenAI API with retry logic."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                start_time = time.time()
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=max_tokens,
+                    temperature=self.temperature
+                )
+                elapsed = time.time() - start_time
+                logger.debug(f"API call succeeded in {elapsed:.1f}s")
+                return response.choices[0].message.content.strip()
+
+            except Exception as e:
+                elapsed = time.time() - start_time
+
+                if attempt < self.max_retries:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    logger.warning(
+                        f"API call failed after {elapsed:.1f}s (attempt {attempt+1}/{self.max_retries+1}): {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"API call failed after {self.max_retries+1} attempts: {e}")
+                    raise
 
 
 class ClaudeClient(BaseLLMClient):
-    """Anthropic Claude API client."""
+    """Anthropic Claude API client with retry logic."""
 
     def __init__(
         self,
         model: str = "claude-3-5-sonnet-20241022",
         api_key: Optional[str] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        max_retries: int = 3,
+        timeout_seconds: int = 120
     ):
         self.model = model
         self.temperature = temperature
+        self.max_retries = max_retries
+        self.timeout_seconds = timeout_seconds
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
 
         if not self.api_key:
             raise ValueError("Anthropic API key not found. Set ANTHROPIC_API_KEY environment variable.")
 
-        self.client = Anthropic(api_key=self.api_key)
+        self.client = Anthropic(
+            api_key=self.api_key,
+            timeout=timeout_seconds,
+            max_retries=max_retries
+        )
 
     def generate(self, prompt: str, max_tokens: int = 256) -> str:
-        """Generate text using Claude API."""
-        try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                temperature=self.temperature,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.content[0].text.strip()
-        except Exception as e:
-            logger.error(f"Claude API error: {e}")
-            raise
+        """Generate text using Claude API with retry logic."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                start_time = time.time()
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    temperature=self.temperature,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                elapsed = time.time() - start_time
+                logger.debug(f"API call succeeded in {elapsed:.1f}s")
+                return response.content[0].text.strip()
+
+            except Exception as e:
+                elapsed = time.time() - start_time
+
+                if attempt < self.max_retries:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    logger.warning(
+                        f"API call failed after {elapsed:.1f}s (attempt {attempt+1}/{self.max_retries+1}): {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"API call failed after {self.max_retries+1} attempts: {e}")
+                    raise
 
 
 class LLMClient:

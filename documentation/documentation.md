@@ -436,23 +436,22 @@ Enriched Sense Text = Lemma + Paraphrase (if available) + Hypernym Context + Sem
 
 #### Implementation
 
-See `src/data/germanet/transforms/sense_enrichment.py`:
+See `src/data/germanet/transforms/sense_builder.py` (`SenseTextBuilder`) and `relation_text_builder.py` (`RelationTextBuilder`):
 
 ```python
-class SenseEnricher:
-    def build_contextual_description(self, synset_id: str) -> str:
-        """Build contextual description using semantic relations."""
-        # 1. Get hypernym chain
-        hypernym_chain = self.get_hypernym_chain(synset_id, max_depth=2)
+class SenseTextBuilder:
+    def create_sense_texts(self, synsets_df, lexical_units_df) -> pd.DataFrame:
+        """Build embedding-ready text for each synset."""
+        # 1. Normalize lexical units (aggregate lemmas, examples per synset)
+        # 2. Combine: paraphrase + lemmas + examples into text_for_embedding
+        ...
 
-        # 2. Get sibling synsets (same hypernym)
-        siblings = self.get_sibling_synsets(synset_id)
-
-        # 3. Get meronym relations
-        components = self.get_related_lemmas(synset_id, ['has_component_meronym'])
-
-        # 4. Combine into description
-        return self._format_description(...)
+class RelationTextBuilder:
+    def build_enriched_text(self, synset_id: str, original_text: str) -> str:
+        """Enrich sense text with related synset information (hypernyms, meronyms, etc.)."""
+        # BFS traversal of the relation graph
+        related_terms = self.get_related_text_terms(synset_id)
+        return TEXT_SEPARATOR.join([original_text] + [t for t, _, _ in related_terms])
 ```
 
 #### Enrichment Statistics
@@ -652,7 +651,7 @@ In addition to template-based approaches, we use LLMs to generate natural langua
 | File | Purpose |
 |------|---------|
 | `client.py` | LLM client wrapper (OpenAI/Claude) |
-| `sense_generator.py` | Generates definitions and examples per sense |
+| `text_generator.py` | Generates definitions and examples per sense |
 
 #### Prompt Templates: `config/prompts/`
 
@@ -683,10 +682,16 @@ variants = generator.generate_all_variants(
 #### Script
 
 ```bash
-python scripts/data/generate_llm_sense_texts.py --provider openai
+python scripts/data/enrich_senses_with_llm.py --provider openai
 ```
 
-Output: `data/evaluation/quick_eval/sense_text_representations.jsonl`
+**Output:**
+- `data/processed/germanet/target_word_senses_enhanced.csv` (CSV format)
+- `data/processed/germanet/target_word_senses_enhanced.jsonl` (JSONL format - recommended)
+
+Both formats contain the same data. JSONL format uses cleaner structure:
+- Examples grouped as `llm_examples` array (not 5 separate columns)
+- `baseline` field instead of `text_for_embedding`
 
 ### 6.2 Disambiguation Algorithm
 
@@ -1410,7 +1415,8 @@ src/
 │   │   ├── __init__.py
 │   │   ├── client.py       # DWDSClient API wrapper
 │   │   ├── fetcher.py      # Context fetching & filtering
-│   │   └── context_utils.py # Text cleaning, deduplication
+│   │   └── util/
+│   │       └── context_utils.py # Text cleaning, deduplication
 │   ├── germanet/           # GermaNet processing
 │   │   ├── __init__.py
 │   │   ├── make_dataset.py # GermaNetProcessor class
@@ -1420,7 +1426,7 @@ src/
 │   └── llm/                # LLM integration
 │       ├── __init__.py
 │       ├── client.py       # LLM API client
-│       └── sense_generator.py # Sense text generation
+│       └── text_generator.py # Sense text generation
 ├── diachronic/             # Temporal analysis library
 │   ├── __init__.py
 │   ├── io.py              # Data loading utilities
@@ -1440,7 +1446,7 @@ src/
 #### Module Descriptions
 
 **`src/data/dwds/`**
-- `DWDSClient`: API client for fetching corpus data, timeseries, dictionary entries
+- `DWDSClient`: API client for fetching corpus data from the DWDS API
 - `FetchOptions`: Configuration for context fetching (filtering, sampling)
 - `fetch_contexts_for_word()`: Main fetching function with filtering pipeline
 - Context utilities: cleaning, deduplication, temporal parsing

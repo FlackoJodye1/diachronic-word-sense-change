@@ -1,60 +1,35 @@
-# -*- coding: utf-8 -*-
-"""
-Relation-aware text building for GermaNet embeddings.
-
-This module enhances sense texts by incorporating information from semantically
-related synsets before embedding generation, creating richer representations.
-"""
+"""Enriches sense texts with information from semantically related synsets."""
 
 import logging
 import pandas as pd
 import networkx as nx
-from typing import Dict, List, Optional, Set, Tuple
-from collections import defaultdict
+from typing import List, Tuple
 
 
 class RelationTextBuilder:
     """Builds relation-enriched texts for embedding generation."""
-    
-    def __init__(self, config: Optional[Dict] = None):
-        """Initialize the relation text builder.
-        
-        Args:
-            config: Optional configuration dictionary
-        """
-        self.config = config or {}
-        
-        # Configuration for relation inclusion
-        self.relation_config = {
-            # “is a kind of”: dog → animal
-            'has_hypernym': {'include': True, 'max_depth': 2, 'weight': 1.0},
-            # “is a type of”: animal → dog
-            'has_hyponym': {'include': True, 'max_depth': 1, 'weight': 0.8},
-            # “has as a physical part”: car → engine
-            'has_component_meronym': {'include': True, 'max_depth': 1, 'weight': 0.6},
-            # “has as a member”: team → player
-            'has_member_meronym': {'include': True, 'max_depth': 1, 'weight': 0.6},
-            # “is made of”: statue → marble
-            'has_substance_meronym': {'include': True, 'max_depth': 1, 'weight': 0.6},
-            # “has as a portion”: cake → slice
-            'has_portion_meronym': {'include': True, 'max_depth': 1, 'weight': 0.6},
-            # is_related_to: loosely connected conceptually
-            'is_related_to': {'include': True, 'max_depth': 1, 'weight': 0.5},
-            # one concept causes another: virus → disease
-            'causes': {'include': True, 'max_depth': 1, 'weight': 0.4},
-            # one implies another: snoring → sleeping
-            'entails': {'include': True, 'max_depth': 1, 'weight': 0.4}
-        }
-        self.relation_config.update(self.config.get('relation_config', {}))
-        
-        self.text_separator = self.config.get('text_separator', ' ; ')
-        self.max_related_terms = self.config.get('max_related_terms', 10)
-        self.include_relation_types = self.config.get('include_relation_types', False)
-        
+
+    TEXT_SEPARATOR = ' ; '
+    MAX_RELATED_TERMS = 10
+    INCLUDE_RELATION_TYPES = False
+
+    # Which relation types to follow, how deep, and how much to weight them
+    RELATION_CONFIG = {
+        'has_hypernym':          {'include': True, 'max_depth': 2, 'weight': 1.0},  # dog → animal
+        'has_hyponym':           {'include': True, 'max_depth': 1, 'weight': 0.8},  # animal → dog
+        'has_component_meronym': {'include': True, 'max_depth': 1, 'weight': 0.6},  # car → engine
+        'has_member_meronym':    {'include': True, 'max_depth': 1, 'weight': 0.6},  # team → player
+        'has_substance_meronym': {'include': True, 'max_depth': 1, 'weight': 0.6},  # statue → marble
+        'has_portion_meronym':   {'include': True, 'max_depth': 1, 'weight': 0.6},  # cake → slice
+        'is_related_to':         {'include': True, 'max_depth': 1, 'weight': 0.5},  # loose conceptual link
+        'causes':                {'include': True, 'max_depth': 1, 'weight': 0.4},  # virus → disease
+        'entails':               {'include': True, 'max_depth': 1, 'weight': 0.4},  # snoring → sleeping
+    }
+
+    def __init__(self):
         self.relations_df = None
         self.relation_graph = None
         self.synset_texts = {}
-        
         self.logger = logging.getLogger(__name__)
     
     def load_relations(self, relations_df: pd.DataFrame) -> None:
@@ -73,11 +48,11 @@ class RelationTextBuilder:
             from_synset = row['from_synset']
             to_synset = row['to_synset']
             
-            if rel_type in self.relation_config and self.relation_config[rel_type]['include']:
+            if rel_type in self.RELATION_CONFIG and self.RELATION_CONFIG[rel_type]['include']:
                 self.relation_graph.add_edge(
                     from_synset, to_synset,
                     relation=rel_type,
-                    weight=self.relation_config[rel_type]['weight']
+                    weight=self.RELATION_CONFIG[rel_type]['weight']
                 )
         
         self.logger.info(f'Loaded {len(self.relation_graph.edges)} relevant semantic relations')
@@ -109,7 +84,7 @@ class RelationTextBuilder:
         related_terms = []
         
         # Traverse relations according to configuration
-        for rel_type, config in self.relation_config.items():
+        for rel_type, config in self.RELATION_CONFIG.items():
             if not config['include']:
                 continue
             
@@ -147,7 +122,7 @@ class RelationTextBuilder:
         
         # Sort by weight and limit number of terms
         related_terms.sort(key=lambda x: x[2], reverse=True)
-        return related_terms[:self.max_related_terms]
+        return related_terms[:self.MAX_RELATED_TERMS]
     
     def build_enriched_text(self, synset_id: str, original_text: str) -> str:
         """Build relation-enriched text for a synset.
@@ -173,7 +148,7 @@ class RelationTextBuilder:
             cleaned_text = related_text.strip()
             
             if cleaned_text and cleaned_text not in text_parts:
-                if self.include_relation_types:
+                if self.INCLUDE_RELATION_TYPES:
                     # Include relation type as context
                     formatted_text = f"[{rel_type}] {cleaned_text}"
                 else:
@@ -182,7 +157,7 @@ class RelationTextBuilder:
                 text_parts.append(formatted_text)
         
         # Combine all parts
-        enriched_text = self.text_separator.join(text_parts)
+        enriched_text = self.TEXT_SEPARATOR.join(text_parts)
         return enriched_text
     
     def enrich_sense_texts(self, sense_texts_df: pd.DataFrame) -> pd.DataFrame:
@@ -218,47 +193,3 @@ class RelationTextBuilder:
         self.logger.info('Sense text enrichment completed')
         return enriched_df
     
-    def get_enrichment_statistics(self, original_df: pd.DataFrame, enriched_df: pd.DataFrame) -> Dict:
-        """Get statistics about the enrichment process.
-        
-        Args:
-            original_df: Original sense texts DataFrame
-            enriched_df: Enriched sense texts DataFrame
-            
-        Returns:
-            Dictionary with enrichment statistics
-        """
-        original_lengths = original_df['text_for_embedding'].str.len()
-        enriched_lengths = enriched_df['text_for_embedding'].str.len()
-        
-        expansion_ratios = enriched_lengths / (original_lengths + 1)  # +1 to avoid division by zero
-        
-        return {
-            'total_synsets': len(original_df),
-            'avg_original_length': float(original_lengths.mean()),
-            'avg_enriched_length': float(enriched_lengths.mean()),
-            'avg_expansion_ratio': float(expansion_ratios.mean()),
-            'max_expansion_ratio': float(expansion_ratios.max()),
-            'min_expansion_ratio': float(expansion_ratios.min()),
-            'synsets_with_relations': len(enriched_df[enriched_lengths > original_lengths]),
-            'avg_length_increase': float((enriched_lengths - original_lengths).mean())
-        }
-
-
-def enrich_sense_texts_with_relations(sense_texts_df: pd.DataFrame,
-                                     relations_df: pd.DataFrame,
-                                     config: Optional[Dict] = None) -> pd.DataFrame:
-    """Convenience function to enrich sense texts with relations.
-    
-    Args:
-        sense_texts_df: DataFrame with synset texts
-        relations_df: DataFrame with semantic relations
-        config: Optional configuration
-        
-    Returns:
-        DataFrame with relation-enriched texts
-    """
-    builder = RelationTextBuilder(config)
-    builder.load_relations(relations_df)
-    builder.load_synset_texts(sense_texts_df)
-    return builder.enrich_sense_texts(sense_texts_df)

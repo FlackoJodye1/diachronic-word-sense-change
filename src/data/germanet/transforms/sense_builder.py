@@ -1,10 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Sense text building functionality for GermaNet data.
-
-This module handles creation of embedding-ready text for each synset by combining
-paraphrases, examples, lemmas, and variants from the raw GermaNet data.
-"""
+"""Creates embedding-ready sense texts by combining paraphrases, examples, and lemmas."""
 
 import logging
 import pandas as pd
@@ -41,7 +35,7 @@ class SenseTextBuilder:
         
         self.logger.info('Creating sense texts for embeddings')
         
-        # Normalize missing values in lexical units
+        # Normalize missing values in lexical units (fills NaN in variants, examples, lemma with "")
         lexical_units_clean = self._normalize_lexical_units(lexical_units_df)
         
         # Aggregate lemmas/variants/examples per synset
@@ -120,75 +114,3 @@ class SenseTextBuilder:
         
         return sense_texts
     
-    def get_statistics(self, sense_texts_df: pd.DataFrame) -> Dict:
-        """Get statistics about the created sense texts.
-        
-        Args:
-            sense_texts_df: DataFrame with sense texts
-            
-        Returns:
-            Dictionary with statistics
-        """
-        if sense_texts_df is None or sense_texts_df.empty:
-            return {'total': 0, 'empty_texts': 0, 'avg_length': 0}
-        
-        # Calculate text lengths
-        text_lengths = sense_texts_df['text_for_embedding'].str.len()
-        empty_texts = (sense_texts_df['text_for_embedding'].str.strip() == '').sum()
-        
-        return {
-            'total': len(sense_texts_df),
-            'empty_texts': int(empty_texts),
-            'avg_length': float(text_lengths.mean()),
-            'min_length': int(text_lengths.min()),
-            'max_length': int(text_lengths.max()),
-            'median_length': float(text_lengths.median())
-        }
-    
-    def validate_sense_texts(self, sense_texts_df: pd.DataFrame) -> bool:
-        """Validate the created sense texts.
-        
-        Args:
-            sense_texts_df: DataFrame with sense texts to validate
-            
-        Returns:
-            True if validation passes, False otherwise
-        """
-        if sense_texts_df is None or sense_texts_df.empty:
-            self.logger.error("Sense texts DataFrame is None or empty")
-            return False
-        
-        required_columns = ['synset_id', 'text_for_embedding']
-        missing_columns = [col for col in required_columns if col not in sense_texts_df.columns]
-        if missing_columns:
-            self.logger.error(f"Missing required columns: {missing_columns}")
-            return False
-        
-        # Check for null synset_ids
-        null_synset_ids = sense_texts_df['synset_id'].isnull().sum()
-        if null_synset_ids > 0:
-            self.logger.warning(f"Found {null_synset_ids} null synset_ids")
-        
-        # Check for duplicate synset_ids
-        duplicates = sense_texts_df['synset_id'].duplicated().sum()
-        if duplicates > 0:
-            self.logger.warning(f"Found {duplicates} duplicate synset_ids")
-        
-        self.logger.info("Sense texts validation completed")
-        return True
-
-
-def create_sense_texts(synsets_df: pd.DataFrame, lexical_units_df: pd.DataFrame, 
-                      config: Optional[Dict] = None) -> pd.DataFrame:
-    """Convenience function to create sense texts.
-    
-    Args:
-        synsets_df: DataFrame containing synset data
-        lexical_units_df: DataFrame containing lexical unit data
-        config: Optional configuration dictionary
-        
-    Returns:
-        DataFrame with synset_id and text_for_embedding columns
-    """
-    builder = SenseTextBuilder(config)
-    return builder.create_sense_texts(synsets_df, lexical_units_df)

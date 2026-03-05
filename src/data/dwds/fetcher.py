@@ -7,7 +7,7 @@ from typing import Optional
 import pandas as pd
 
 from .client import DWDSClient
-from .context_utils import (
+from .util.context_utils import (
     add_temporal_columns,
     clean_context,
     count_words,
@@ -100,7 +100,7 @@ def apply_filters(
         if per_decade_rows:
             df = pd.concat(per_decade_rows, ignore_index=True)
 
-    if options.auto_select and options.target_n > 0 and len(df) > options.target_n:
+    if options.auto_select and 0 < options.target_n < len(df):
         lemma_seed = derive_seed(options.seed, target_word)
         indices = list(df.index)
         random.Random(lemma_seed).shuffle(indices)

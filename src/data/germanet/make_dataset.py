@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple
 import logging
 
 from .parsing import XMLParser, RelationParser
@@ -19,9 +18,6 @@ class GermaNetProcessor:
         self.output_dir = Path(output_dir)
         self.config = config or {}
         
-        # Configuration
-        self.text_separator = self.config.get('text_separator', ' ; ')
-        
         # Data storage
         self.synsets_df: Optional[pd.DataFrame] = None
         self.lexical_units_df: Optional[pd.DataFrame] = None
@@ -33,14 +29,14 @@ class GermaNetProcessor:
         self.embedding_metadata: Optional[pd.DataFrame] = None
         
         # Initialize parsers, transformers, and I/O
-        self.xml_parser = XMLParser(self.config)
-        self.relation_parser = RelationParser(self.config)
+        self.xml_parser = XMLParser()
+        self.relation_parser = RelationParser()
         self.sense_builder = SenseTextBuilder(self.config)
-        self.table_builder = TableBuilder(self.config)
-        self.candidate_mapper = CandidateMapper(self.config)
-        self.relation_text_builder = RelationTextBuilder(self.config)
+        self.table_builder = TableBuilder()
+        self.candidate_mapper = CandidateMapper()
+        self.relation_text_builder = RelationTextBuilder()
         self.embedding_builder = EmbeddingBuilder(self.config)
-        self.data_saver = DataSaver(self.output_dir, self.config)
+        self.data_saver = DataSaver(self.output_dir)
         
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -113,21 +109,6 @@ class GermaNetProcessor:
         self.embedding_metadata = self.embedding_builder.metadata
         return embeddings, self.embedding_metadata
     
-    def save_table(self, name: str, df: pd.DataFrame) -> bool:
-        """Save a single table as CSV."""
-        return self.data_saver.save_table(name, df)
-    
-    def save_all(self) -> Dict[str, bool]:
-        """Save all processed tables as CSV."""
-        tables = {
-            'synsets': self.synsets_df,
-            'lexical_units': self.lexical_units_df,
-            'relations': self.relations_df,
-            'lemma_senses': self.lemma_senses_df,
-            'sense_texts': self.sense_texts_df
-        }
-        
-        return self.data_saver.save_all_tables(tables)
     
     def process_all(self, create_embeddings: bool = False, enrich_with_relations: bool = True) -> None:
         """Run the complete processing pipeline.
@@ -173,7 +154,13 @@ class GermaNetProcessor:
                 self.logger.error(f'Failed to create embeddings: {e}')
         
         # Step 5: Save everything
-        self.save_all()
+        self.data_saver.save_all_tables({
+            'synsets': self.synsets_df,
+            'lexical_units': self.lexical_units_df,
+            'relations': self.relations_df,
+            'lemma_senses': self.lemma_senses_df,
+            'sense_texts': self.sense_texts_df,
+        })
         
         # Step 6: Save candidate map as pickle
         candidate_map_path = self.output_dir / "candidate_map.pkl"
@@ -207,14 +194,3 @@ class GermaNetProcessor:
         
         return stats
 
-
-if __name__ == '__main__':
-    import sys
-    from pathlib import Path
-    
-    # Add project root to path for relative imports
-    project_root = Path(__file__).resolve().parents[3]
-    sys.path.insert(0, str(project_root))
-    
-    from src.data.germanet.cli import main
-    main()

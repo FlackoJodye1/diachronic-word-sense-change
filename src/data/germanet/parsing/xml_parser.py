@@ -1,13 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-XML parsing functionality for GermaNet data.
-
-This module handles parsing of GermaNet XML files to extract synsets and lexical units.
-"""
+"""XML parsing for GermaNet XML files to extract synsets and lexical units."""
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from lxml import etree
 
 
@@ -24,15 +19,9 @@ class XMLParser:
     
     DEFAULT_SKIP_PATTERNS = ['gn_relations', 'interlingualindex', '.dtd', 'germanet_']
     
-    def __init__(self, config: Optional[Dict] = None):
-        """Initialize the XML parser.
-        
-        Args:
-            config: Optional configuration dictionary
-        """
-        self.config = config or {}
-        self.pos_mapping = self.config.get('pos_mapping', self.DEFAULT_POS_MAPPING)
-        self.skip_patterns = self.config.get('skip_patterns', self.DEFAULT_SKIP_PATTERNS)
+    def __init__(self):
+        self.pos_mapping = self.DEFAULT_POS_MAPPING
+        self.skip_patterns = self.DEFAULT_SKIP_PATTERNS
         self.logger = logging.getLogger(__name__)
     
     def normalize_pos(self, category: str) -> str:
@@ -171,35 +160,3 @@ class XMLParser:
             'sense': sense,
             'source': source
         }
-
-
-class SynsetParser(XMLParser):
-    """Specialized parser focused on synset extraction."""
-    
-    def parse_synsets_only(self, xml_dir: Path) -> List[Dict]:
-        """Parse XML files and return only synsets (no lexical units).
-        
-        Args:
-            xml_dir: Path to directory containing XML files
-            
-        Returns:
-            List of synset dictionaries
-        """
-        synsets, _ = self.parse_xml_files(xml_dir)
-        return synsets
-
-
-class LexicalUnitParser(XMLParser):
-    """Specialized parser focused on lexical unit extraction."""
-    
-    def parse_lexical_units_only(self, xml_dir: Path) -> List[Dict]:
-        """Parse XML files and return only lexical units (no synsets).
-        
-        Args:
-            xml_dir: Path to directory containing XML files
-            
-        Returns:
-            List of lexical unit dictionaries
-        """
-        _, lexical_units = self.parse_xml_files(xml_dir)
-        return lexical_units

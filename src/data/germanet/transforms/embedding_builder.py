@@ -1,17 +1,11 @@
-# -*- coding: utf-8 -*-
-"""
-Embedding building functionality for GermaNet data.
-
-This module handles creation of embeddings for synset texts using various embedding models,
-primarily sentence transformers for multilingual semantic embeddings.
-"""
+"""Creates embeddings for GermaNet sense texts using sentence transformers."""
 
 import logging
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, Optional, Tuple
 import warnings
 
 try:
@@ -199,138 +193,3 @@ class EmbeddingBuilder:
         self.logger.info(f'Loaded embeddings with shape {embeddings.shape}')
         return embeddings, metadata
     
-    def get_embedding_statistics(self, embeddings: Optional[np.ndarray] = None) -> Dict[str, Any]:
-        """Get statistics about the embeddings.
-        
-        Args:
-            embeddings: Optional embeddings array (uses self.embeddings if None)
-            
-        Returns:
-            Dictionary with statistics
-        """
-        embeddings_to_analyze = embeddings if embeddings is not None else self.embeddings
-        
-        if embeddings_to_analyze is None:
-            return {
-                'shape': None,
-                'dtype': None,
-                'memory_usage_mb': 0,
-                'mean_norm': 0,
-                'std_norm': 0
-            }
-        
-        # Basic statistics
-        shape = embeddings_to_analyze.shape
-        dtype = embeddings_to_analyze.dtype
-        memory_usage_mb = embeddings_to_analyze.nbytes / (1024 * 1024)
-        
-        # Norm statistics (if embeddings are normalized, should be close to 1.0)
-        norms = np.linalg.norm(embeddings_to_analyze, axis=1)
-        mean_norm = float(np.mean(norms))
-        std_norm = float(np.std(norms))
-        
-        return {
-            'shape': shape,
-            'dtype': str(dtype),
-            'memory_usage_mb': round(memory_usage_mb, 2),
-            'mean_norm': round(mean_norm, 4),
-            'std_norm': round(std_norm, 4),
-            'min_norm': round(float(np.min(norms)), 4),
-            'max_norm': round(float(np.max(norms)), 4)
-        }
-    
-    def validate_embeddings(self, embeddings: Optional[np.ndarray] = None,
-                           metadata: Optional[pd.DataFrame] = None) -> bool:
-        """Validate the embeddings and metadata.
-        
-        Args:
-            embeddings: Optional embeddings array (uses self.embeddings if None)
-            metadata: Optional metadata DataFrame (uses self.metadata if None)
-            
-        Returns:
-            True if validation passes, False otherwise
-        """
-        embeddings_to_validate = embeddings if embeddings is not None else self.embeddings
-        metadata_to_validate = metadata if metadata is not None else self.metadata
-        
-        if embeddings_to_validate is None:
-            self.logger.error("No embeddings to validate")
-            return False
-        
-        # Check for NaN or infinite values
-        if np.isnan(embeddings_to_validate).any():
-            self.logger.error("Found NaN values in embeddings")
-            return False
-        
-        if np.isinf(embeddings_to_validate).any():
-            self.logger.error("Found infinite values in embeddings")
-            return False
-        
-        # Check metadata alignment if available
-        if metadata_to_validate is not None:
-            if len(embeddings_to_validate) != len(metadata_to_validate):
-                self.logger.error(
-                    f"Embeddings and metadata length mismatch: "
-                    f"{len(embeddings_to_validate)} vs {len(metadata_to_validate)}"
-                )
-                return False
-            
-            # Check for required columns
-            if 'synset_id' not in metadata_to_validate.columns:
-                self.logger.error("Missing 'synset_id' column in metadata")
-                return False
-        
-        self.logger.info("Embedding validation completed successfully")
-        return True
-    
-    def search_similar(self, query_embedding: np.ndarray, 
-                      top_k: int = 10,
-                      embeddings: Optional[np.ndarray] = None) -> List[Tuple[int, float]]:
-        """Find most similar embeddings to a query.
-        
-        Args:
-            query_embedding: Query embedding vector
-            top_k: Number of top results to return
-            embeddings: Optional embeddings array (uses self.embeddings if None)
-            
-        Returns:
-            List of (index, similarity_score) tuples
-        """
-        embeddings_to_search = embeddings if embeddings is not None else self.embeddings
-        
-        if embeddings_to_search is None:
-            raise ValueError("No embeddings available for search")
-        
-        # Normalize query if embeddings are normalized
-        if self.normalize_embeddings:
-            query_embedding = query_embedding / np.linalg.norm(query_embedding)
-        
-        # Compute similarities (cosine similarity for normalized embeddings)
-        similarities = np.dot(embeddings_to_search, query_embedding)
-        
-        # Get top-k indices
-        top_indices = np.argsort(similarities)[::-1][:top_k]
-        
-        return [(int(idx), float(similarities[idx])) for idx in top_indices]
-
-
-def create_embeddings(sense_texts_df: pd.DataFrame,
-                     output_dir: Optional[Path] = None,
-                     config: Optional[Dict] = None) -> Tuple[np.ndarray, pd.DataFrame]:
-    """Convenience function to create embeddings.
-    
-    Args:
-        sense_texts_df: DataFrame containing sense texts
-        output_dir: Optional directory to save embeddings
-        config: Optional configuration dictionary
-        
-    Returns:
-        Tuple of (embeddings, metadata_df)
-    """
-    builder = EmbeddingBuilder(config)
-    embeddings = builder.create_embeddings(sense_texts_df)
-    
-    if output_dir:
-        builder.save_embeddings(output_dir)
-    
-    return embeddings, builder.metadata

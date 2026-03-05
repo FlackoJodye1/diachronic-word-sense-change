@@ -316,7 +316,7 @@ Created LLM text generation module for sense representations:
 
 **New files:**
 - `src/data/llm/client.py` - LLM client wrapper (OpenAI/Claude)
-- `src/data/llm/sense_generator.py` - Sense text generator
+- `src/data/llm/text_generator.py` - Sense text generator
 - `config/prompts/definition.txt` - Definition prompt template
 - `config/prompts/example_single.txt` - Single example prompt
 - `config/prompts/examples_multiple.txt` - Multiple examples prompt
@@ -357,6 +357,53 @@ The prompts instruct the LLM to generate text that clearly distinguishes this se
 
 - [ ] Run WSD evaluation comparing all 4 text representations
 - [ ] Analyze which representation works best per polysemy level
+
+---
+
+## 2026-01-30: Weight Tuning for Weighted Representation
+
+**Status**: Completed
+
+**Context**:
+The weighted representation (α×definition + (1-α)×avg(examples)) achieved 54.8% accuracy with α=0.5. We wanted to verify whether 0.5 is optimal or if other weights perform better.
+
+**Experiment Design**:
+- **Model**: intfloat/multilingual-e5-large (best performer)
+- **Search space**: α ∈ [0.0, 0.1, 0.2, ..., 1.0] (11 values)
+- **Evaluation**: 93 gold-annotated instances from atemporal eval set
+- **Metric**: WSD accuracy (top-1)
+
+**Results**:
+
+| α | Interpretation | Accuracy | vs. Baseline |
+|---|---------------|----------|--------------|
+| 0.0 | Pure examples | 51.6% | -3.2% |
+| 0.1-0.3 | Heavy examples | 50.5% | -4.3% |
+| 0.4 | Examples-leaning | 52.7% | -2.1% |
+| **0.5** | **Equal weight** | **54.8%** | **baseline** ✓ |
+| 0.6 | Definition-leaning | 51.6% | -3.2% |
+| 0.7-0.8 | Heavy definition | 47.3-50.5% | -4.3 to -7.5% |
+| 1.0 | Pure definition | 41.9% | -12.9% |
+
+**Key Findings**:
+
+1. **α=0.5 is optimal**: Performance peaks exactly at equal weighting
+2. **Symmetric degradation**: Accuracy drops similarly when moving away from 0.5 in either direction
+3. **Synergy effect**: Combined (54.8%) > best single source (51.6% examples)
+4. **Definitions need examples**: Pure definition performs worst (41.9%)
+
+**Decision**:
+Keep α=0.5 for production pipeline. The 50/50 split is:
+- Empirically optimal on eval set
+- Simple and interpretable
+- Conceptually sound (balancing abstract definition with concrete usage)
+
+**Implementation**:
+Weight is hardcoded in `src/data/embedding_strategies.py:144`
+
+**Results file**: `data/evaluation/atemporal/results/weight_tuning.csv`
+
+**Script**: `scripts/atemporal/tune_representation_weights.py`
 
 ---
 
@@ -416,4 +463,203 @@ How to represent the sentence context being disambiguated?
 
 ---
 
-*Last updated: 2026-01-13*
+*Last updated: 2026-02-18*
+
+---
+
+## 2026-02-18: Diachronic Corpus Quality Assessment
+
+**Status**: Decision Made
+
+**Context**:
+Before proceeding with manual validation of the diachronic pilot results, we did a basic quality check of the fetched DWDS sentences (`data/dwds_contexts/pilot_diachronic_contexts.jsonl`) to assess whether they are suitable input for the WSD pipeline.
+
+**Findings**:
+
+| Metric | Value |
+|--------|-------|
+| Total sentences | 6,474 |
+| Average length | 20.7 words |
+| Median length | 20.0 words |
+| Short sentences (< 10 words) | 383 (5.9%) |
+| Truncated sentences (ends with ...) | 32 (0.5%) |
+| Sentences with < 6 words | 0 |
+
+**Verdict**: The corpus is **usable**. Sentence length is adequate for WSD, virtually nothing is truncated or trivially short.
+
+**Known Issues**:
+
+1. **Fixed expressions (~20% estimate)**: Many sentences contain idiomatic / frozen multi-word expressions where the target word's sense is effectively bleached. Examples for *tragen*: *Sorge tragen* ("to take care"), *Rechnung tragen* ("to take into account"), *zu Grabe tragen* ("to bury").
+
+   **Why this is a problem for WSD**: In a fixed expression, the target word no longer carries an independently assignable sense — the meaning is compositionally opaque. The embedding of the sentence will reflect the idiomatic meaning of the whole phrase, not the target word in isolation. Our model will nonetheless force an assignment to the nearest GermaNet sense, which is essentially arbitrary for these cases.
+
+   **Why this is a problem for diachronic analysis**: If the frequency of fixed expressions containing a word shifts across decades — e.g., because *Rechnung tragen* becomes more common in bureaucratic/scientific writing after the 1950s — the model will systematically push predictions toward whichever GermaNet sense happens to be closest to that idiom. This looks like a genuine sense shift in the metrics (rising JSD, sense emergence/decline) but is actually a genre or register artifact, not a change in word meaning. This is particularly hard to detect because the model's confidence will remain high — the embedding is clear and consistent, just not meaningful for our purposes.
+
+2. **Sparse decade coverage**: Average of ~5.7 sentences per word-decade. Several word-decades have fewer than 5 sentences, making decade-level sense distributions unreliable. JSD=1.0 values in the metrics are often artifacts of this sparsity rather than genuine semantic change.
+
+3. **Genre imbalance across decades**: The DWDS kern corpus is not evenly distributed by genre over time. Shifts in genre composition (e.g., more Zeitung in certain decades) can drive apparent sense shifts independently of actual language change.
+
+**Decision: Run as-is, treat as known limitation.**
+
+Filtering out fixed expressions was considered but rejected for the following reasons:
+- Diachronic analysis is about *shifts* in sense distributions, not absolute frequencies. If idioms are roughly evenly distributed across decades for a given word, they add a constant bias but do not create fake shifts.
+- Data is already sparse (~5.7 sentences per word-decade on average). Removing idioms would make this worse.
+- This is a pilot study — the goal is to validate the pipeline and identify patterns, not to produce publication-ready clean results.
+- Handling idioms and fixed expressions is a known open problem in WSD research; ignoring them is standard practice in comparable studies.
+
+The one real risk is if genre composition in DWDS shifts across decades in a way that correlates with idiom frequency (e.g., more bureaucratic/scientific writing in later decades increasing *Rechnung/Sorge tragen*). This is hard to control for and is noted as a limitation.
+
+**Follow-up**:
+- Document as a limitation in any write-up.
+- When manually validating top words, note if a suspicious sense shift is driven by idiom-heavy sentences.
+- Future work: consider flagging known fixed expressions as a pre-processing step.
+
+---
+
+## 2026-02-19: Re-fetch with Relaxed Sentence Length Cap
+
+**Status**: Done
+
+**Context**:
+The original fetch used `--max-tokens 35`, which was artificially limiting yield and truncating many DWDS sentences. Re-fetched all 116 pilot words with `--max-tokens 60`, `--limit 1000`, `--target-n 0`, `--max-per-doc 1`.
+
+**Results**:
+- Total sentences: **30,337** (up from 6,474 — ~5x increase)
+- Output: `data/dwds_contexts/pilot_diachronic_contexts_v2.jsonl`
+
+**Truncation check**: Only 0.3% of sentences hit the 60-token cap → cap is not limiting. Keep at 60.
+
+---
+
+## 2026-02-19: DWDS Kern Corpus — Temporal and Genre Imbalance
+
+**Status**: Documented (known limitation, does not invalidate study)
+
+**Context**:
+Post-fetch analysis of genre and decade distribution in `pilot_diachronic_contexts_v2.jsonl`.
+
+**Findings**:
+
+*Sentences per decade:*
+
+| Decade | Sentences |
+|--------|-----------|
+| 1900s | 3,143 |
+| 1910s | 3,879 |
+| 1920s | 4,393 |
+| 1930s | 3,998 |
+| 1940s | 2,912 |
+| 1950s | 2,797 |
+| 1960s | 2,347 |
+| 1970s | 1,956 |
+| 1980s | 2,271 |
+| 1990s | 2,641 |
+
+*Genre composition (%) per decade:*
+
+| Decade | Belletristik | Gebrauchsliteratur | Wissenschaft | Zeitung |
+|--------|-------------|-------------------|-------------|---------|
+| 1900s | 29 | 21 | 17 | 32 |
+| 1920s | 25 | 24 | 16 | 35 |
+| 1950s | 11 | 34 | 23 | 32 |
+| 1970s | 13 | 25 | 24 | 38 |
+| 1990s | 21 | 29 | 24 | 27 |
+
+**Interpretation**:
+The DWDS kern corpus is officially designed to be balanced across decades (1900–1999) and across four genres (Belletristik, Zeitung, Wissenschaft, Gebrauchsliteratur). However, in practice the distribution in our fetched data is not perfectly uniform:
+
+- Later decades (e.g. 1970s: 1,956 sentences) contain significantly fewer sentences than earlier ones (e.g. 1920s: 4,393). This is the opposite of what a recency-biased corpus would show, and likely reflects licensing and digitization constraints on older texts being more thoroughly digitized in this corpus.
+- Genre composition shifts over time: Belletristik declines from ~30% (1900–1920s) to ~12% (1960–1980s), offset by rising Wissenschaft (17% → 27%). Zeitung is stable at 27–42%.
+
+This temporal and genre imbalance is a **structural property of the corpus**, not a pipeline bug. It is a potential confound in the diachronic analysis — genre-specific vocabulary and sense usage may drive apparent sense shifts independently of genuine semantic change. It does not invalidate the study but should be reported as a limitation.
+
+**Follow-up**: When interpreting diachronic results, treat shifts that coincide with strong genre composition changes with extra caution.
+
+---
+
+## 2026-02-19: Sparse-Data Filter Applied to Diachronic Metrics
+
+**Status**: Decision Made
+
+**Context**:
+Many JSD=1.0 values in the diachronic metrics were suspected to be artifacts of word-decades with very few sentences (sometimes 1–2), rather than genuine semantic change.
+
+**Decision**: Filter out word-decades with fewer than 5 contexts before computing JSD and other change metrics.
+
+**Implementation**: Added `--min-contexts` flag to `scripts/diachronic/compute_change_metrics.py`. Filter applied to the `total` column in the sense counts CSV.
+
+**Results**:
+
+| Metric | Unfiltered | Filtered (n≥5) |
+|--------|-----------|----------------|
+| Word-decades included | 861 | 490 |
+| Max JSD | 1.0 | 0.913 |
+| Emergence events | 82 | 343 |
+| Decline events | 84 | 318 |
+
+The JSD=1.0 values are eliminated. Emergence/decline counts increased because proportional shifts in reliable decades are more meaningful.
+
+**Output files**: `data/diachronic/pilot_weighted_filtered_decade_*.csv`
+
+**Follow-up**: v1 metrics superseded by v2. Keep v1 files for reference only.
+
+---
+
+## 2026-02-19: v2 Predictions, Aggregation & Metrics
+
+**Status**: Done
+
+**Context**: After re-fetching with relaxed sentence cap (30,337 sentences vs 6,474), re-ran the full pipeline on the new data.
+
+**Pipeline run:**
+1. `predict_dwds_senses.py` → `pilot_predictions_weighted_v2.csv` (24,325 predictions, 90 words)
+2. `aggregate_temporal.py` → `pilot_weighted_v2_decade_sense_counts.csv`, `pilot_weighted_v2_decade_stats.csv`
+3. `compute_change_metrics.py --min-contexts 5` → `pilot_weighted_v2_filtered_decade_*.csv`
+
+**Results vs v1:**
+
+| Metric | v1 | v2 |
+|--------|----|----|
+| Total predictions | 5,155 | 24,325 |
+| Word-decades filtered out (n<5) | 371/861 (43%) | 22/894 (2%) |
+| Max JSD | 0.913 | 0.835 |
+| Emergence events | 343 | 518 |
+| Decline events | 318 | 521 |
+| Mean confidence | 0.833 | ~0.831 |
+
+The v2 data is substantially more reliable — nearly all word-decades now have sufficient data. The top 10 ranking needs to be re-computed from v2 metrics. Notebook updated to load v2 files.
+
+**Known issue — 26 words skipped (no GermaNet senses):**
+The following words are in `pilot_words_diachronic.txt` but absent from all GermaNet senses files (`target_word_senses.csv`, `target_word_senses_enhanced_*.csv`):
+
+> Bauer, Becher, Bild, Fall, Farbe, Figur, Gang, Husten, Knoten, Paket, Seite, Stück, Wurzel, Zug, brennen, fahren, folgen, halten, heißen, lassen, legen, liegen, riechen, schließen, sehen, stehen
+
+These words **are** present in the raw GermaNet lexical units (`lemma_senses.csv`) and in the 750-word target list. The gap was introduced during the GermaNet processing step (`process_germanet.py`) — likely a matching or filtering issue. Does not affect the current pilot (90 words are sufficient), but should be fixed before scaling up. Root cause investigation deferred to Phase 4.
+
+---
+
+## 2026-02-19: Temporal Resolution vs. Data Density Trade-off
+
+**Status**: Decision Made
+
+**Context**:
+After applying the n≥5 filter, we found that the median is still only ~8.5 sentences per reliable word-decade, and the average word has ~5-6 GermaNet senses. To get reliable sense proportion estimates you need roughly 5 observations per sense, implying ~30 sentences per decade per word. The DWDS kern corpus simply cannot provide this at decade-level granularity — even the most data-rich words cap out at ~20 sentences in their best decade.
+
+**Options Considered**:
+
+1. **Re-fetch with higher `--per-decade-n`** — kern corpus ceiling is ~10-20/decade regardless of fetch limit. Not a real solution.
+2. **Add more DWDS subcorpora** (Zeitung, Belletristik, Wissenschaft, Web) — more data, but mixing genres across decades introduces genre-composition confounds that can mimic semantic change. Right path for a full study, needs genre-balancing.
+3. **Merge decades into larger time bins** — pools existing data, no re-fetching needed, methodologically clean since corpus composition stays consistent.
+
+**Decision**: For the pilot study, merge to **25-year bins** (1900–1924, 1925–1949, 1950–1974, 1975–1999). This gives ~25-40 sentences per bin for most words — enough for reliable distributions — while retaining 4 data points per word (sufficient to track broad historical trends).
+
+50-year bins were rejected as too coarse (only 2 data points = before/after comparison, not diachronic).
+
+**Why not add subcorpora now**: Genre imbalance across decades is a harder confound than sparsity. If Belletristik dominates the early decades and Wissenschaft the later ones, distributional shifts in sense usage look like semantic change. This needs careful genre-stratified sampling and is a Phase 4 concern.
+
+**Implementation**: Add a `--bin-size` option (or hardcode 25-year bins) to `aggregate_temporal.py`, re-run metrics on the binned data.
+
+**Follow-up**:
+- Implement 25-year binning in the aggregation pipeline
+- Re-run metrics and update notebook to use binned results
+- Adding subcorpora is the correct scaling path for the full study but requires genre-balancing

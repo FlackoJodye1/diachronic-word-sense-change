@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Simple data saving for GermaNet processed data.
-"""
+"""Simple data saving for GermaNet processed data."""
 
 import logging
 from pathlib import Path
@@ -9,10 +6,18 @@ from typing import Dict
 import pandas as pd
 
 
+def _cell_to_csv(x):
+    if isinstance(x, list):
+        return '|'.join(map(str, x)) if x else ''
+    if x is None or pd.isna(x):
+        return ''
+    return x
+
+
 class DataSaver:
     """Simple handler for saving processed GermaNet data as CSV files."""
     
-    def __init__(self, output_dir: Path, config=None):
+    def __init__(self, output_dir: Path):
         self.output_dir = Path(output_dir)
         self.germanet_dir = self.output_dir / 'base-tables'
         self.logger = logging.getLogger(__name__)
@@ -27,13 +32,10 @@ class DataSaver:
         self.logger.info(f'Saving {name}: {len(df)} rows')
         
         try:
-            # Handle list columns by joining with | separator
             df_csv = df.copy()
             for col in df_csv.columns:
                 if df_csv[col].dtype == 'object':
-                    df_csv[col] = df_csv[col].apply(
-                        lambda x: '|'.join(x) if isinstance(x, list) and x else (x if x is not None else '')
-                    )
+                    df_csv[col] = df_csv[col].apply(_cell_to_csv)
             
             filepath = self.germanet_dir / f'{name}.csv'
             df_csv.to_csv(filepath, index=False, encoding='utf-8')
