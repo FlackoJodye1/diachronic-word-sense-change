@@ -42,29 +42,21 @@ def load_dwds_contexts(filepath: Path) -> pd.DataFrame:
 
 def load_senses(
     filepath: Path,
-    text_column: str,
     target_lemmas: Optional[List[str]] = None,
+    text_column: str = "text_for_embedding",
 ) -> pd.DataFrame:
     """Load senses from CSV, optionally filtered to target lemmas.
 
     Args:
-        filepath: Path to senses CSV (wsd_senses.csv or sense_variants.csv)
-        text_column: Column name containing text for embedding
+        filepath: Path to senses CSV (wsd_senses.csv or enhanced sense file)
         target_lemmas: Optional list of lemmas to filter to
+        text_column: Column name for backward compatibility (not used with representation)
     """
     print(f"Loading senses from {filepath}...")
     df = pd.read_csv(filepath)
-
-    # Validate text column exists
-    if text_column not in df.columns:
-        available = [c for c in df.columns if "text" in c.lower()]
-        raise ValueError(
-            f"Text column '{text_column}' not found. Available text columns: {available}"
-        )
 
     if target_lemmas:
         df = df[df["lemma"].isin(target_lemmas)]
 
     print(f"  Loaded {len(df)} senses for {df['lemma'].nunique()} words")
-    print(f"  Using text column: {text_column}")
     return df
