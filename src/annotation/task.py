@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Annotation task representation for WSD ground truth creation.
-"""
+"""Annotation task representation for WSD ground truth creation."""
 
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Any
@@ -85,51 +82,8 @@ class AnnotationTask:
             }
             for r in self.results
         ])
-        
-        
+
     def save_results(self, output_path: Path) -> None:
         """Save annotation results to CSV."""
         df = self.get_results_df()
         df.to_csv(output_path, index=False)
-        
-    @classmethod
-    def from_sentences(cls, target_word: str, sentences_df: pd.DataFrame, 
-                      senses_df: pd.DataFrame) -> 'AnnotationTask':
-        """Create annotation task from sentences and senses DataFrames.
-        
-        Args:
-            target_word: Target word to annotate
-            sentences_df: DataFrame with columns: sentence, target_position
-            senses_df: DataFrame with sense information for the target word
-            
-        Returns:
-            AnnotationTask instance
-        """
-        instances = []
-        
-        # Get candidate senses for this word
-        word_senses = senses_df[senses_df['lemma'] == target_word]
-        candidate_senses = []
-        
-        for _, sense in word_senses.iterrows():
-            candidate_senses.append({
-                'synset_id': sense['synset_id'],
-                'text_for_embedding': sense.get('text_for_embedding', ''),
-                'class': sense.get('class', ''),
-                'paraphrase': sense.get('paraphrase', ''),
-                'sense_frequency': sense.get('sense_frequency', 1)
-            })
-            
-        # Create instances
-        for idx, row in sentences_df.iterrows():
-            instance = AnnotationInstance(
-                instance_id=f"{target_word}_{idx}",
-                target_word=target_word,
-                pos="NOUN",  # Default, could be extracted
-                sentence=row['sentence'],
-                target_position=row.get('target_position', 0),
-                candidate_senses=candidate_senses
-            )
-            instances.append(instance)
-            
-        return cls(target_word, instances)
