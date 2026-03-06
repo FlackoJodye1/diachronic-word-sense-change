@@ -13,7 +13,7 @@ POS_TO_GERMAN = {"NOUN": "Nomen", "VERB": "Verb", "ADJ": "Adjektiv"}
 
 
 def load_prompt(name: str) -> str:
-    """Load a prompt template from file."""
+    """Load a prompt template from a file."""
     path = PROMPTS_DIR / f"{name}.txt"
     return path.read_text(encoding='utf-8').strip()
 
@@ -32,15 +32,6 @@ class SenseTextGenerator:
             sense_description=sense_description
         )
         return self.client.generate(prompt, max_tokens=150)
-
-    def generate_example(self, lemma: str, pos: str, sense_description: str) -> str:
-        """Generate a single example sentence for a word sense."""
-        prompt = load_prompt('example_single').format(
-            lemma=lemma,
-            pos_german=POS_TO_GERMAN.get(pos, pos),
-            sense_description=sense_description
-        )
-        return self.client.generate(prompt, max_tokens=100)
 
     def generate_examples(self, lemma: str, pos: str, sense_description: str, n: int = 5) -> List[str]:
         """Generate multiple example sentences for a word sense."""
@@ -68,7 +59,7 @@ class SenseTextGenerator:
 
         return examples[:n]
 
-    def generate_all_variants(
+    def generate_all(
         self,
         lemma: str,
         pos: str,
@@ -80,6 +71,5 @@ class SenseTextGenerator:
 
         return {
             'definition': self.generate_definition(lemma, pos, sense_description),
-            'example_1': self.generate_example(lemma, pos, sense_description),
             'examples_5': self.generate_examples(lemma, pos, sense_description, n=n_examples)
         }

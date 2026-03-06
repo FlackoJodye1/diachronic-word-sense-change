@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """LLM-based text generation for sense representations."""
 
 from .client import LLMClient

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """LLM client supporting OpenAI and Anthropic Claude APIs."""
 
 import os
@@ -17,16 +16,43 @@ logger = logging.getLogger(__name__)
 
 
 class BaseLLMClient(ABC):
-    """Abstract base class for LLM clients."""
+    """Abstract base class for LLM clients with shared retry logic."""
+
+    def __init__(self, max_retries: int = 3):
+        self.max_retries = max_retries
 
     @abstractmethod
-    def generate(self, prompt: str, max_tokens: int = 256) -> str:
-        """Generate text from a prompt."""
+    def _call(self, prompt: str, max_tokens: int) -> str:
+        """Make a single API call and return the response text."""
         pass
+
+    def generate(self, prompt: str, max_tokens: int = 256) -> str:
+        """Generate text from a prompt with exponential backoff retry."""
+        last_error: Exception = RuntimeError("No attempts made")
+        for attempt in range(self.max_retries + 1):
+            start_time = time.time()
+            try:
+                result = self._call(prompt, max_tokens)
+                logger.debug(f"API call succeeded in {time.time() - start_time:.1f}s")
+                return result
+            except Exception as e:
+                elapsed = time.time() - start_time
+                last_error = e
+                if attempt < self.max_retries:
+                    wait_time = 2 ** attempt
+                    logger.warning(
+                        f"API call failed after {elapsed:.1f}s "
+                        f"(attempt {attempt+1}/{self.max_retries+1}): {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"API call failed after {self.max_retries+1} attempts: {e}")
+        raise last_error
 
 
 class OpenAIClient(BaseLLMClient):
-    """OpenAI API client with retry logic."""
+    """OpenAI API client."""
 
     def __init__(
         self,
@@ -34,56 +60,28 @@ class OpenAIClient(BaseLLMClient):
         api_key: Optional[str] = None,
         temperature: float = 0.7,
         max_retries: int = 3,
-        timeout_seconds: int = 120
+        timeout_seconds: int = 120,
     ):
+        super().__init__(max_retries=max_retries)
         self.model = model
         self.temperature = temperature
-        self.max_retries = max_retries
-        self.timeout_seconds = timeout_seconds
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-
-        if not self.api_key:
+        api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not api_key:
             raise ValueError("OpenAI API key not found. Set OPENAI_API_KEY environment variable.")
+        self.client = OpenAI(api_key=api_key, timeout=timeout_seconds)
 
-        # Configure OpenAI client with custom timeout
-        self.client = OpenAI(
-            api_key=self.api_key,
-            timeout=timeout_seconds,
-            max_retries=max_retries
+    def _call(self, prompt: str, max_tokens: int) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=self.temperature,
         )
-
-    def generate(self, prompt: str, max_tokens: int = 256) -> str:
-        """Generate text using OpenAI API with retry logic."""
-        for attempt in range(self.max_retries + 1):
-            try:
-                start_time = time.time()
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=max_tokens,
-                    temperature=self.temperature
-                )
-                elapsed = time.time() - start_time
-                logger.debug(f"API call succeeded in {elapsed:.1f}s")
-                return response.choices[0].message.content.strip()
-
-            except Exception as e:
-                elapsed = time.time() - start_time
-
-                if attempt < self.max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
-                    logger.warning(
-                        f"API call failed after {elapsed:.1f}s (attempt {attempt+1}/{self.max_retries+1}): {e}. "
-                        f"Retrying in {wait_time}s..."
-                    )
-                    time.sleep(wait_time)
-                else:
-                    logger.error(f"API call failed after {self.max_retries+1} attempts: {e}")
-                    raise
+        return response.choices[0].message.content.strip()
 
 
 class ClaudeClient(BaseLLMClient):
-    """Anthropic Claude API client with retry logic."""
+    """Anthropic Claude API client."""
 
     def __init__(
         self,
@@ -91,51 +89,24 @@ class ClaudeClient(BaseLLMClient):
         api_key: Optional[str] = None,
         temperature: float = 0.7,
         max_retries: int = 3,
-        timeout_seconds: int = 120
+        timeout_seconds: int = 120,
     ):
+        super().__init__(max_retries=max_retries)
         self.model = model
         self.temperature = temperature
-        self.max_retries = max_retries
-        self.timeout_seconds = timeout_seconds
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-
-        if not self.api_key:
+        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
             raise ValueError("Anthropic API key not found. Set ANTHROPIC_API_KEY environment variable.")
+        self.client = Anthropic(api_key=api_key, timeout=timeout_seconds)
 
-        self.client = Anthropic(
-            api_key=self.api_key,
-            timeout=timeout_seconds,
-            max_retries=max_retries
+    def _call(self, prompt: str, max_tokens: int) -> str:
+        response = self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            temperature=self.temperature,
+            messages=[{"role": "user", "content": prompt}],
         )
-
-    def generate(self, prompt: str, max_tokens: int = 256) -> str:
-        """Generate text using Claude API with retry logic."""
-        for attempt in range(self.max_retries + 1):
-            try:
-                start_time = time.time()
-                response = self.client.messages.create(
-                    model=self.model,
-                    max_tokens=max_tokens,
-                    temperature=self.temperature,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                elapsed = time.time() - start_time
-                logger.debug(f"API call succeeded in {elapsed:.1f}s")
-                return response.content[0].text.strip()
-
-            except Exception as e:
-                elapsed = time.time() - start_time
-
-                if attempt < self.max_retries:
-                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
-                    logger.warning(
-                        f"API call failed after {elapsed:.1f}s (attempt {attempt+1}/{self.max_retries+1}): {e}. "
-                        f"Retrying in {wait_time}s..."
-                    )
-                    time.sleep(wait_time)
-                else:
-                    logger.error(f"API call failed after {self.max_retries+1} attempts: {e}")
-                    raise
+        return response.content[0].text.strip()
 
 
 class LLMClient:
@@ -151,26 +122,17 @@ class LLMClient:
         provider: str = "openai",
         model: Optional[str] = None,
         temperature: float = 0.7,
-        api_key: Optional[str] = None
+        api_key: Optional[str] = None,
     ):
-        """
-        Initialize LLM client.
-
-        Args:
-            provider: "openai" or "claude"
-            model: Model name (uses provider default if not specified)
-            temperature: Sampling temperature (0.0 = deterministic)
-            api_key: API key (uses environment variable if not specified)
-        """
         provider = provider.lower()
         if provider not in self.PROVIDERS:
             raise ValueError(f"Unknown provider: {provider}. Use: {list(self.PROVIDERS.keys())}")
 
         client_class = self.PROVIDERS[provider]
+        kwargs = {"api_key": api_key, "temperature": temperature}
         if model:
-            self._client = client_class(model=model, api_key=api_key, temperature=temperature)
-        else:
-            self._client = client_class(api_key=api_key, temperature=temperature)
+            kwargs["model"] = model
+        self._client = client_class(**kwargs)
 
         self.provider = provider
         logger.info(f"Initialized {provider} client")
