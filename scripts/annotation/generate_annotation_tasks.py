@@ -25,9 +25,9 @@ from typing import Dict
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from annotation.task import AnnotationInstance, AnnotationTask
+from src.annotation.task import AnnotationInstance, AnnotationTask
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)

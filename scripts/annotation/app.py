@@ -3,15 +3,16 @@
 Minimal Flask annotation interface.
 """
 
-from flask import Flask, request
 import pickle
 import sys
+from datetime import datetime
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'src'))
-from annotation.task import AnnotationResult
-from datetime import datetime
+from flask import Flask, request
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from src.annotation.task import AnnotationResult
 
 app = Flask(__name__)
 
@@ -153,6 +154,4 @@ def submit_annotation(word):
     return f'<script>window.location.href="/annotate/{word}";</script>'
 
 if __name__ == '__main__':
-    print("Starting simple annotation server...")
-    print("Open http://localhost:8000")
     app.run(host='127.0.0.1', port=8000, debug=True)
