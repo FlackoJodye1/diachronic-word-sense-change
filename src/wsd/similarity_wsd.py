@@ -3,8 +3,6 @@
 Cosine similarity-based Word Sense Disambiguation.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 

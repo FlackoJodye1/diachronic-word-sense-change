@@ -3,8 +3,6 @@
 Unified text embedding module using sentence-transformers.
 """
 
-from __future__ import annotations
-
 import logging
 from typing import List, Optional, Sequence, Union
 

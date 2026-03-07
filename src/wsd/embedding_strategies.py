@@ -71,9 +71,10 @@ def get_text_for_embedding(
 
 def embed_with_representation(
     sense_df: pd.DataFrame,
-    embedder,  # Embedder instance from evaluation module
+    embedder,  # Embedder instance from wsd module
     representation: RepresentationType = "baseline",
-    show_progress: bool = True
+    show_progress: bool = True,
+    passage_prefix: str = "",
 ) -> np.ndarray:
     """Embed senses using specified representation.
 
@@ -81,17 +82,21 @@ def embed_with_representation(
 
     Args:
         sense_df: DataFrame with sense data
-        embedder: Embedder instance (from src.evaluation.embedder)
+        embedder: Embedder instance (from src.wsd.embedder)
         representation: Which text representation to use
         show_progress: Show progress bar
+        passage_prefix: Prefix to prepend to all sense texts (e.g. "passage: " for E5 models)
 
     Returns:
         Numpy array of embeddings (n_senses, embedding_dim)
     """
+    def _prefix(texts: List[str]) -> List[str]:
+        return [f"{passage_prefix}{t}" for t in texts] if passage_prefix else texts
+
     # Simple cases: single text per sense
     if representation in ["baseline", "llm_definition", "llm_example_1", "llm_examples_concat"]:
         texts = get_text_for_embedding(sense_df, representation)
-        return embedder.encode(texts, show_progress=show_progress)
+        return embedder.encode(_prefix(texts), show_progress=show_progress)
 
     # Special case: average of 5 examples
     elif representation == "llm_examples_avg":
@@ -104,12 +109,10 @@ def embed_with_representation(
         for _, row in sense_df.iterrows():
             examples = [row[col] for col in example_cols if pd.notna(row[col]) and row[col]]
             if not examples:
-                # No examples - use empty string
-                example_embeddings = embedder.encode([""], show_progress=False)
+                example_embeddings = embedder.encode(_prefix([""]), show_progress=False)
             else:
-                example_embeddings = embedder.encode(examples, show_progress=False)
+                example_embeddings = embedder.encode(_prefix(examples), show_progress=False)
 
-            # Average the example embeddings
             avg_embedding = np.mean(example_embeddings, axis=0)
             embeddings.append(avg_embedding)
 
@@ -123,7 +126,7 @@ def embed_with_representation(
 
         # Embed definitions
         definitions = sense_df['llm_definition'].fillna("").tolist()
-        def_embeddings = embedder.encode(definitions, show_progress=show_progress)
+        def_embeddings = embedder.encode(_prefix(definitions), show_progress=show_progress)
 
         # Embed and average examples
         example_cols = [f'llm_example_{i}' for i in range(1, 6)]
@@ -132,19 +135,16 @@ def embed_with_representation(
         for _, row in sense_df.iterrows():
             examples = [row[col] for col in example_cols if pd.notna(row[col]) and row[col]]
             if not examples:
-                # No examples - use zero vector
                 example_embeddings_list.append(np.zeros_like(def_embeddings[0]))
             else:
-                example_embs = embedder.encode(examples, show_progress=False)
+                example_embs = embedder.encode(_prefix(examples), show_progress=False)
                 avg_example_emb = np.mean(example_embs, axis=0)
                 example_embeddings_list.append(avg_example_emb)
 
         example_embeddings = np.array(example_embeddings_list)
 
         # Weighted combination: 0.5 * definition + 0.5 * avg(examples)
-        weighted_embeddings = 0.5 * def_embeddings + 0.5 * example_embeddings
-
-        return weighted_embeddings
+        return 0.5 * def_embeddings + 0.5 * example_embeddings
 
     else:
         raise ValueError(f"Unknown representation: {representation}")

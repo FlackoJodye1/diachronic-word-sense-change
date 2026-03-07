@@ -6,8 +6,8 @@ from typing import List
 
 import pandas as pd
 
-from src.evaluation import Embedder, SimilarityWSD
-from src.evaluation.embedding_strategies import embed_with_representation, RepresentationType
+from src.wsd import Embedder, SimilarityWSD
+from src.wsd.embedding_strategies import embed_with_representation, RepresentationType
 
 logger = logging.getLogger(__name__)
 
