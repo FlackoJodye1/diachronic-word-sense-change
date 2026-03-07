@@ -1,18 +1,15 @@
 """Sense prediction functions for diachronic WSD."""
 
-from __future__ import annotations
-
 import gc
-from typing import List, Optional
+import logging
+from typing import List
 
 import pandas as pd
 
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
 from src.evaluation import Embedder, SimilarityWSD
 from src.evaluation.embedding_strategies import embed_with_representation, RepresentationType
+
+logger = logging.getLogger(__name__)
 
 
 def is_e5_model(model_name: str) -> bool:
@@ -28,47 +25,36 @@ def add_prefix(texts: List[str], prefix: str) -> List[str]:
 def predict_senses(
     contexts_df: pd.DataFrame,
     senses_df: pd.DataFrame,
-    text_column: Optional[str] = None,
     model_name: str = "intfloat/multilingual-e5-large",
-    representation: Optional[RepresentationType] = None,
+    representation: RepresentationType = "weighted",
 ) -> pd.DataFrame:
     """Predict senses for all contexts using embedding similarity.
 
     Args:
         contexts_df: DataFrame with DWDS contexts (must have 'lemma', 'sentence')
         senses_df: DataFrame with senses (must have 'lemma', 'synset_id')
-        text_column: Column name containing text for embedding (ignored if representation is set)
         model_name: Embedding model to use
-        representation: Representation type (baseline, weighted, etc.). If provided, uses
-                       embed_with_representation() instead of text_column.
+        representation: Representation type (baseline, weighted, etc.)
 
     Returns:
         DataFrame with predictions added
     """
-    print(f"\nLoading model: {model_name}")
+    logger.info(f"\nLoading model: {model_name}")
     embedder = Embedder(model_name=model_name, normalize=True)
 
     use_e5 = is_e5_model(model_name)
     if use_e5:
-        print("  (E5 model: applying query/passage prefixes)")
+        logger.info("  (E5 model: applying query/passage prefixes)")
 
     # Encode all sense texts once
-    if representation:
-        print(f"Encoding senses using representation: '{representation}'...")
-        sense_embeddings = embed_with_representation(
-            senses_df,
-            embedder,
-            representation=representation,
-            show_progress=True
-        )
-    else:
-        if text_column is None:
-            raise ValueError("Must provide either text_column or representation parameter")
-        print(f"Encoding sense texts from '{text_column}'...")
-        sense_texts = senses_df[text_column].fillna("").tolist()
-        if use_e5:
-            sense_texts = add_prefix(sense_texts, "passage: ")
-        sense_embeddings = embedder.encode(sense_texts, show_progress=True)
+    logger.info(f"Encoding senses using representation: '{representation}'...")
+    sense_embeddings = embed_with_representation(
+        senses_df,
+        embedder,
+        representation=representation,
+        show_progress=True,
+        passage_prefix="passage: " if use_e5 else "",
+    )
 
     # Create WSD predictor
     wsd = SimilarityWSD(
@@ -78,7 +64,7 @@ def predict_senses(
     )
 
     # Encode contexts in batches
-    print("Encoding and predicting contexts...")
+    logger.info("Encoding and predicting contexts...")
     context_texts = contexts_df["sentence"].fillna("").tolist()
     if use_e5:
         context_texts = add_prefix(context_texts, "query: ")

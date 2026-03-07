@@ -1,13 +1,14 @@
 """Temporal sense change metrics for diachronic analysis."""
 
-from __future__ import annotations
-
+import logging
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import entropy
+
+logger = logging.getLogger(__name__)
 
 
 def compute_entropy_per_period(
@@ -19,7 +20,7 @@ def compute_entropy_per_period(
     Higher entropy = more uniform distribution across senses (more ambiguous)
     Lower entropy = dominated by one sense (less ambiguous)
     """
-    print(f"\nComputing entropy per {period_column}...")
+    logger.info(f"\nComputing entropy per {period_column}...")
 
     results = []
     for (lemma, period), group in df.groupby(["lemma", period_column]):
@@ -40,7 +41,7 @@ def compute_entropy_per_period(
         })
 
     result_df = pd.DataFrame(results)
-    print(f"  Computed entropy for {len(result_df)} lemma-period pairs")
+    logger.info(f"  Computed entropy for {len(result_df)} lemma-period pairs")
     return result_df
 
 
@@ -54,7 +55,7 @@ def compute_period_divergence(
     JSD = 0 means identical distributions
     JSD = 1 (max for log base 2) means completely different
     """
-    print(f"\nComputing divergence between adjacent {period_column}s...")
+    logger.info(f"\nComputing divergence between adjacent {period_column}s...")
 
     results = []
     for lemma, group in df.groupby("lemma"):
@@ -85,7 +86,7 @@ def compute_period_divergence(
             })
 
     result_df = pd.DataFrame(results)
-    print(f"  Computed {len(result_df)} period transitions")
+    logger.info(f"  Computed {len(result_df)} period transitions")
     return result_df
 
 
@@ -103,7 +104,7 @@ def detect_sense_changes(
     A sense declines when it drops below threshold in period N
     but was above threshold in period N-1.
     """
-    print(f"\nDetecting sense changes (threshold={emergence_threshold})...")
+    logger.info(f"\nDetecting sense changes (threshold={emergence_threshold})...")
 
     emergences = []
     declines = []
@@ -151,7 +152,7 @@ def detect_sense_changes(
     emergence_df = pd.DataFrame(emergences)
     decline_df = pd.DataFrame(declines)
 
-    print(f"  Detected {len(emergence_df)} emergence events")
-    print(f"  Detected {len(decline_df)} decline events")
+    logger.info(f"  Detected {len(emergence_df)} emergence events")
+    logger.info(f"  Detected {len(decline_df)} decline events")
 
     return emergence_df, decline_df

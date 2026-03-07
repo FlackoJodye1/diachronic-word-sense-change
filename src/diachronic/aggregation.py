@@ -1,8 +1,10 @@
 """Temporal aggregation functions for diachronic analysis."""
 
-from __future__ import annotations
+import logging
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def aggregate_by_period(
@@ -18,7 +20,7 @@ def aggregate_by_period(
     Returns:
         DataFrame with aggregated sense counts per lemma per period
     """
-    print(f"\nAggregating by {period_column}...")
+    logger.info(f"\nAggregating by {period_column}...")
 
     # Group by lemma, period, and sense
     agg = (
@@ -41,7 +43,7 @@ def aggregate_by_period(
         sense_meta = df[["predicted_sense_id", "sense_class"]].drop_duplicates()
         agg = agg.merge(sense_meta, on="predicted_sense_id", how="left")
 
-    print(f"  Created {len(agg)} lemma-period-sense combinations")
+    logger.info(f"  Created {len(agg)} lemma-period-sense combinations")
     return agg
 
 
@@ -58,7 +60,7 @@ def compute_period_stats(
     Returns:
         DataFrame with stats per lemma per period
     """
-    print(f"\nComputing period statistics...")
+    logger.info(f"\nComputing period statistics...")
 
     stats = []
     for (lemma, period), group in df.groupby(["lemma", period_column]):
@@ -80,5 +82,5 @@ def compute_period_stats(
         })
 
     stats_df = pd.DataFrame(stats)
-    print(f"  Computed stats for {len(stats_df)} lemma-period pairs")
+    logger.info(f"  Computed stats for {len(stats_df)} lemma-period pairs")
     return stats_df

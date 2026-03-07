@@ -1,13 +1,14 @@
 """Visualization functions for diachronic analysis."""
 
-from __future__ import annotations
-
+import logging
 from pathlib import Path
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+
+logger = logging.getLogger(__name__)
 
 # Style settings
 plt.style.use("seaborn-v0_8-whitegrid")
@@ -25,7 +26,7 @@ def plot_sense_trajectory(
     lemma_df = counts_df[counts_df["lemma"] == lemma].copy()
 
     if len(lemma_df) == 0:
-        print(f"  No data for lemma: {lemma}")
+        logger.info(f"  No data for lemma: {lemma}")
         return
 
     # Pivot to get senses as columns
@@ -57,7 +58,7 @@ def plot_sense_trajectory(
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"trajectory_{lemma}.png"
         plt.savefig(output_path, dpi=DPI, bbox_inches="tight")
-        print(f"  Saved: {output_path}")
+        logger.info(f"  Saved: {output_path}")
 
     plt.close()
 
@@ -75,7 +76,7 @@ def plot_entropy_over_time(
         df = entropy_df
 
     if len(df) == 0:
-        print("  No entropy data to plot")
+        logger.info("  No entropy data to plot")
         return
 
     fig, ax = plt.subplots(figsize=FIGSIZE)
@@ -103,7 +104,7 @@ def plot_entropy_over_time(
         suffix = "_".join(lemmas) if lemmas and len(lemmas) <= 3 else "all"
         output_path = output_dir / f"entropy_{suffix}.png"
         plt.savefig(output_path, dpi=DPI, bbox_inches="tight")
-        print(f"  Saved: {output_path}")
+        logger.info(f"  Saved: {output_path}")
 
     plt.close()
 
@@ -118,7 +119,7 @@ def plot_sense_heatmap(
     lemma_df = counts_df[counts_df["lemma"] == lemma].copy()
 
     if len(lemma_df) == 0:
-        print(f"  No data for lemma: {lemma}")
+        logger.info(f"  No data for lemma: {lemma}")
         return
 
     # Pivot to get senses as rows, periods as columns
@@ -155,7 +156,7 @@ def plot_sense_heatmap(
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"heatmap_{lemma}.png"
         plt.savefig(output_path, dpi=DPI, bbox_inches="tight")
-        print(f"  Saved: {output_path}")
+        logger.info(f"  Saved: {output_path}")
 
     plt.close()
 
@@ -192,6 +193,6 @@ def plot_all_lemmas_summary(
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / "summary_entropy.png"
         plt.savefig(output_path, dpi=DPI, bbox_inches="tight")
-        print(f"  Saved: {output_path}")
+        logger.info(f"  Saved: {output_path}")
 
     plt.close()
