@@ -13,29 +13,30 @@ Usage:
     python compare_embedding_methods.py --clear-cache   # Clear model cache after each model
 """
 
-from __future__ import annotations
-
 import argparse
 import gc
+import logging
 import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from evaluation import Embedder, SimilarityWSD, WSDResult
+from src.wsd import Embedder, SimilarityWSD, WSDResult
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-QUICK_EVAL_DIR = DATA_DIR / "evaluation" / "quick_eval"
-SENSE_REPRESENTATIONS_PATH = QUICK_EVAL_DIR / "sense_text_representations.jsonl"
-GOLD_ANNOTATIONS_PATH = QUICK_EVAL_DIR / "gold_annotations.csv"
+ATEMPORAL_DIR = DATA_DIR / "evaluation" / "atemporal"
+SENSE_REPRESENTATIONS_PATH = ATEMPORAL_DIR / "input" / "sense_text_representations.jsonl"
+GOLD_ANNOTATIONS_PATH = ATEMPORAL_DIR / "input" / "gold_annotations.csv"
 
 # Models to compare (only sentence-transformer compatible models for fair comparison)
 MODELS = [
@@ -54,7 +55,7 @@ MODELS = [
 
 # Text variants to evaluate (None = auto-detect)
 # Available variants after loading: baseline, llm_definition, llm_example_0..4
-TEXT_VARIANTS: Optional[List[str]] = None
+TEXT_VARIANTS: list[str] | None = None
 
 # Special weighted variant: 0.5 * def_embedding + 0.5 * mean(example_embeddings)
 # Computes true mean over NON-EMPTY example embeddings only (per sense)
@@ -65,7 +66,7 @@ WEIGHTED_EX_COLS = [f"llm_example_{i}" for i in range(5)]
 WEIGHTED_DEF_WEIGHT = 0.5
 WEIGHTED_EX_WEIGHT = 0.5
 
-OUTPUT_PATH = QUICK_EVAL_DIR / "embedding_comparison.csv"
+OUTPUT_PATH = ATEMPORAL_DIR / "results" / "embedding_comparison.csv"
 
 
 @dataclass
@@ -87,7 +88,7 @@ def is_e5_model(model_name: str) -> bool:
     return "e5" in model_name.lower()
 
 
-def add_e5_prefix(texts: List[str], prefix: str) -> List[str]:
+def add_e5_prefix(texts: list[str], prefix: str) -> list[str]:
     """Add E5 prefix to texts."""
     return [f"{prefix}{t}" for t in texts]
 
@@ -95,13 +96,12 @@ def add_e5_prefix(texts: List[str], prefix: str) -> List[str]:
 def clear_model_cache(model_name: str) -> None:
     """Clear a specific model from HuggingFace cache to free disk space."""
     cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
-    # HuggingFace stores models with -- instead of /
     model_cache_name = f"models--{model_name.replace('/', '--')}"
     model_cache_path = cache_dir / model_cache_name
 
     if model_cache_path.exists():
         shutil.rmtree(model_cache_path)
-        print(f"  Cleared disk cache for {model_name}")
+        logger.info(f"  Cleared disk cache for {model_name}")
 
 
 def run_comparison(
@@ -110,7 +110,7 @@ def run_comparison(
     sense_variants: pd.DataFrame,
     gold: pd.DataFrame,
     clear_cache: bool = False,
-) -> List[ComparisonResult]:
+) -> list[ComparisonResult]:
     """Run WSD comparison across models and text variants.
 
     Args:
@@ -123,33 +123,30 @@ def run_comparison(
     Returns:
         List of ComparisonResult for each model/variant combination
     """
-    results: List[ComparisonResult] = []
+    results: list[ComparisonResult] = []
     raw_context_texts = gold["sentence"].fillna("").tolist()
     context_lemmas = gold["lemma"].tolist()
     gold_sense_ids = gold["gold_sense_id"].tolist()
 
     for model_name in models:
-        print(f"\nLoading model: {model_name}")
+        logger.info(f"Loading model: {model_name}")
         embedder = Embedder(model_name=model_name, normalize=True)
 
-        # Check if E5 model (requires prefixes)
         use_e5_prefix = is_e5_model(model_name)
         if use_e5_prefix:
-            print("  (E5 model: applying query/passage prefixes)")
+            logger.info("  (E5 model: applying query/passage prefixes)")
 
-        # Prepare context texts (with prefix if E5)
         context_texts = (
             add_e5_prefix(raw_context_texts, "query: ")
             if use_e5_prefix
             else raw_context_texts
         )
 
-        # Encode contexts once per model
-        print("  Encoding context sentences...")
+        logger.info("  Encoding context sentences...")
         context_embeddings = embedder.encode(context_texts, show_progress=True)
 
         for text_variant in text_variants:
-            print(f"  Evaluating variant: {text_variant}")
+            logger.info(f"  Evaluating variant: {text_variant}")
 
             # Handle weighted variant specially
             if text_variant == WEIGHTED_VARIANT_NAME:
@@ -264,7 +261,7 @@ def run_comparison(
                 )
             )
 
-            print(
+            logger.info(
                 f"    Accuracy: {wsd_result.accuracy:.3f} | "
                 f"Top-3: {wsd_result.top3_accuracy:.3f} | "
                 f"MRR: {wsd_result.mrr:.3f}"
@@ -285,21 +282,20 @@ def run_comparison(
     return results
 
 
-def print_summary(results_df: pd.DataFrame, output_path: Path) -> None:
-    """Print comparison summary and best configuration."""
-    print("\n" + "=" * 70)
-    print("COMPARISON SUMMARY")
-    print("=" * 70)
-    print(results_df.to_string(index=False))
-    print(f"\nResults saved to: {output_path}")
+def log_summary(results_df: pd.DataFrame, output_path: Path) -> None:
+    """Log comparison summary and best configuration."""
+    logger.info("=" * 70)
+    logger.info("COMPARISON SUMMARY")
+    logger.info("=" * 70)
+    logger.info(results_df.to_string(index=False))
+    logger.info(f"Results saved to: {output_path}")
 
-    # Find best configuration
     best_idx = results_df["accuracy"].idxmax()
     best = results_df.loc[best_idx]
-    print(f"\nBest configuration:")
-    print(f"  Model: {best['model_name']}")
-    print(f"  Variant: {best['text_variant']}")
-    print(f"  Accuracy: {best['accuracy']:.3f}")
+    logger.info("Best configuration:")
+    logger.info(f"  Model: {best['model_name']}")
+    logger.info(f"  Variant: {best['text_variant']}")
+    logger.info(f"  Accuracy: {best['accuracy']:.3f}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -337,9 +333,9 @@ def main() -> None:
     args = parse_args()
 
     if args.clear_cache:
-        print("Running with --clear-cache: models will be removed after evaluation")
+        logger.info("Running with --clear-cache: models will be removed after evaluation")
 
-    print("Loading data...")
+    logger.info("Loading data...")
     sense_df = load_sense_representations(SENSE_REPRESENTATIONS_PATH)
     gold = pd.read_csv(GOLD_ANNOTATIONS_PATH)
 
@@ -360,8 +356,8 @@ def main() -> None:
     if not text_variants:
         raise SystemExit("No text variants found in sense representations.")
 
-    print(f"Found {len(text_variants)} text variants: {text_variants}")
-    print(f"Comparing {len(MODELS)} models")
+    logger.info(f"Found {len(text_variants)} text variants: {text_variants}")
+    logger.info(f"Comparing {len(MODELS)} models")
 
     # Run comparison
     results = run_comparison(
@@ -379,7 +375,7 @@ def main() -> None:
     ]
     results_df.to_csv(OUTPUT_PATH, index=False)
 
-    print_summary(results_df, OUTPUT_PATH)
+    log_summary(results_df, OUTPUT_PATH)
 
 
 if __name__ == "__main__":

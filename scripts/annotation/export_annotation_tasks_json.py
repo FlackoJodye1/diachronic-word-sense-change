@@ -4,8 +4,12 @@ Export annotation tasks pickle to human-readable JSON format.
 """
 
 import json
+import logging
 import pickle
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "evaluation"
 
@@ -53,7 +57,7 @@ def export_tasks_to_json() -> None:
         json.dump(json_data, f, indent=2, ensure_ascii=False)
 
     total_instances = sum(len(d["instances"]) for d in json_data.values())
-    print(f"Exported {len(json_data)} words, {total_instances} instances -> {json_path}")
+    logger.info(f"Exported {len(json_data)} words, {total_instances} instances -> {json_path}")
 
     # Summary file
     summary = {
@@ -76,7 +80,7 @@ def export_tasks_to_json() -> None:
     summary_path = DATA_DIR / "annotation_summary.json"
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
-    print(f"Summary -> {summary_path}")
+    logger.info(f"Summary -> {summary_path}")
 
 
 if __name__ == "__main__":

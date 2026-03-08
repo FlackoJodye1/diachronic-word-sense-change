@@ -12,23 +12,24 @@ Usage:
     python scripts/diachronic/compute_change_metrics.py --counts data/diachronic/temporal_decade_sense_counts.csv
 """
 
-from __future__ import annotations
-
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 import pandas as pd
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from diachronic import (
+from src.diachronic import (
     load_sense_counts,
     compute_entropy_per_period,
     compute_period_divergence,
     detect_sense_changes,
 )
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
@@ -36,47 +37,44 @@ DEFAULT_COUNTS_FILE = DATA_DIR / "diachronic" / "temporal_decade_sense_counts.cs
 OUTPUT_DIR = DATA_DIR / "diachronic"
 
 
-def print_summary(
+def log_summary(
     entropy_df: pd.DataFrame,
     divergence_df: pd.DataFrame,
     emergence_df: pd.DataFrame,
     decline_df: pd.DataFrame,
     period_column: str,
 ) -> None:
-    """Print metrics summary."""
-    print("\n" + "=" * 60)
-    print("CHANGE METRICS SUMMARY")
-    print("=" * 60)
-
-    print(f"\nEntropy statistics:")
-    print(f"  Mean entropy: {entropy_df['entropy'].mean():.3f}")
-    print(f"  Max entropy: {entropy_df['entropy'].max():.3f}")
-    print(f"  Mean normalized entropy: {entropy_df['normalized_entropy'].mean():.3f}")
+    """Log metrics summary."""
+    logger.info("=" * 60)
+    logger.info("CHANGE METRICS SUMMARY")
+    logger.info("=" * 60)
+    logger.info("Entropy statistics:")
+    logger.info(f"  Mean entropy: {entropy_df['entropy'].mean():.3f}")
+    logger.info(f"  Max entropy: {entropy_df['entropy'].max():.3f}")
+    logger.info(f"  Mean normalized entropy: {entropy_df['normalized_entropy'].mean():.3f}")
 
     if len(divergence_df) > 0:
-        print(f"\nDivergence statistics:")
-        print(f"  Mean JSD: {divergence_df['jsd'].mean():.3f}")
-        print(f"  Max JSD: {divergence_df['jsd'].max():.3f}")
-
-        # Find biggest changes
+        logger.info("Divergence statistics:")
+        logger.info(f"  Mean JSD: {divergence_df['jsd'].mean():.3f}")
+        logger.info(f"  Max JSD: {divergence_df['jsd'].max():.3f}")
         biggest = divergence_df.nlargest(3, "jsd")
-        print(f"\n  Biggest distribution shifts:")
+        logger.info("  Biggest distribution shifts:")
         for _, row in biggest.iterrows():
-            print(f"    {row['lemma']}: {row[f'{period_column}_from']}->{row[f'{period_column}_to']} (JSD={row['jsd']:.3f})")
+            logger.info(f"    {row['lemma']}: {row[f'{period_column}_from']}->{row[f'{period_column}_to']} (JSD={row['jsd']:.3f})")
 
-    print(f"\nSense dynamics:")
-    print(f"  Total emergence events: {len(emergence_df)}")
-    print(f"  Total decline events: {len(decline_df)}")
+    logger.info("Sense dynamics:")
+    logger.info(f"  Total emergence events: {len(emergence_df)}")
+    logger.info(f"  Total decline events: {len(decline_df)}")
 
     if len(emergence_df) > 0:
-        print(f"\n  Notable emergences:")
+        logger.info("  Notable emergences:")
         for _, row in emergence_df.nlargest(3, "change").iterrows():
-            print(f"    {row['lemma']} sense {row['sense_id']}: {row['proportion_from']:.2f} -> {row['proportion_to']:.2f}")
+            logger.info(f"    {row['lemma']} sense {row['sense_id']}: {row['proportion_from']:.2f} -> {row['proportion_to']:.2f}")
 
     if len(decline_df) > 0:
-        print(f"\n  Notable declines:")
+        logger.info("  Notable declines:")
         for _, row in decline_df.nsmallest(3, "change").iterrows():
-            print(f"    {row['lemma']} sense {row['sense_id']}: {row['proportion_from']:.2f} -> {row['proportion_to']:.2f}")
+            logger.info(f"    {row['lemma']} sense {row['sense_id']}: {row['proportion_from']:.2f} -> {row['proportion_to']:.2f}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -103,6 +101,13 @@ def parse_args() -> argparse.Namespace:
         help="Proportion threshold for emergence/decline detection (default: 0.1)",
     )
     parser.add_argument(
+        "--min-contexts",
+        type=int,
+        default=0,
+        help="Minimum contexts per word-decade to include in metrics (default: 0 = no filter). "
+             "Word-decades below this threshold are excluded before computing JSD and other metrics.",
+    )
+    parser.add_argument(
         "--output-prefix",
         type=str,
         default=None,
@@ -118,15 +123,22 @@ def main() -> None:
     # Load data
     counts_df = load_sense_counts(args.counts)
 
+    # Apply sparse-data filter
+    if args.min_contexts > 0:
+        wd_before = counts_df.groupby(["lemma", counts_df.columns[1]]).ngroups
+        counts_df = counts_df[counts_df["total"] >= args.min_contexts]
+        wd_after = counts_df.groupby(["lemma", counts_df.columns[1]]).ngroups
+        logger.info(f"Sparse-data filter (min_contexts={args.min_contexts}):")
+        logger.info(f"  Word-decades before: {wd_before}, after: {wd_after} (removed {wd_before - wd_after})")
+
     # Infer period column from data if needed
     period_column = args.period_column
     if period_column not in counts_df.columns:
-        # Try to find it
         candidates = ["decade", "year"]
         for c in candidates:
             if c in counts_df.columns:
                 period_column = c
-                print(f"  Using period column: {period_column}")
+                logger.info(f"Using period column: {period_column}")
                 break
 
     # Compute metrics
@@ -139,8 +151,8 @@ def main() -> None:
         decline_threshold=args.threshold,
     )
 
-    # Print summary
-    print_summary(entropy_df, divergence_df, emergence_df, decline_df, period_column)
+    # Log summary
+    log_summary(entropy_df, divergence_df, emergence_df, decline_df, period_column)
 
     # Save outputs
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -156,11 +168,11 @@ def main() -> None:
     emergence_df.to_csv(emergence_path, index=False)
     decline_df.to_csv(decline_path, index=False)
 
-    print(f"\nOutputs saved:")
-    print(f"  Entropy: {entropy_path}")
-    print(f"  Divergence: {divergence_path}")
-    print(f"  Emergence: {emergence_path}")
-    print(f"  Decline: {decline_path}")
+    logger.info("Outputs saved:")
+    logger.info(f"  Entropy: {entropy_path}")
+    logger.info(f"  Divergence: {divergence_path}")
+    logger.info(f"  Emergence: {emergence_path}")
+    logger.info(f"  Decline: {decline_path}")
 
 
 if __name__ == "__main__":

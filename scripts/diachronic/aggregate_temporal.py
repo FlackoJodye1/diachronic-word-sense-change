@@ -11,18 +11,19 @@ Usage:
     python scripts/diachronic/aggregate_temporal.py --period-column year  # aggregate by year instead
 """
 
-from __future__ import annotations
-
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 import pandas as pd
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from diachronic import load_predictions, aggregate_by_period, compute_period_stats
+from src.diachronic import load_predictions, aggregate_by_period, compute_period_stats
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
@@ -30,24 +31,22 @@ DEFAULT_INPUT = DATA_DIR / "diachronic" / "dwds_predictions.csv"
 OUTPUT_DIR = DATA_DIR / "diachronic"
 
 
-def print_summary(agg_df: pd.DataFrame, stats_df: pd.DataFrame, period_column: str) -> None:
-    """Print aggregation summary."""
-    print("\n" + "=" * 60)
-    print("AGGREGATION SUMMARY")
-    print("=" * 60)
-
-    print(f"\nPeriod column: {period_column}")
-    print(f"Total lemmas: {agg_df['lemma'].nunique()}")
-    print(f"Total periods: {agg_df[period_column].nunique()}")
-    print(f"Period range: {agg_df[period_column].min()} - {agg_df[period_column].max()}")
-
-    print(f"\nPer-lemma summary:")
+def log_summary(agg_df: pd.DataFrame, stats_df: pd.DataFrame, period_column: str) -> None:
+    """Log aggregation summary."""
+    logger.info("=" * 60)
+    logger.info("AGGREGATION SUMMARY")
+    logger.info("=" * 60)
+    logger.info(f"Period column: {period_column}")
+    logger.info(f"Total lemmas: {agg_df['lemma'].nunique()}")
+    logger.info(f"Total periods: {agg_df[period_column].nunique()}")
+    logger.info(f"Period range: {agg_df[period_column].min()} - {agg_df[period_column].max()}")
+    logger.info("Per-lemma summary:")
     for lemma in sorted(agg_df["lemma"].unique()):
         lemma_stats = stats_df[stats_df["lemma"] == lemma]
         n_periods = len(lemma_stats)
         total_contexts = lemma_stats["n_contexts"].sum()
         avg_senses = lemma_stats["n_senses"].mean()
-        print(f"  {lemma}: {n_periods} periods, {total_contexts} contexts, avg {avg_senses:.1f} senses/period")
+        logger.info(f"  {lemma}: {n_periods} periods, {total_contexts} contexts, avg {avg_senses:.1f} senses/period")
 
 
 def parse_args() -> argparse.Namespace:
@@ -94,8 +93,8 @@ def main() -> None:
     agg_df = aggregate_by_period(predictions_df, period_column=args.period_column)
     stats_df = compute_period_stats(predictions_df, period_column=args.period_column)
 
-    # Print summary
-    print_summary(agg_df, stats_df, args.period_column)
+    # Log summary
+    log_summary(agg_df, stats_df, args.period_column)
 
     # Save outputs
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -107,9 +106,9 @@ def main() -> None:
     agg_df.to_csv(agg_path, index=False)
     stats_df.to_csv(stats_path, index=False)
 
-    print(f"\nOutputs saved:")
-    print(f"  Sense counts: {agg_path}")
-    print(f"  Period stats: {stats_path}")
+    logger.info("Outputs saved:")
+    logger.info(f"  Sense counts: {agg_path}")
+    logger.info(f"  Period stats: {stats_path}")
 
 
 if __name__ == "__main__":

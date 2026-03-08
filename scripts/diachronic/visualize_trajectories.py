@@ -13,23 +13,24 @@ Usage:
     python scripts/diachronic/visualize_trajectories.py --all-lemmas
 """
 
-from __future__ import annotations
-
 import argparse
+import logging
 import sys
 from pathlib import Path
 
 import pandas as pd
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from diachronic.visualization import (
+from src.diachronic.visualization import (
     plot_sense_trajectory,
     plot_entropy_over_time,
     plot_sense_heatmap,
     plot_all_lemmas_summary,
 )
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
@@ -43,10 +44,10 @@ def load_data(
     entropy_path: Path,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load sense counts and entropy data."""
-    print(f"Loading data...")
+    logger.info("Loading data...")
     counts_df = pd.read_csv(counts_path)
     entropy_df = pd.read_csv(entropy_path)
-    print(f"  Loaded {counts_df['lemma'].nunique()} lemmas")
+    logger.info(f"  Loaded {counts_df['lemma'].nunique()} lemmas")
     return counts_df, entropy_df
 
 
@@ -111,20 +112,18 @@ def main() -> None:
         # Default: plot first 3 lemmas as examples
         lemmas_to_plot = all_lemmas[:3]
 
-    print(f"\nGenerating visualizations for {len(lemmas_to_plot)} lemmas...")
+    logger.info(f"Generating visualizations for {len(lemmas_to_plot)} lemmas...")
 
-    # Generate per-lemma plots
     for lemma in lemmas_to_plot:
-        print(f"\n  Processing: {lemma}")
+        logger.info(f"  Processing: {lemma}")
         plot_sense_trajectory(counts_df, lemma, args.period_column, args.output_dir)
         plot_sense_heatmap(counts_df, lemma, args.period_column, args.output_dir)
 
-    # Generate summary plots
-    print(f"\nGenerating summary plots...")
+    logger.info("Generating summary plots...")
     plot_entropy_over_time(entropy_df, lemmas_to_plot, args.period_column, args.output_dir)
     plot_all_lemmas_summary(entropy_df, args.period_column, args.output_dir)
 
-    print(f"\nAll visualizations saved to: {args.output_dir}")
+    logger.info(f"All visualizations saved to: {args.output_dir}")
 
 
 if __name__ == "__main__":

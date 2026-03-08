@@ -11,22 +11,23 @@ Note: This provides indicative results, not true gold-standard evaluation.
 For proper evaluation, use compare_embedding_methods.py with human-annotated data.
 """
 
-from __future__ import annotations
-
 import json
+import logging
 import random
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from evaluation import Embedder, SimilarityWSD
+from src.wsd import Embedder, SimilarityWSD
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
@@ -39,9 +40,9 @@ MIN_SENTENCES_PER_WORD = 20
 MAX_SENTENCES_PER_WORD = 100
 
 
-def load_dwds_corpus() -> List[Dict[str, Any]]:
+def load_dwds_corpus() -> list[dict[str, Any]]:
     """Load real DWDS corpus sentences."""
-    print("Loading DWDS corpus data...")
+    logger.info("Loading DWDS corpus data...")
     progress_file = DWDS_CONTEXTS_DIR / "fetch_progress_25_words.jsonl"
 
     contexts = []
@@ -49,25 +50,25 @@ def load_dwds_corpus() -> List[Dict[str, Any]]:
         for line in f:
             contexts.append(json.loads(line.strip()))
 
-    print(f"  Loaded {len(contexts):,} corpus sentences")
+    logger.info(f"  Loaded {len(contexts):,} corpus sentences")
     return contexts
 
 
 def load_germanet_senses() -> pd.DataFrame:
     """Load enhanced GermaNet sense data."""
-    print("Loading GermaNet senses...")
+    logger.info("Loading GermaNet senses...")
     df = pd.read_csv(GERMANET_DIR / "wsd_senses_enhanced.csv")
-    print(f"  Loaded {len(df)} senses for {df['lemma'].nunique()} words")
+    logger.info(f"  Loaded {len(df)} senses for {df['lemma'].nunique()} words")
     return df
 
 
 def find_evaluation_candidates(
-    contexts: List[Dict[str, Any]],
+    contexts: list[dict[str, Any]],
     germanet_df: pd.DataFrame,
     min_sentences: int = MIN_SENTENCES_PER_WORD,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """Find words suitable for evaluation (polysemous + have corpus data)."""
-    print("Finding evaluation candidates...")
+    logger.info("Finding evaluation candidates...")
 
     # Count corpus sentences per word
     corpus_counts = Counter(ctx["lemma"] for ctx in contexts)
@@ -76,7 +77,6 @@ def find_evaluation_candidates(
     sense_counts = germanet_df.groupby("lemma").size()
     polysemous = set(sense_counts[sense_counts >= 2].index)
 
-    # Find overlap
     candidates = {}
     for word in polysemous:
         if word in corpus_counts and corpus_counts[word] >= min_sentences:
@@ -86,20 +86,20 @@ def find_evaluation_candidates(
                 "corpus_sentences": corpus_counts[word],
             }
 
-    print(f"  Found {len(candidates)} evaluation candidates:")
+    logger.info(f"  Found {len(candidates)} evaluation candidates:")
     for word, info in candidates.items():
-        print(f"    {word}: {info['num_senses']} senses, {info['corpus_sentences']} sentences")
+        logger.info(f"    {word}: {info['num_senses']} senses, {info['corpus_sentences']} sentences")
 
     return candidates
 
 
 def prepare_test_data(
-    contexts: List[Dict[str, Any]],
-    candidates: Dict[str, Dict[str, Any]],
+    contexts: list[dict[str, Any]],
+    candidates: dict[str, dict[str, Any]],
     max_sentences: int = MAX_SENTENCES_PER_WORD,
 ) -> pd.DataFrame:
     """Prepare test data from DWDS corpus sentences."""
-    print("Preparing test data...")
+    logger.info("Preparing test data...")
 
     test_records = []
     for word in candidates:
@@ -119,14 +119,14 @@ def prepare_test_data(
             })
 
     df = pd.DataFrame(test_records)
-    print(f"  Created {len(df)} test cases")
+    logger.info(f"  Created {len(df)} test cases")
     return df
 
 
 def evaluate_mfs_baseline(
     germanet_df: pd.DataFrame,
     test_df: pd.DataFrame,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Evaluate Most Frequent Sense baseline.
 
     Since DWDS sentences don't have gold labels, we compute:
@@ -152,7 +152,7 @@ def run_similarity_evaluation(
     germanet_df: pd.DataFrame,
     test_df: pd.DataFrame,
     model_name: str = DEFAULT_MODEL,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run similarity-based WSD evaluation.
 
     Note: Without gold labels, we report:
@@ -160,17 +160,15 @@ def run_similarity_evaluation(
     - Agreement with MFS (does the model predict sense_frequency=1?)
     - Confidence statistics
     """
-    print(f"\nRunning similarity evaluation with {model_name}...")
+    logger.info(f"Running similarity evaluation with {model_name}...")
 
     embedder = Embedder(model_name=model_name, normalize=True)
 
-    # Encode senses
-    print("  Encoding sense definitions...")
+    logger.info("  Encoding sense definitions...")
     sense_texts = germanet_df["text_for_embedding"].fillna("").tolist()
     sense_embeddings = embedder.encode(sense_texts, show_progress=True)
 
-    # Encode contexts
-    print("  Encoding context sentences...")
+    logger.info("  Encoding context sentences...")
     context_texts = test_df["sentence"].fillna("").tolist()
     context_embeddings = embedder.encode(context_texts, show_progress=True)
 
@@ -222,33 +220,29 @@ def run_similarity_evaluation(
     }
 
 
-def print_results(
-    baselines: Dict[str, float],
-    similarity_results: Dict[str, Any],
-    candidates: Dict[str, Dict[str, Any]],
+def log_results(
+    baselines: dict[str, float],
+    similarity_results: dict[str, Any],
+    candidates: dict[str, dict[str, Any]],
 ) -> None:
-    """Print evaluation results."""
-    print("\n" + "=" * 60)
-    print("DWDS WSD EVALUATION RESULTS")
-    print("=" * 60)
-
-    print(f"\nDataset:")
-    print(f"  Words: {len(candidates)}")
-    print(f"  Test cases: {baselines['num_test_cases']}")
-
-    print(f"\nBaselines:")
-    print(f"  Random: {baselines['random_baseline']:.3f}")
-
-    print(f"\nSimilarity-based WSD ({similarity_results['model']}):")
-    print(f"  Valid predictions: {similarity_results['valid_predictions']}")
-    print(f"  MFS agreement rate: {similarity_results['mfs_agreement_rate']:.3f}")
-    print(f"  Confidence: {similarity_results['confidence_mean']:.3f} +/- {similarity_results['confidence_std']:.3f}")
-
-    print("\n" + "=" * 60)
-    print("NOTE: These results are indicative only.")
-    print("Without human-annotated gold labels, we cannot compute true accuracy.")
-    print("MFS agreement rate shows how often the model predicts the most frequent sense.")
-    print("=" * 60)
+    """Log evaluation results."""
+    logger.info("=" * 60)
+    logger.info("DWDS WSD EVALUATION RESULTS")
+    logger.info("=" * 60)
+    logger.info("Dataset:")
+    logger.info(f"  Words: {len(candidates)}")
+    logger.info(f"  Test cases: {baselines['num_test_cases']}")
+    logger.info("Baselines:")
+    logger.info(f"  Random: {baselines['random_baseline']:.3f}")
+    logger.info(f"Similarity-based WSD ({similarity_results['model']}):")
+    logger.info(f"  Valid predictions: {similarity_results['valid_predictions']}")
+    logger.info(f"  MFS agreement rate: {similarity_results['mfs_agreement_rate']:.3f}")
+    logger.info(f"  Confidence: {similarity_results['confidence_mean']:.3f} +/- {similarity_results['confidence_std']:.3f}")
+    logger.info("=" * 60)
+    logger.info("NOTE: These results are indicative only.")
+    logger.info("Without human-annotated gold labels, we cannot compute true accuracy.")
+    logger.info("MFS agreement rate shows how often the model predicts the most frequent sense.")
+    logger.info("=" * 60)
 
 
 def main() -> None:
@@ -264,8 +258,7 @@ def main() -> None:
     candidates = find_evaluation_candidates(contexts, germanet_df)
 
     if len(candidates) < 3:
-        print("Insufficient polysemous words for evaluation.")
-        print(f"Found only {len(candidates)} suitable words (need at least 3).")
+        logger.warning(f"Insufficient polysemous words: {len(candidates)} found (need at least 3).")
         return
 
     # Prepare test data
@@ -277,10 +270,8 @@ def main() -> None:
     # Run similarity evaluation
     similarity_results = run_similarity_evaluation(germanet_df, test_df)
 
-    # Print results
-    print_results(baselines, similarity_results, candidates)
+    log_results(baselines, similarity_results, candidates)
 
-    # Save results
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     results_file = OUTPUT_DIR / "dwds_wsd_evaluation_results.json"
 
@@ -294,7 +285,7 @@ def main() -> None:
     with open(results_file, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print(f"\nResults saved to: {results_file}")
+    logger.info(f"Results saved to: {results_file}")
 
 
 if __name__ == "__main__":

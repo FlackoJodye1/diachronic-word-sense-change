@@ -7,33 +7,33 @@ detailed predictions including gold sense, predicted sense, rank, and top-k
 candidates for each instance.
 
 Usage:
-    python scripts/evaluation/generate_predictions.py
-    python scripts/evaluation/generate_predictions.py --output path/to/predictions.csv
+    python scripts/atemporal/generate_predictions.py
+    python scripts/atemporal/generate_predictions.py --output path/to/predictions.csv
 """
 
-from __future__ import annotations
-
 import argparse
+import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pandas as pd
 
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from evaluation import Embedder, SimilarityWSD
+from src.wsd import Embedder, SimilarityWSD
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # Configuration - best performing setup
 MODEL_NAME = "intfloat/multilingual-e5-large"
 DATA_DIR = Path("data")
-QUICK_EVAL_DIR = DATA_DIR / "evaluation" / "quick_eval"
-SENSE_REPRESENTATIONS_PATH = QUICK_EVAL_DIR / "sense_text_representations.jsonl"
-GOLD_ANNOTATIONS_PATH = QUICK_EVAL_DIR / "gold_annotations.csv"
-DEFAULT_OUTPUT_PATH = QUICK_EVAL_DIR / "predictions.csv"
+ATEMPORAL_DIR = DATA_DIR / "evaluation" / "atemporal"
+SENSE_REPRESENTATIONS_PATH = ATEMPORAL_DIR / "input" / "sense_text_representations.jsonl"
+GOLD_ANNOTATIONS_PATH = ATEMPORAL_DIR / "input" / "gold_annotations.csv"
+DEFAULT_OUTPUT_PATH = ATEMPORAL_DIR / "results" / "predictions.csv"
 
 # Weighted variant config
 WEIGHTED_DEF_COL = "llm_definition"
@@ -52,7 +52,7 @@ def load_sense_representations(path: Path) -> pd.DataFrame:
     return df
 
 
-def add_e5_prefix(texts: List[str], prefix: str) -> List[str]:
+def add_e5_prefix(texts: list[str], prefix: str) -> list[str]:
     """Add E5 prefix to texts."""
     return [f"{prefix}{t}" for t in texts]
 
@@ -114,17 +114,17 @@ class InstancePrediction:
     pred_sense: str
     correct: bool
     gold_rank: int  # 1-indexed rank of gold sense (1 = correct prediction)
-    top5_senses: List[str]
-    top5_scores: List[float]
+    top5_senses: list[str]
+    top5_scores: list[float]
 
 
 def generate_predictions(
     sense_df: pd.DataFrame,
     gold_df: pd.DataFrame,
     embedder: Embedder,
-) -> List[InstancePrediction]:
+) -> list[InstancePrediction]:
     """Generate per-instance predictions."""
-    print("Computing weighted sense embeddings...")
+    logger.info("Computing weighted sense embeddings...")
     sense_embeddings = compute_weighted_embeddings(sense_df, embedder, use_e5_prefix=True)
 
     # Build sense lookup
@@ -132,8 +132,7 @@ def generate_predictions(
     sense_lemmas = sense_df["lemma"].tolist()
     sense_id_to_idx = {sid: i for i, sid in enumerate(sense_ids)}
 
-    # Encode contexts
-    print("Encoding context sentences...")
+    logger.info("Encoding context sentences...")
     raw_contexts = gold_df["sentence"].fillna("").tolist()
     context_texts = add_e5_prefix(raw_contexts, "query: ")
     context_embeddings = embedder.encode(context_texts, show_progress=True)
@@ -191,15 +190,15 @@ def main():
 
     output_path = Path(args.output) if args.output else DEFAULT_OUTPUT_PATH
 
-    print(f"Loading data...")
+    logger.info("Loading data...")
     sense_df = load_sense_representations(SENSE_REPRESENTATIONS_PATH)
     gold_df = pd.read_csv(GOLD_ANNOTATIONS_PATH)
-    print(f"  {len(sense_df)} senses, {len(gold_df)} test instances")
+    logger.info(f"  {len(sense_df)} senses, {len(gold_df)} test instances")
 
-    print(f"\nLoading model: {MODEL_NAME}")
+    logger.info(f"Loading model: {MODEL_NAME}")
     embedder = Embedder(model_name=MODEL_NAME, normalize=True)
 
-    print(f"\nGenerating predictions...")
+    logger.info("Generating predictions...")
     predictions = generate_predictions(sense_df, gold_df, embedder)
 
     # Convert to DataFrame
@@ -219,20 +218,18 @@ def main():
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_path, index=False)
 
-    # Summary
     accuracy = results_df["correct"].mean()
-    print(f"Results saved to: {output_path}")
-    print(f"Instances: {len(results_df)}")
-    print(f"Accuracy:  {accuracy:.1%}")
-    print(f"Errors:    {(1 - accuracy):.1%} ({(~results_df['correct']).sum()} instances)")
+    logger.info(f"Results saved to: {output_path}")
+    logger.info(f"Instances: {len(results_df)}")
+    logger.info(f"Accuracy:  {accuracy:.1%}")
+    logger.info(f"Errors:    {(1 - accuracy):.1%} ({(~results_df['correct']).sum()} instances)")
 
-    # Quick breakdown
-    print(f"\nGold rank distribution:")
+    logger.info("Gold rank distribution:")
     rank_counts = results_df["gold_rank"].value_counts().sort_index()
     for rank, count in rank_counts.items():
         pct = count / len(results_df) * 100
         label = "correct" if rank == 1 else f"rank {rank}"
-        print(f"  {label}: {count} ({pct:.1f}%)")
+        logger.info(f"  {label}: {count} ({pct:.1f}%)")
 
 
 if __name__ == "__main__":
