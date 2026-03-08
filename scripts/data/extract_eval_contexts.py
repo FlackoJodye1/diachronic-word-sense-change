@@ -3,28 +3,28 @@
 Extract DWDS contexts with filtering for WSD embedding evaluation.
 """
 
-import sys
-import pandas as pd
-import logging
 import argparse
+import logging
+import sys
 from pathlib import Path
-from typing import Optional
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent.parent.parent / 'src'))
+import pandas as pd
 
-from data.dwds.client import DWDSClient
-from data.dwds.fetcher import FetchOptions, fetch_contexts_for_word
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-# Setup logging
+from src.data.dwds.client import DWDSClient
+from src.data.dwds.fetcher import FetchOptions, fetch_contexts_for_word
+
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
-def extract_contexts(args: argparse.Namespace) -> Optional[pd.DataFrame]:
+BASE_DIR = Path(__file__).resolve().parents[2]
+
+def extract_contexts(args: argparse.Namespace) -> pd.DataFrame | None:
     """Extract and filter contexts for each evaluation word."""
     
     # Load selected words
-    words_path = Path(__file__).parent.parent.parent / 'data' / 'processed' / 'target_words' / 'eval_set_selection.tsv'
+    words_path = BASE_DIR / 'data' / 'processed' / 'target_words' / 'eval_set_selection.tsv'
     
     if not words_path.exists():
         logger.error(f"Word selection file not found: {words_path}")
@@ -97,12 +97,12 @@ def extract_contexts(args: argparse.Namespace) -> Optional[pd.DataFrame]:
         final_df = final_df.sort_values(['target_word', 'No.']).reset_index(drop=True)
         
         # Save results
-        output_path = Path(__file__).parent.parent.parent / 'data' / 'evaluation' / 'eval_contexts.csv'
+        output_path = BASE_DIR / 'data' / 'evaluation' / 'eval_contexts.csv'
         output_path.parent.mkdir(exist_ok=True)
         
         try:
             final_df.to_csv(output_path, index=False)
-            logger.info(f"✅ Saved {len(final_df)} filtered contexts to {output_path}")
+            logger.info(f"Saved {len(final_df)} filtered contexts to {output_path}")
             
             # Show summary
             summary = final_df.groupby('target_word').size()
@@ -124,19 +124,19 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
-    parser.add_argument('--extract_n', type=int, default=200,
+    parser.add_argument('--extract-n', type=int, default=200,
                       help='Number of contexts to extract per word before filtering')
-    parser.add_argument('--target_n', type=int, default=10,
+    parser.add_argument('--target-n', type=int, default=10,
                       help='Target number of contexts per word after filtering')
-    parser.add_argument('--min_tokens', type=int, default=8,
+    parser.add_argument('--min-tokens', type=int, default=8,
                       help='Minimum number of tokens in context')
-    parser.add_argument('--max_tokens', type=int, default=35,
+    parser.add_argument('--max-tokens', type=int, default=35,
                       help='Maximum number of tokens in context')
     parser.add_argument('--seed', type=int, default=42,
                       help='Random seed for deterministic selection')
-    parser.add_argument('--max_per_doc', type=int, default=1,
+    parser.add_argument('--max-per-doc', type=int, default=1,
                       help='Maximum contexts per document')
-    parser.add_argument('--auto_select', action='store_true', default=False,
+    parser.add_argument('--auto-select', action='store_true', default=False,
                       help='Automatically select target_n contexts (default: manual selection)')
     
     args = parser.parse_args()

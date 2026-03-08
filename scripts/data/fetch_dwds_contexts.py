@@ -5,31 +5,25 @@ Fetch DWDS contexts for a list of target words and write JSONL output.
 This is a general-purpose fetcher for building diachronic inputs.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import logging
 import sys
 from pathlib import Path
-from typing import Iterable, List
 
 import pandas as pd
 
-# Add src to path
-sys.path.append(str(Path(__file__).parent.parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from data.dwds.client import DWDSClient
-from data.dwds.fetcher import FetchOptions, fetch_contexts_for_word
-from data.dwds.context_utils import (
-    parse_year,
-)
+from src.data.dwds.client import DWDSClient
+from src.data.dwds.fetcher import FetchOptions, fetch_contexts_for_word
+from src.data.dwds.util.context_utils import parse_year
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
 
-def load_words(words_path: Path) -> List[str]:
+def load_words(words_path: Path) -> list[str]:
     """Load target words from a .txt list or a table with a word/lemma column."""
     if words_path.suffix.lower() == ".txt":
         with words_path.open("r", encoding="utf-8") as f:
@@ -73,10 +67,10 @@ def record_from_row(row: pd.Series, lemma: str, corpus: str) -> dict:
     }
 
 
-def iter_existing_lemmas(output_path: Path) -> Iterable[str]:
+def iter_existing_lemmas(output_path: Path) -> set[str]:
     """Yield lemmas already present in a JSONL output file."""
     if not output_path.exists():
-        return []
+        return set()
     lemmas = set()
     with output_path.open("r", encoding="utf-8") as f:
         for line in f:
