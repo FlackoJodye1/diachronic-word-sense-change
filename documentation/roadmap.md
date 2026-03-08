@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-02-19 (v2 pipeline complete)
+**Last updated:** 2026-03-08
 
 ---
 
@@ -95,13 +95,13 @@ A quick-reference document tracking what's done, what's in progress, and what's 
 | Manual validation of top 10 words | Not done | Check if detected changes are real or WSD artifacts |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
 | Statistical significance testing | Not done | Chi-square on distribution shifts, confidence intervals |
-| Investigate JSD=1.0 values | Not done | Many could be sparse-data artifacts (e.g., 1940s with few contexts) |
+| Investigate JSD=1.0 values | Done (v2) | Eliminated by re-fetching with --max-tokens 60. Only 22/894 word-decades remain sparse. Max JSD now 0.835. |
 | WWII case study (schlagen, geben, handeln, werfen) | Not done | Interesting pattern but needs validation |
 | Publication-ready figures | Not done | Only 14 plots for 3 words so far |
 
 ### 3c. Key Concern
 
-Many of the dramatic-looking results (JSD=1.0, complete sense shifts) may be **artifacts of sparse data** in certain decades rather than genuine semantic change. The 1940s especially have fewer corpus contexts. Manual validation is the critical next step.
+The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The remaining concern is that model prediction errors accumulate, so some emergence/decline events may still reflect WSD noise rather than genuine semantic change. **Manual validation of top-changed words is the critical next step.**
 
 ---
 
@@ -125,9 +125,8 @@ Many of the dramatic-looking results (JSD=1.0, complete sense shifts) may be **a
 | LLM-enriched senses | `data/processed/germanet/target_word_senses_enhanced.jsonl` |
 | Atemporal gold annotations | `data/evaluation/atemporal/input/gold_annotations.csv` |
 | Atemporal results | `data/evaluation/atemporal/results/` |
-| Diachronic predictions | `data/diachronic/dwds_predictions.csv`, `pilot_predictions_weighted.csv` |
-| Diachronic metrics | `data/diachronic/metrics_decade_*.csv`, `pilot_weighted_decade_*.csv` |
-| Diachronic summary | `data/diachronic/PILOT_STUDY_SUMMARY.md` |
+| Diachronic predictions (v2) | `data/diachronic/pilot_predictions_weighted_v2.csv` |
+| Diachronic metrics (v2) | `data/diachronic/pilot_weighted_v2_filtered_decade_*.csv` |
 | Diachronic plots | `data/diachronic/plots/` |
 | Atemporal scripts | `scripts/atemporal/` |
 | Diachronic scripts | `scripts/diachronic/` |

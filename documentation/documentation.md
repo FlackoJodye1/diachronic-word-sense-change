@@ -102,7 +102,7 @@ GermaNet is the German equivalent of Princeton WordNet, providing a hierarchical
 - 189,330 semantic relations
 - Coverage: Nouns, Verbs, Adjectives
 
-**Limitation**: Only 4.8% of synsets have paraphrases (definitions), making direct gloss-based disambiguation challenging.
+**Limitation**: Only 4.8% of synsets have paraphrases (definitions), making direct gloss-based disambiguation impossible.
 
 #### Existing German WSD Datasets
 
@@ -506,11 +506,12 @@ class DWDSClient:
 
 | Metric | Value |
 |--------|-------|
-| Total sentences fetched | 4,809 |
-| Words with contexts | 25 (pilot set) |
-| Avg. contexts per word | ~190 |
+| Total sentences fetched (diachronic pilot v2) | 30,337 |
+| Words with contexts | 90 (of 116 pilot words) |
+| Avg. contexts per word | ~337 |
 | Date range | 1900-1999 |
 | Primary corpus | Kernkorpus |
+| Fetch parameters | --max-tokens 60, --limit 1000 |
 
 ### 5.3 Annotation Process
 
@@ -575,10 +576,10 @@ For validation, we plan to:
 | Metric | Value | Status |
 |--------|-------|--------|
 | Target words defined | 752 | Complete |
-| Senses enriched | 2,022 | Complete |
-| Contexts fetched | 4,809 | Pilot (25 words) |
-| Contexts annotated | TBD | In progress |
-| Words fully annotated | TBD | In progress |
+| Senses enriched (LLM) | 2,022 | Complete |
+| Diachronic contexts fetched (v2) | 30,337 | Complete (90 words) |
+| Atemporal gold annotations | 93 instances / 10 words | Complete |
+| Second annotation set | 98 instances / 10 words | Fetched, not annotated |
 
 #### Target Dataset Size
 
@@ -606,31 +607,21 @@ For validation, we plan to:
 GermaNet Sense → Enriched Text → Embedding Model → Sense Vector
 ```
 
-#### Current Approach
+#### Best Approach (from evaluation)
 
-**Model**: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+**Model**: `intfloat/multilingual-e5-large`
 
 | Property | Value |
 |----------|-------|
-| Embedding dimension | 384 |
-| Languages | 50+ (including German) |
-| Architecture | MiniLM (distilled BERT) |
+| Embedding dimension | 1024 |
+| Languages | 100+ (including German) |
+| Architecture | E5 (retrieval-optimized) |
 | Normalization | L2 normalized |
+| Special handling | Requires `query:` / `passage:` prefixes |
 
-**Implementation**: `src/data/germanet/transforms/embedding_builder.py`
+**Accuracy**: 54.8% on 93-instance gold eval set
 
-```python
-class EmbeddingBuilder:
-    DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-
-    def create_embeddings(self, sense_texts_df, text_column='text_for_embedding'):
-        embeddings = self.model.encode(
-            texts,
-            normalize_embeddings=True,  # L2 normalization
-            batch_size=256
-        )
-        return embeddings  # Shape: (n_senses, 384)
-```
+**Implementation**: `src/wsd/embedder.py`, `src/wsd/embedding_strategies.py`
 
 #### Alternative Approaches to Compare
 
@@ -906,7 +897,7 @@ Required columns:
 
 #### Implementation
 
-See `src/evaluation/wsd_evaluator.py`:
+See `src/wsd/wsd_evaluator.py`:
 
 ```python
 class WSDEvaluator:
@@ -982,22 +973,22 @@ class WSDEvaluator:
 - 65 medium-polysemy words (4-7 senses) - good variation
 - 15 low-polysemy controls (2-3 senses) - baseline comparison
 
-**Corpus Data:** 6,474 DWDS contexts (1900-1999)
+**Corpus Data:** 30,337 DWDS contexts (1900-1999), v2 re-fetch with --max-tokens 60
 - Time period: 10 decades (1900s-1990s)
-- Average: 55.8 contexts per word
-- Distributed across all decades (639-882 contexts per decade)
-- Quality filters: 8-35 tokens, near-duplicate removal, max 1 per document
+- Average: ~337 contexts per word (90 words with sufficient data)
+- Only 22/894 word-decades sparse after min-5-contexts filter
+- 0.3% truncation rate
 
 **WSD Method:** Unsupervised prediction using best atemporal model
 - Model: `intfloat/multilingual-e5-large` (54.8% atemporal accuracy)
-- Text representation: `text_for_embedding` (GermaNet enriched)
+- Text representation: weighted (0.5 × definition + 0.5 × avg(5 examples))
 - No manual annotation required for pilot phase
 
 #### Analysis Pipeline
 
-1. **Sense Prediction**: Apply E5-large WSD to all 6,474 historical contexts
+1. **Sense Prediction**: Apply E5-large WSD to all 30,337 historical contexts → 24,325 predictions
 2. **Temporal Aggregation**: Group predictions by lemma × decade
-3. **Change Metrics**: Compute entropy, divergence, emergence/decline events
+3. **Change Metrics**: Compute entropy, divergence, emergence/decline events (min 5 contexts/decade filter)
 4. **Visualization**: Generate trajectory plots, heatmaps, summary statistics
 
 #### Research Questions
@@ -1008,7 +999,13 @@ class WSDEvaluator:
 4. **Polysemy effects**: Does polysemy level predict change rate?
 5. **WSD reliability**: How does unsupervised WSD perform on historical data?
 
-*Results to be added after pipeline completion*
+#### Key Findings (v2 pipeline)
+
+- **518 emergence events**, **521 decline events** detected across 90 words
+- **Max JSD: 0.835** — JSD=1.0 artifacts eliminated after v2 re-fetch
+- **Only 22/894 word-decades** sparse (previously 371 in v1)
+- Top-changed words (pending re-rank from v2): dominated by high-polysemy verbs
+- Manual validation not yet started — detecting real change vs. WSD noise is the next step
 
 ### 8.4 Error Analysis
 
@@ -1076,14 +1073,14 @@ See `analysis/error_analysis.ipynb` for interactive exploration:
 - Near-miss analysis with example sentences
 - Gold rank distribution plots
 
-See `src/evaluation/error_analysis.py` for programmatic analysis:
+See `src/wsd/wsd_evaluator.py` (`ErrorAnalyzer` class) for programmatic analysis:
 - Confusion matrix generation
 - High-error word identification
 - Sense pair confusion analysis
 
 ### 8.5 Evaluation Framework
 
-#### Shared Modules (`src/evaluation/`)
+#### Shared Modules (`src/wsd/`)
 
 The evaluation package provides reusable components for embedding-based WSD:
 
@@ -1092,15 +1089,15 @@ The evaluation package provides reusable components for embedding-based WSD:
 | `embedder.py` | `Embedder` | Unified text embedding using sentence-transformers |
 | `similarity_wsd.py` | `SimilarityWSD` | Cosine similarity-based WSD predictor |
 | `wsd_evaluator.py` | `WSDEvaluator` | Evaluates predictions against gold standard |
-| `metrics.py` | `WSDMetrics` | Detailed metrics (precision, recall, F1, confusion matrix) |
-| `error_analysis.py` | `ErrorAnalyzer` | Error pattern analysis |
+| `wsd_evaluator.py` | `WSDMetrics` | Detailed metrics (precision, recall, F1, confusion matrix) |
+| `wsd_evaluator.py` | `ErrorAnalyzer` | Error pattern analysis |
 
 ##### Embedder
 
 Unified text embedder with L2 normalization for cosine similarity:
 
 ```python
-from src.evaluation import Embedder
+from src.wsd import Embedder
 
 embedder = Embedder(
     model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
@@ -1125,7 +1122,7 @@ embeddings = embedder.encode(texts, batch_size=32, show_progress=True)
 Performs WSD by comparing context embeddings to sense embeddings:
 
 ```python
-from src.evaluation import SimilarityWSD
+from src.wsd import SimilarityWSD
 
 # Create predictor from sense embeddings
 wsd = SimilarityWSD.from_dataframe(
@@ -1147,13 +1144,15 @@ print(f"Top-3: {result.top3_accuracy:.3f}")
 print(f"MRR: {result.mrr:.3f}")
 ```
 
-#### Evaluation Scripts (`scripts/evaluation/`)
+#### Evaluation Scripts (`scripts/atemporal/`)
 
-Three scripts for different evaluation purposes:
+Five scripts for different evaluation purposes:
 
 | Script | Purpose | Data Source | Output |
 |--------|---------|-------------|--------|
-| `compare_embedding_methods.py` | Benchmark models + text variants | `quick_eval/` gold annotations | Accuracy, Top-k, MRR |
+| `compare_embedding_methods.py` | Benchmark models + text variants | gold annotations | Accuracy, Top-k, MRR |
+| `tune_representation_weights.py` | Optimize α in def+examples weighting | gold annotations | Best α, accuracy curve |
+| `generate_predictions.py` | Generate per-instance predictions | gold annotations | Predictions with error analysis |
 | `real_dwds_wsd_evaluation.py` | Indicative evaluation on corpus | DWDS + GermaNet | MFS agreement, confidence |
 | `evaluate_embeddings.py` | Quality analysis (not WSD accuracy) | GermaNet senses | Similarity stats, clustering |
 
@@ -1184,8 +1183,8 @@ Three scripts for different evaluation purposes:
 
 **Usage:**
 ```bash
-python scripts/evaluation/compare_embedding_methods.py                # Normal run
-python scripts/evaluation/compare_embedding_methods.py --clear-cache  # Clear disk cache after each model
+python scripts/atemporal/compare_embedding_methods.py                # Normal run
+python scripts/atemporal/compare_embedding_methods.py --clear-cache  # Clear disk cache after each model
 ```
 
 **Features:**
@@ -1205,20 +1204,20 @@ python scripts/evaluation/compare_embedding_methods.py --clear-cache  # Clear di
 | `multilingual-e5-base` | E5 | Retrieval-optimized, 768 dim |
 | `multilingual-e5-large` | E5 | Best quality, 1024 dim |
 
-**Benchmark Results (January 2026):**
+**Benchmark Results:**
 
 | Rank | Model | Text Variant | Accuracy | MRR |
 |------|-------|--------------|----------|-----|
-| 1 | multilingual-e5-large | Weighted (Def + Avg Examples) | **0.527** | 0.723 |
-| 2 | multilingual-e5-large | llm_definition | 0.516 | 0.693 |
-| 3 | mpnet-base-v2 | llm_examples (concatenated) | 0.516 | 0.707 |
-| 4 | distiluse-v2 | llm_examples (concatenated) | 0.505 | 0.697 |
+| 1 | multilingual-e5-large | Weighted (0.5×def + 0.5×avg examples) | **54.8%** | 0.725 |
+| 2 | bge-m3 | Weighted (0.5×def + 0.5×avg examples) | 51.6% | 0.717 |
+| 3 | mpnet-base-v2 | Weighted (0.5×def + 0.5×avg examples) | 47.3% | 0.677 |
+| 4 | LaBSE | Weighted (0.5×def + 0.5×avg examples) | 46.2% | 0.680 |
 
 **Key findings:**
-- Weighted combination (0.5 × definition + 0.5 × avg(examples)) achieves best results
-- LLM-generated examples consistently outperform baseline and definitions alone
-- E5 models benefit significantly from proper query/passage prefixes
-- Best configuration: `multilingual-e5-large` + weighted def+examples → 52.7% accuracy
+- Weighted combination (α=0.5, validated via grid search) consistently best across all models
+- LLM-generated examples outperform baseline GermaNet text by +18.2 pp
+- E5 models require proper query/passage prefixes for best performance
+- Top-3 accuracy: 96.8%, Top-5: 100% — correct sense almost always in top candidates
 
 ##### real_dwds_wsd_evaluation.py
 
@@ -1241,7 +1240,7 @@ python scripts/evaluation/compare_embedding_methods.py --clear-cache  # Clear di
 
 **Usage:**
 ```bash
-python scripts/evaluation/real_dwds_wsd_evaluation.py
+python scripts/atemporal/real_dwds_wsd_evaluation.py
 ```
 
 ##### evaluate_embeddings.py
@@ -1256,7 +1255,7 @@ python scripts/evaluation/real_dwds_wsd_evaluation.py
 
 **Usage:**
 ```bash
-python scripts/evaluation/evaluate_embeddings.py
+python scripts/atemporal/evaluate_embeddings.py
 ```
 
 ### 8.6 Diachronic Analysis Pipeline
@@ -1362,18 +1361,14 @@ python scripts/diachronic/visualize_trajectories.py --all-lemmas
 **Output files:**
 ```
 data/diachronic/
-├── dwds_predictions.csv           # Raw predictions
-├── temporal_decade_sense_counts.csv
-├── temporal_decade_stats.csv
-├── metrics_decade_entropy.csv
-├── metrics_decade_divergence.csv
-├── metrics_decade_emergence.csv
-├── metrics_decade_decline.csv
+├── pilot_predictions_weighted_v2.csv             # Step 1: predictions
+├── pilot_weighted_v2_decade_sense_counts.csv     # Step 2: aggregated counts
+├── pilot_weighted_v2_decade_stats.csv            # Step 2: per-decade stats
+├── pilot_weighted_v2_filtered_decade_*.csv       # Step 3: change metrics (filtered)
 └── plots/
     ├── trajectory_*.png
     ├── heatmap_*.png
-    ├── entropy_*.png
-    └── summary_entropy.png
+    └── entropy_*.png
 ```
 
 ---
@@ -1434,13 +1429,12 @@ src/
 │   ├── aggregation.py     # Temporal aggregation functions
 │   ├── predictor.py       # Sense prediction for temporal data
 │   └── visualization.py   # Plotting functions
-└── evaluation/             # WSD evaluation
+└── wsd/                    # WSD engine
     ├── __init__.py
-    ├── embedder.py        # Embedding wrapper
-    ├── similarity_wsd.py  # WSD algorithms
-    ├── wsd_evaluator.py   # Evaluation harness
-    ├── metrics.py         # Evaluation metrics
-    └── error_analysis.py  # Error analysis utilities
+    ├── embedder.py            # Embedding wrapper
+    ├── embedding_strategies.py # Sense text representations
+    ├── similarity_wsd.py      # WSD algorithm
+    └── wsd_evaluator.py       # Evaluator, metrics, error analysis
 ```
 
 #### Module Descriptions
@@ -1466,7 +1460,7 @@ src/
 - `predict_senses()`: Apply WSD to temporal data
 - Visualization functions: trajectories, heatmaps, entropy plots
 
-**`src/evaluation/`**
+**`src/wsd/`**
 - `Embedder`: Wrapper for sentence transformer models
 - `SimilarityWSD`: Cosine similarity-based WSD
 - `WSDEvaluator`: Evaluation pipeline with metrics
@@ -1477,33 +1471,30 @@ src/
 ```
 scripts/
 ├── annotation/              # Annotation tools
-│   ├── app.py              # Streamlit annotation interface
-│   └── util/               # Annotation utilities
-│       ├── annotate_eval_set.py
-│       ├── create_gold_standard.py
-│       ├── export_annotation_tasks_json.py
-│       ├── generate_annotation_tasks.py
-│       ├── generate_quick_eval_tasks.py
-│       └── select_eval_words.py
+│   ├── app.py                          # Flask annotation interface
+│   ├── select_eval_words.py            # Select evaluation words
+│   ├── generate_annotation_tasks.py    # Bundle contexts + senses into tasks
+│   └── export_annotation_tasks_json.py # Convert pickle tasks to JSON
 ├── data/                    # Data preparation scripts
-│   ├── create_embeddings.py
-│   ├── extract_eval_contexts.py
-│   ├── fetch_dwds_contexts.py      # DWDS context fetcher (CLI)
-│   ├── generate_llm_sense_texts.py
-│   ├── process_germanet.py         # GermaNet processor (CLI)
-│   ├── rebuild_complete_wsd_senses.py
-│   ├── sample_from_wsd_senses.py
-│   └── util/
-│       └── calculate_germanet_senses.py
+│   ├── fetch_dwds_contexts.py          # DWDS context fetcher (CLI)
+│   ├── extract_eval_contexts.py        # Extract evaluation contexts
+│   ├── process_germanet.py             # GermaNet processor (CLI)
+│   ├── enrich_senses_with_llm.py       # LLM sense enrichment
+│   └── setup/                          # One-off initialization scripts
+│       ├── calculate_germanet_senses.py
+│       ├── sample_from_wsd_senses.py
+│       ├── convert_to_jsonl.py
+│       └── rebuild_complete_wsd_senses.py
 ├── diachronic/             # Temporal analysis runners
-│   ├── aggregate_temporal.py       # Aggregate by time period
-│   ├── compute_change_metrics.py   # Compute temporal metrics
-│   ├── predict_dwds_senses.py      # Apply WSD to historical data
-│   └── visualize_trajectories.py   # Generate plots
-└── evaluation/             # Evaluation runners
+│   ├── predict_dwds_senses.py          # Apply WSD to historical data
+│   ├── aggregate_temporal.py           # Aggregate by time period
+│   ├── compute_change_metrics.py       # Compute temporal metrics
+│   └── visualize_trajectories.py       # Generate plots
+└── atemporal/              # WSD evaluation runners
     ├── compare_embedding_methods.py
-    ├── evaluate_embeddings.py
+    ├── tune_representation_weights.py
     ├── generate_predictions.py
+    ├── evaluate_embeddings.py
     └── real_dwds_wsd_evaluation.py
 ```
 
@@ -1824,7 +1815,7 @@ python scripts/data/fetch_dwds_contexts.py
 python scripts/data/create_embeddings.py
 
 # 4. Run WSD evaluation
-python scripts/evaluation/compare_embedding_methods.py
+python scripts/atemporal/compare_embedding_methods.py
 ```
 
 ---

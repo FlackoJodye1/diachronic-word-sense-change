@@ -458,7 +458,7 @@ How to represent the sentence context being disambiguated?
 - Main methodology: `documentation/documentation.md`
 - Sense inventory: `data/processed/germanet/wsd_senses.csv`
 - DWDS contexts: `data/dwds_contexts/`
-- Evaluation code: `src/evaluation/wsd_evaluator.py`
+- Evaluation code: `src/wsd/wsd_evaluator.py`
 - Embedding code: `src/data/germanet/transforms/embedding_builder.py`
 
 ---

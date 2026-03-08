@@ -3,7 +3,7 @@
 A comprehensive guide to the German Word Sense Disambiguation (WSD) pipeline, from data preparation through diachronic analysis.
 
 **Version:** 2.0 (with integrated LLM sense enrichment)
-**Last Updated:** 2026-01-29
+**Last Updated:** 2026-03-08
 
 ---
 
@@ -279,7 +279,7 @@ python scripts/atemporal/tune_representation_weights.py
 
 ```bash
 # Compare all methods
-python scripts/evaluation/compare_embedding_methods.py
+python scripts/atemporal/compare_embedding_methods.py
 
 # Output: data/evaluation/quick_eval/embedding_comparison.csv
 ```
@@ -301,7 +301,7 @@ Track how word senses change over time (1900-1999).
 
 **Goal:** Detect sense emergence, decline, and distribution shifts across decades
 
-**Data:** 6,474 DWDS contexts for 116 pilot words
+**Data:** 30,337 DWDS contexts for 116 pilot words (v2, --max-tokens 60)
 
 **Method:** Unsupervised WSD (using best method from Phase 2) + temporal aggregation
 
@@ -311,7 +311,7 @@ Track how word senses change over time (1900-1999).
 
 ```
 Historical Sentences → Predict Senses → Aggregate by Decade → Compute Metrics → Visualize
-    (6,474)              (5,155)          (2,157 combos)      (592 events)     (plots)
+    (30,337)             (24,325)         (word × decade)      (518+521 events)  (plots)
 ```
 
 ### Step 1: Predict Senses
@@ -342,7 +342,7 @@ Compare to 6 "Geist" senses:
 Predicted: s112176, confidence: 0.82
 ```
 
-**Output:** `data/diachronic/dwds_predictions.csv`
+**Output:** `data/diachronic/pilot_predictions_weighted_v2.csv`
 
 **Columns:**
 - Original context columns (lemma, sentence, year, decade)
@@ -353,17 +353,16 @@ Predicted: s112176, confidence: 0.82
 **Run:**
 ```bash
 PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py \
-  --dwds-file data/dwds_contexts/pilot_diachronic_contexts.jsonl \
-  --senses-file data/processed/germanet/target_word_senses_enhanced.csv \
+  --dwds-file data/dwds_contexts/pilot_diachronic_contexts_v2.jsonl \
+  --senses-file data/processed/germanet/target_word_senses_enhanced.jsonl \
   --representation weighted \
   --model intfloat/multilingual-e5-large
 ```
 
-**Stats from pilot run:**
-- 5,155 predictions (out of 6,474 contexts)
+**Stats from v2 run:**
+- 24,325 predictions (out of 30,337 contexts)
 - 90 words analyzed
-- Mean confidence: 78.4%
-- Time: ~3 minutes
+- Only 22/894 word-decades sparse (min 5 contexts filter)
 
 ### Step 2: Aggregate by Decade
 
@@ -466,7 +465,7 @@ Geist sense s73963 (zeitgeist):
 1950s: 16.7%  ← EMERGED!
 ```
 
-**Output:** `metrics_decade_emergence.csv` (592 events detected)
+**Output:** `metrics_decade_emergence.csv` (518 events detected in v2)
 
 #### Metric 4: Decline (Senses Disappearing)
 
@@ -479,7 +478,7 @@ Geist sense s73964 (spiritual being):
 1960s: 0.0%   ← DECLINED!
 ```
 
-**Output:** `metrics_decade_decline.csv` (594 events detected)
+**Output:** `metrics_decade_decline.csv` (521 events detected in v2)
 
 **Run:**
 ```bash
@@ -569,10 +568,10 @@ PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --all-lemmas
 - Cross-reference with DWDS dictionary notes
 - Compare to historical/etymological sources
 
-**Key findings from pilot:**
-- 592 emergence events, 594 decline events
-- Mean entropy: 1.027 (moderate ambiguity)
-- Biggest shifts: Berg, Geist, Krone (1980s→1990s)
+**Key findings from pilot (v2):**
+- 518 emergence events, 521 decline events
+- Max JSD: 0.835 (no more JSD=1.0 artifacts)
+- Only 22/894 word-decades sparse after min-5-contexts filter
 
 ---
 
@@ -606,35 +605,37 @@ src/
 │   │   ├── make_dataset.py
 │   │   ├── parsing/
 │   │   └── transforms/
-│   ├── llm/             # LLM integration (NEW!)
+│   ├── llm/             # LLM integration
 │   │   ├── client.py
 │   │   └── text_generator.py
-│   └── embedding_strategies.py  # Text representation strategies (NEW!)
 ├── diachronic/          # Temporal analysis
 │   ├── io.py            # Data loading
 │   ├── aggregation.py   # Temporal grouping
 │   ├── metrics.py       # Entropy, divergence, change detection
 │   ├── predictor.py     # Sense prediction
 │   └── visualization.py # Plotting
-└── evaluation/          # WSD evaluation
-    ├── embedder.py      # Embedding wrapper
-    ├── similarity_wsd.py # WSD algorithms
-    ├── wsd_evaluator.py # Evaluation harness
-    └── metrics.py       # Eval metrics
+└── wsd/                     # WSD engine
+    ├── embedder.py          # Embedding wrapper
+    ├── embedding_strategies.py # Sense text representations
+    ├── similarity_wsd.py    # WSD algorithm
+    └── wsd_evaluator.py     # Evaluator, metrics, error analysis
 
 scripts/
 ├── data/                # Data preparation
 │   ├── process_germanet.py
-│   ├── enrich_senses_with_llm.py  (NEW!)
+│   ├── enrich_senses_with_llm.py
 │   └── fetch_dwds_contexts.py
 ├── diachronic/          # Temporal analysis runners
 │   ├── predict_dwds_senses.py
 │   ├── aggregate_temporal.py
 │   ├── compute_change_metrics.py
 │   └── visualize_trajectories.py
-└── evaluation/          # Evaluation runners
+└── atemporal/           # WSD evaluation runners
     ├── compare_embedding_methods.py
-    └── evaluate_embeddings.py
+    ├── evaluate_embeddings.py
+    ├── generate_predictions.py
+    ├── tune_representation_weights.py
+    └── real_dwds_wsd_evaluation.py
 ```
 
 ### Key Modules
@@ -692,7 +693,7 @@ entropy = compute_entropy_per_period(agg)
 plot_sense_trajectory(agg, lemma="Geist", output_dir="plots/")
 ```
 
-#### `src.evaluation`
+#### `src.wsd`
 
 WSD evaluation framework:
 
@@ -748,8 +749,8 @@ data/processed/
 
 ```
 data/dwds_contexts/
-├── pilot_diachronic_contexts.jsonl  # 6,474 historical contexts
-└── fetch_progress_*.jsonl           # Other corpus samples
+├── pilot_diachronic_contexts_v2.jsonl  # 30,337 historical contexts (v2, --max-tokens 60)
+└── fetch_progress_*.jsonl              # Other corpus samples
 ```
 
 ### Evaluation Files
@@ -770,18 +771,14 @@ data/evaluation/
 
 ```
 data/diachronic/
-├── dwds_predictions.csv                  # Step 1 output
-├── temporal_decade_sense_counts.csv      # Step 2 output
-├── temporal_decade_stats.csv             # Step 2 output
-├── metrics_decade_entropy.csv            # Step 3 output
-├── metrics_decade_divergence.csv         # Step 3 output
-├── metrics_decade_emergence.csv          # Step 3 output
-├── metrics_decade_decline.csv            # Step 3 output
-└── plots/                                # Step 4 output
+├── pilot_predictions_weighted_v2.csv             # Step 1 output (v2)
+├── pilot_weighted_v2_decade_sense_counts.csv     # Step 2 output
+├── pilot_weighted_v2_decade_stats.csv            # Step 2 output
+├── pilot_weighted_v2_filtered_decade_*.csv       # Step 3 output (min 5 contexts filter)
+└── plots/                                        # Step 4 output
     ├── trajectory_*.png
     ├── heatmap_*.png
-    ├── entropy_*.png
-    └── summary_entropy.png
+    └── entropy_*.png
 ```
 
 ### Key File Schemas
@@ -867,7 +864,7 @@ python scripts/data/fetch_dwds_contexts.py \
 ```bash
 PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py \
   --dwds-file my_contexts.jsonl \
-  --senses-file my_enhanced_senses.csv \
+  --senses-file my_enhanced_senses.jsonl \
   --representation weighted
 ```
 
@@ -882,7 +879,7 @@ PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --all-lemmas
 
 ```python
 import pandas as pd
-from src.evaluation import Embedder
+from src.wsd import Embedder
 from src.data.sense_representations import embed_with_representation
 
 # Load enhanced senses
@@ -935,29 +932,14 @@ print(get_available_representations(senses_enhanced))
 ✅ **One canonical enhanced sense file** (reuse everywhere)
 ✅ **Checkpointed LLM generation** (resumable)
 
-### Next Steps for Your Project
+### Current Status
 
-**Immediate:**
-1. Generate LLM text for pilot words:
-   ```bash
-   python scripts/data/enrich_senses_with_llm.py \
-     --word-list data/raw/target_words/pilot_words_diachronic.txt \
-     --provider openai
-   ```
+All pipeline steps through Phase 3a are complete (v2). The next step is **manual validation**:
+- Inspect contexts for top-changed words to confirm changes are real (not WSD artifacts)
+- Cross-reference emergence/decline events with DWDS dictionary notes
+- Statistical significance testing on distribution shifts
 
-2. Re-run diachronic analysis with weighted representation:
-   ```bash
-   PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py \
-     --senses-file data/processed/germanet/target_word_senses_enhanced.csv \
-     --representation weighted
-   ```
-
-3. Compare results: baseline (36.6%) vs weighted (54.8%)
-
-**Later:**
-- Generate LLM text for all 750 words
-- Publish enhanced sense file as data supplement
-- Validate findings with manual inspection
+See `documentation/roadmap.md` for detailed status tracking.
 
 ---
 
@@ -979,16 +961,17 @@ PYTHONPATH=src python scripts/diachronic/compute_change_metrics.py && \
 PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --all-lemmas
 
 # Evaluate embedding methods
-python scripts/evaluation/compare_embedding_methods.py
+python scripts/atemporal/compare_embedding_methods.py
 ```
 
 ### Important Files
 
 ```
-data/processed/germanet/target_word_senses_enhanced.{csv,jsonl}  # Canonical sense files
-data/dwds_contexts/pilot_diachronic_contexts.jsonl               # Historical contexts
-data/diachronic/dwds_predictions.csv                             # Sense predictions
-data/diachronic/plots/                                           # Visualizations
+data/processed/germanet/target_word_senses_enhanced.jsonl           # Canonical sense file
+data/dwds_contexts/pilot_diachronic_contexts_v2.jsonl               # Historical contexts (v2)
+data/diachronic/pilot_predictions_weighted_v2.csv                   # Sense predictions (v2)
+data/diachronic/pilot_weighted_v2_filtered_decade_*.csv             # Change metrics (v2)
+data/diachronic/plots/                                              # Visualizations
 ```
 
 **Note:** Both CSV and JSONL formats contain the same data. Use JSONL for cleaner structure and easier programming.
