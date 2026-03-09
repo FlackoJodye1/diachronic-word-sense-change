@@ -465,6 +465,8 @@ class RelationTextBuilder:
 | Senses with original paraphrase | ~5% |
 | Senses enriched via relations | ~95% |
 
+**Note:** This template-based enrichment is the first stage. The second stage uses an LLM to generate natural language definitions and example sentences, which further improves WSD accuracy from 36.6% → 54.8%. See **Section 6.5** for details.
+
 ### 5.2 Context Sampling
 
 #### Sampling Strategy
