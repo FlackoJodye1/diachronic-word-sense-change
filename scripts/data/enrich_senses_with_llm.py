@@ -3,14 +3,14 @@
 Enrich GermaNet senses with LLM-generated text representations.
 
 This is part of the core data preparation pipeline (Phase 1).
-Creates enhanced sense files (CSV + JSONL) with both baseline and LLM-generated text.
+Creates enhanced sense files in JSONL format with both baseline and LLM-generated text.
 
 Pipeline position:
-    1. process_germanet.py → target_word_senses.csv (baseline)
-    2. enrich_senses_with_llm.py → target_word_senses_enhanced.{csv,jsonl} (THIS SCRIPT)
+    1. process_germanet.py → senses_base.csv (baseline)
+    2. enrich_senses_with_llm.py → senses_full.jsonl / senses_pilot.jsonl (THIS SCRIPT)
     3. fetch_dwds_contexts.py → dwds contexts
 
-The enhanced files become the canonical source for all experiments.
+The enhanced JSONL file is the canonical source for all experiments.
 
 Usage:
     # Generate for all words in the sense file
@@ -52,8 +52,8 @@ DATA_DIR = BASE_DIR / "data"
 GERMANET_DIR = DATA_DIR / "processed" / "germanet"
 
 # Input/output files
-INPUT_FILE = GERMANET_DIR / "target_word_senses.csv"
-OUTPUT_FILE = GERMANET_DIR / "target_word_senses_enhanced.csv"
+INPUT_FILE = GERMANET_DIR / "senses_base.csv"
+OUTPUT_FILE = GERMANET_DIR / "senses_full.jsonl"
 CHECKPOINT_DIR = GERMANET_DIR / "llm_checkpoints"
 
 
@@ -232,7 +232,7 @@ def main():
         '--output',
         type=str,
         default=None,
-        help=f'Output enhanced file (default: {OUTPUT_FILE})'
+        help=f'Output JSONL file (default: {OUTPUT_FILE})'
     )
     parser.add_argument(
         '--word-list',
@@ -369,18 +369,12 @@ def main():
         checkpoint_freq=args.checkpoint_freq
     )
 
-    # Save final result in both CSV and JSONL formats
+    # Save final result as JSONL
     logger.info(f"\nSaving enhanced senses...")
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Save CSV
-    logger.info(f"  → CSV: {output_file}")
-    result_df.to_csv(output_file, index=False)
-
-    # Save JSONL
-    jsonl_output = output_file.with_suffix('.jsonl')
-    logger.info(f"  → JSONL: {jsonl_output}")
-    save_as_jsonl(result_df, jsonl_output)
+    logger.info(f"  → JSONL: {output_file}")
+    save_as_jsonl(result_df, output_file)
 
     logger.info(f"\n{'=' * 70}")
     logger.info("ENRICHMENT COMPLETE")
@@ -394,9 +388,8 @@ def main():
         logger.info(f"Successful:    {successful} ({successful/len(result_df)*100:.1f}%)")
         logger.info(f"Errors:        {errors}")
 
-    logger.info(f"Output files:")
-    logger.info(f"  CSV:   {output_file}")
-    logger.info(f"  JSONL: {output_file.with_suffix('.jsonl')}")
+    logger.info(f"Output file:")
+    logger.info(f"  JSONL: {output_file}")
     logger.info(f"{'=' * 70}")
 
     # Show sample

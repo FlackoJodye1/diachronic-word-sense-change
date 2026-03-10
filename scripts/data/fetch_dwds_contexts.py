@@ -96,7 +96,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/dwds_contexts/fetch_progress_750_words.jsonl"),
+        default=Path("data/processed/dwds/contexts.jsonl"),
         help="JSONL output file path",
     )
     parser.add_argument(

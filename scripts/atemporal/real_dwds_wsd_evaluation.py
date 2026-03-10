@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-DWDS_CONTEXTS_DIR = DATA_DIR / "dwds_contexts"
+DWDS_CONTEXTS_DIR = DATA_DIR / "processed" / "dwds"
 GERMANET_DIR = DATA_DIR / "processed" / "germanet"
 OUTPUT_DIR = DATA_DIR / "processed" / "dwds"
 

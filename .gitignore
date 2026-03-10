@@ -110,9 +110,12 @@ data/**/*.jsonl
 
 # BUT track these important small files:
 !data/evaluation/quick_eval/*.csv
-!data/processed/germanet/target_word_senses.csv
+!data/processed/germanet/senses_base.csv
 !data/processed/target_words/*.tsv
-!data/README.md
+data/processed/germanet/target_word_senses.csv
+data/processed/diachronic/
+data/processed/germanet/senses_base.csv
+
 
 # Track .gitkeep files for folder structure
 !data/**/.gitkeep

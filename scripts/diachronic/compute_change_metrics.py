@@ -9,7 +9,7 @@ This script analyzes sense distribution changes over time using:
 
 Usage:
     python scripts/diachronic/compute_change_metrics.py
-    python scripts/diachronic/compute_change_metrics.py --counts data/diachronic/temporal_decade_sense_counts.csv
+    python scripts/diachronic/compute_change_metrics.py --counts data/processed/diachronic/aggregated/pilot_counts.csv
 """
 
 import argparse
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-DEFAULT_COUNTS_FILE = DATA_DIR / "diachronic" / "temporal_decade_sense_counts.csv"
-OUTPUT_DIR = DATA_DIR / "diachronic"
+DEFAULT_COUNTS_FILE = DATA_DIR / "processed" / "diachronic" / "aggregated" / "pilot_counts.csv"
+OUTPUT_DIR = DATA_DIR / "processed" / "diachronic" / "metrics"
 
 
 def log_summary(

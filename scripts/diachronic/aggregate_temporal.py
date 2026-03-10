@@ -7,7 +7,7 @@ sense distributions by decade for each lemma.
 
 Usage:
     python scripts/diachronic/aggregate_temporal.py
-    python scripts/diachronic/aggregate_temporal.py --input data/diachronic/dwds_predictions.csv
+    python scripts/diachronic/aggregate_temporal.py --input data/processed/diachronic/predictions/pilot_predictions.csv
     python scripts/diachronic/aggregate_temporal.py --period-column year  # aggregate by year instead
 """
 
@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-DEFAULT_INPUT = DATA_DIR / "diachronic" / "dwds_predictions.csv"
-OUTPUT_DIR = DATA_DIR / "diachronic"
+DEFAULT_INPUT = DATA_DIR / "processed" / "diachronic" / "predictions" / "pilot_predictions.csv"
+OUTPUT_DIR = DATA_DIR / "processed" / "diachronic" / "aggregated"
 
 
 def log_summary(agg_df: pd.DataFrame, stats_df: pd.DataFrame, period_column: str) -> None:

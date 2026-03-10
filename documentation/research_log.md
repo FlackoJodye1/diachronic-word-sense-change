@@ -630,7 +630,7 @@ The JSD=1.0 values are eliminated. Emergence/decline counts increased because pr
 The v2 data is substantially more reliable — nearly all word-decades now have sufficient data. The top 10 ranking needs to be re-computed from v2 metrics. Notebook updated to load v2 files.
 
 **Known issue — 26 words skipped (no GermaNet senses):**
-The following words are in `pilot_words_diachronic.txt` but absent from all GermaNet senses files (`target_word_senses.csv`, `target_word_senses_enhanced_*.csv`):
+The following words are in `pilot_words_diachronic.txt` but absent from all GermaNet senses files (`senses_base.csv`, `senses_full / senses_pilot`):
 
 > Bauer, Becher, Bild, Fall, Farbe, Figur, Gang, Husten, Knoten, Paket, Seite, Stück, Wurzel, Zug, brennen, fahren, folgen, halten, heißen, lassen, legen, liegen, riechen, schließen, sehen, stehen
 

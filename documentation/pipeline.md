@@ -66,7 +66,7 @@ Data Preparation → Evaluation → Production Analysis
 
 **Access:** Public API (rate-limited)
 
-**Location:** `data/dwds_contexts/`
+**Location:** `data/processed/dwds/`
 
 ### Target Words
 
@@ -102,7 +102,7 @@ The foundation layer - done once, reused everywhere.
 Example: "Bank ist eine Art von Sitzgelegenheit. Bank ist ein Begriff aus Artefakt"
 ```
 
-**Output:** `data/processed/germanet/target_word_senses.csv`
+**Output:** `data/processed/germanet/senses_base.csv`
 
 **Columns:**
 - `lemma` - target word
@@ -130,11 +130,11 @@ python scripts/data/process_germanet.py
 
 **Why:** LLM-generated text improves WSD accuracy from 36.6% → 54.8%
 
-**Input:** `target_word_senses.csv` (from Step 1)
+**Input:** `senses_base.csv` (from Step 1)
 
 **Output:**
-- `target_word_senses_enhanced.csv` (CSV format)
-- `target_word_senses_enhanced.jsonl` (JSONL format - recommended)
+- `senses_full.jsonl` (CSV format)
+- `senses_full.jsonl` (JSONL format - recommended)
 
 **New columns added (CSV):**
 - `llm_definition` - LLM-generated definition
@@ -178,7 +178,7 @@ python scripts/data/enrich_senses_with_llm.py \
 3. Extracts temporal metadata (year, decade)
 4. Saves as JSONL (one context per line)
 
-**Output:** `data/dwds_contexts/*.jsonl`
+**Output:** `data/processed/dwds/*.jsonl`
 
 **Example output:**
 ```json
@@ -196,7 +196,7 @@ python scripts/data/enrich_senses_with_llm.py \
 ```bash
 python scripts/data/fetch_dwds_contexts.py \
   --word-list data/raw/target_words/pilot_words_diachronic.txt \
-  --output data/dwds_contexts/pilot_diachronic_contexts.jsonl
+  --output data/processed/dwds/pilot_contexts.jsonl
 ```
 
 ---
@@ -342,7 +342,7 @@ Compare to 6 "Geist" senses:
 Predicted: s112176, confidence: 0.82
 ```
 
-**Output:** `data/diachronic/pilot_predictions_weighted_v2.csv`
+**Output:** `data/processed/diachronic/predictions/pilot_predictions.csv`
 
 **Columns:**
 - Original context columns (lemma, sentence, year, decade)
@@ -353,8 +353,8 @@ Predicted: s112176, confidence: 0.82
 **Run:**
 ```bash
 PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py \
-  --dwds-file data/dwds_contexts/pilot_diachronic_contexts_v2.jsonl \
-  --senses-file data/processed/germanet/target_word_senses_enhanced.jsonl \
+  --dwds-file data/processed/dwds/pilot_contexts.jsonl \
+  --senses-file data/processed/germanet/senses_full.jsonl \
   --representation weighted \
   --model intfloat/multilingual-e5-large
 ```
@@ -531,7 +531,7 @@ PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --lemma Geist
 PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --all-lemmas
 ```
 
-**Output:** `data/diachronic/plots/*.png`
+**Output:** `data/processed/diachronic/plots/*.png`
 
 ### Complete Diachronic Pipeline
 
@@ -652,7 +652,7 @@ from src.data.sense_representations import (
 )
 
 # Load enhanced senses
-senses = pd.read_csv('target_word_senses_enhanced.csv')
+senses = pd.read_csv('senses_full.jsonl')
 
 # Get text for different representations
 baseline_texts = get_text_for_embedding(senses, "baseline")
@@ -733,9 +733,9 @@ data/
 ```
 data/processed/
 ├── germanet/
-│   ├── target_word_senses.csv              # Baseline (Step 1 output)
-│   ├── target_word_senses_enhanced.csv     # With LLM text (Step 2 output - CSV)
-│   ├── target_word_senses_enhanced.jsonl   # With LLM text (Step 2 output - JSONL)
+│   ├── senses_base.csv              # Baseline (Step 1 output)
+│   ├── senses_full.jsonl     # With LLM text (Step 2 output - CSV)
+│   ├── senses_full.jsonl   # With LLM text (Step 2 output - JSONL)
 │   └── llm_checkpoints/                    # Checkpoints during enrichment
 │       ├── checkpoint_50.csv
 │       └── checkpoint_100.csv
@@ -748,8 +748,8 @@ data/processed/
 ### Corpus Files
 
 ```
-data/dwds_contexts/
-├── pilot_diachronic_contexts_v2.jsonl  # 30,337 historical contexts (v2, --max-tokens 60)
+data/processed/dwds/
+├── pilot_contexts.jsonl  # 30,337 historical contexts (v2, --max-tokens 60)
 └── fetch_progress_*.jsonl              # Other corpus samples
 ```
 
@@ -770,7 +770,7 @@ data/evaluation/
 ### Diachronic Analysis Files
 
 ```
-data/diachronic/
+data/processed/diachronic/
 ├── pilot_predictions_weighted_v2.csv             # Step 1 output (v2)
 ├── pilot_weighted_v2_decade_sense_counts.csv     # Step 2 output
 ├── pilot_weighted_v2_decade_stats.csv            # Step 2 output
@@ -783,18 +783,7 @@ data/diachronic/
 
 ### Key File Schemas
 
-#### target_word_senses_enhanced (CSV format)
-
-```csv
-lemma,pos,synset_id,class,paraphrase,text_for_embedding,llm_definition,llm_example_1,...,llm_example_5
-Geist,NOUN,s112176,Tops,,Geist ist eine Art von...,Eine übernatürliche...,Der Geist erschien...,Ein kalter Wind...
-```
-
-**Columns:**
-- Baseline: `lemma`, `pos`, `synset_id`, `class`, `paraphrase`, `text_for_embedding`
-- LLM: `llm_definition`, `llm_example_1` through `llm_example_5`
-
-#### target_word_senses_enhanced (JSONL format) ✨ Recommended
+#### senses_full.jsonl / senses_pilot.jsonl
 
 ```json
 {
@@ -814,11 +803,7 @@ Geist,NOUN,s112176,Tops,,Geist ist eine Art von...,Eine übernatürliche...,Der 
 }
 ```
 
-**Benefits of JSONL:**
-- Examples grouped as array (not 5 separate columns)
-- Cleaner field names (`baseline` vs `text_for_embedding`)
-- Easier to parse and manipulate in code
-- One JSON object per line (efficient streaming)
+**Fields:** `lemma`, `pos`, `synset_id`, `class`, `baseline` (GermaNet template text), `llm_definition`, `llm_examples` (array of 5)
 
 #### dwds_predictions.csv
 
@@ -849,7 +834,7 @@ echo -e "Bank\nGeist\nNetz" > my_words.txt
 ```bash
 python scripts/data/enrich_senses_with_llm.py \
   --word-list my_words.txt \
-  --output my_enhanced_senses.csv \
+  --output my_enhanced_senses.jsonl \
   --provider openai
 ```
 
@@ -883,7 +868,7 @@ from src.wsd import Embedder
 from src.data.sense_representations import embed_with_representation
 
 # Load enhanced senses
-senses = pd.read_csv('data/processed/germanet/target_word_senses_enhanced.csv')
+senses = pd.read_json('data/processed/germanet/senses_full.jsonl', lines=True)
 
 # Filter to words of interest
 my_senses = senses[senses['lemma'].isin(['Geist', 'Bank'])]
@@ -903,14 +888,13 @@ weighted_emb = embed_with_representation(my_senses, embedder, "weighted")
 ```python
 from src.data.sense_representations import get_available_representations
 
-senses = pd.read_csv('target_word_senses.csv')
+senses = pd.read_csv('data/processed/germanet/senses_base.csv')
 print(get_available_representations(senses))
 # → ['baseline']  (only baseline available)
 
-senses_enhanced = pd.read_csv('target_word_senses_enhanced.csv')
+senses_enhanced = pd.read_json('data/processed/germanet/senses_full.jsonl', lines=True)
 print(get_available_representations(senses_enhanced))
-# → ['baseline', 'llm_definition', 'llm_example_1', 'llm_examples_concat',
-#    'llm_examples_avg', 'weighted']
+# → ['baseline', 'llm_definition', 'llm_examples', 'weighted']
 ```
 
 ---
@@ -967,11 +951,11 @@ python scripts/atemporal/compare_embedding_methods.py
 ### Important Files
 
 ```
-data/processed/germanet/target_word_senses_enhanced.jsonl           # Canonical sense file
-data/dwds_contexts/pilot_diachronic_contexts_v2.jsonl               # Historical contexts (v2)
-data/diachronic/pilot_predictions_weighted_v2.csv                   # Sense predictions (v2)
-data/diachronic/pilot_weighted_v2_filtered_decade_*.csv             # Change metrics (v2)
-data/diachronic/plots/                                              # Visualizations
+data/processed/germanet/senses_full.jsonl           # Canonical sense file
+data/processed/dwds/pilot_contexts.jsonl               # Historical contexts (v2)
+data/processed/diachronic/predictions/pilot_predictions.csv                   # Sense predictions (v2)
+data/processed/diachronic/metrics/pilot_*.csv             # Change metrics (v2)
+data/processed/diachronic/plots/                                              # Visualizations
 ```
 
 **Note:** Both CSV and JSONL formats contain the same data. Use JSONL for cleaner structure and easier programming.

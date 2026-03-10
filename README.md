@@ -21,7 +21,7 @@ This project addresses German Word Sense Disambiguation by enhancing sparse Germ
 
 ### Core Files
 - `data/processed/germanet/wsd_senses_enhanced.csv` - Main enhanced dataset
-- `data/dwds_contexts/fetch_progress_25_words.jsonl` - Real corpus sentences
+- `data/processed/dwds/fetch_progress_25_words.jsonl` - Real corpus sentences
 - `scripts/` - Core processing and evaluation scripts
 
 ## 🚀 Quick Start
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```python
 import pandas as pd
 
-data = pd.read_csv('data/processed/germanet/target_word_senses.csv')
+data = pd.read_csv('data/processed/germanet/senses_base.csv')
 print(f"Enhanced senses: {len(data)}")
 ```
 
@@ -50,7 +50,7 @@ python scripts/real_dwds_wsd_evaluation.py
 ```
 ├── data/
 │   ├── processed/germanet/          # Enhanced GermaNet data  
-│   ├── dwds_contexts/              # Real German corpus sentences
+│   ├── processed/dwds/              # Real German corpus sentences
 │   └── external/germanet_v190/     # Original GermaNet data
 ├── scripts/                        # Core working scripts
 ├── analysis/                       # Analysis and comparison tools

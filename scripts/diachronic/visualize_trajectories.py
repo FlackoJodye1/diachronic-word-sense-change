@@ -34,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-DEFAULT_COUNTS_FILE = DATA_DIR / "diachronic" / "temporal_decade_sense_counts.csv"
-DEFAULT_ENTROPY_FILE = DATA_DIR / "diachronic" / "metrics_decade_entropy.csv"
-OUTPUT_DIR = DATA_DIR / "diachronic" / "plots"
+DEFAULT_COUNTS_FILE = DATA_DIR / "processed" / "diachronic" / "aggregated" / "pilot_counts.csv"
+DEFAULT_ENTROPY_FILE = DATA_DIR / "processed" / "diachronic" / "metrics" / "pilot_entropy.csv"
+OUTPUT_DIR = DATA_DIR / "processed" / "diachronic" / "plots"
 
 
 def load_data(

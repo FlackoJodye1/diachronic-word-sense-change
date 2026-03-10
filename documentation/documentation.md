@@ -679,8 +679,8 @@ python scripts/data/enrich_senses_with_llm.py --provider openai
 ```
 
 **Output:**
-- `data/processed/germanet/target_word_senses_enhanced.csv` (CSV format)
-- `data/processed/germanet/target_word_senses_enhanced.jsonl` (JSONL format - recommended)
+- `data/processed/germanet/senses_full.jsonl` (CSV format)
+- `data/processed/germanet/senses_full.jsonl` (JSONL format - recommended)
 
 Both formats contain the same data. JSONL format uses cleaner structure:
 - Examples grouped as `llm_examples` array (not 5 separate columns)
@@ -1227,7 +1227,7 @@ python scripts/atemporal/compare_embedding_methods.py --clear-cache  # Clear dis
 
 **Input:**
 - DWDS corpus sentences (`data/dwds_contexts/`)
-- GermaNet sense inventory (`data/processed/germanet/target_word_senses.csv`)
+- GermaNet sense inventory (`data/processed/germanet/senses_base.csv`)
 
 **Process:**
 1. Find polysemous words with sufficient corpus coverage
@@ -1552,7 +1552,7 @@ contexts_df = load_dwds_contexts(Path("data/dwds_contexts/contexts.jsonl"))
 
 # Load GermaNet senses
 senses_df = load_senses(
-    filepath=Path("data/processed/germanet/target_word_senses.csv"),
+    filepath=Path("data/processed/germanet/senses_base.csv"),
     text_column="text_for_embedding",
     target_lemmas=["Bank", "Bahn"]  # Optional filter
 )
@@ -1671,7 +1671,7 @@ from diachronic import *
 # 1. Load data
 contexts = load_dwds_contexts(Path("data/dwds_contexts/historical.jsonl"))
 senses = load_senses(
-    Path("data/processed/germanet/target_word_senses.csv"),
+    Path("data/processed/germanet/senses_base.csv"),
     text_column="text_for_embedding"
 )
 
@@ -1709,7 +1709,7 @@ plot_all_lemmas_summary(entropy, output_dir=output_dir)
 
 #### Sense Inventory
 
-**File**: `data/processed/germanet/target_word_senses.csv`
+**File**: `data/processed/germanet/senses_base.csv`
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -1763,7 +1763,7 @@ data/
 │   └── germanet_v190/              # Original GermaNet XML
 ├── processed/
 │   ├── germanet/
-│   │   └── target_word_senses.csv  # Main sense inventory with enriched text
+│   │   └── senses_base.csv  # Main sense inventory with enriched text
 │   ├── germanet_base/
 │   │   ├── synsets.parquet         # Parsed synsets
 │   │   ├── lexical_units.parquet   # Parsed lexical units

@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 DATA_DIR = Path("data")
-DEFAULT_DWDS_FILE = DATA_DIR / "dwds_contexts" / "fetch_progress_25_words.jsonl"
-DEFAULT_SENSES_FILE = DATA_DIR / "processed" / "germanet" / "wsd_senses.csv"
-OUTPUT_DIR = DATA_DIR / "diachronic"
+DEFAULT_DWDS_FILE = DATA_DIR / "processed" / "dwds" / "pilot_contexts.jsonl"
+DEFAULT_SENSES_FILE = DATA_DIR / "processed" / "germanet" / "senses_pilot.jsonl"
+OUTPUT_DIR = DATA_DIR / "processed" / "diachronic" / "predictions"
 DEFAULT_MODEL = "intfloat/multilingual-e5-large"
 # Always use weighted representation (0.5 * definition + 0.5 * avg(examples)) for best results
 DEFAULT_REPRESENTATION = "weighted"
@@ -88,7 +88,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="Output file path (default: data/diachronic/dwds_predictions.csv)",
+        help="Output file path (default: data/processed/diachronic/predictions/pilot_predictions.csv)",
     )
     return parser.parse_args()
 
