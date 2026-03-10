@@ -45,14 +45,30 @@ def load_senses(
     filepath: Path,
     target_lemmas: Optional[List[str]] = None,
 ) -> pd.DataFrame:
-    """Load senses from CSV, optionally filtered to target lemmas.
+    """Load senses from CSV or JSONL, optionally filtered to target lemmas.
+
+    Supports:
+    - CSV files (senses_base.csv)
+    - JSONL files (senses_pilot.jsonl, senses_full.jsonl) — expands the
+      llm_examples list column into individual llm_example_1..5 columns
+      as expected by embed_with_representation()
 
     Args:
-        filepath: Path to senses CSV (wsd_senses.csv or enhanced sense file)
+        filepath: Path to senses file (.csv or .jsonl)
         target_lemmas: Optional list of lemmas to filter to
     """
     logger.info(f"Loading senses from {filepath}...")
-    df = pd.read_csv(filepath)
+
+    if Path(filepath).suffix == ".jsonl":
+        df = pd.read_json(filepath, lines=True)
+        if "llm_examples" in df.columns:
+            examples_expanded = df["llm_examples"].apply(pd.Series)
+            examples_expanded.columns = [
+                f"llm_example_{i + 1}" for i in range(len(examples_expanded.columns))
+            ]
+            df = pd.concat([df.drop(columns=["llm_examples"]), examples_expanded], axis=1)
+    else:
+        df = pd.read_csv(filepath)
 
     if target_lemmas:
         df = df[df["lemma"].isin(target_lemmas)]
