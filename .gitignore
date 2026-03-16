@@ -93,6 +93,9 @@ data/dwds_contexts/
 data/**/*.parquet
 data/**/*.npz
 data/**/*.pkl
+data/**/*.bak
+data/**/*.dryrun
+data/**/*.regen_bak
 
 # Ignore germanet_base (large, can regenerate)
 data/processed/germanet_base/
@@ -100,8 +103,9 @@ data/processed/germanet_base/
 # Ignore pilot data (old)
 data/evaluation/pilot/
 
-# Ignore analysis outputs
-data/processed/germanet/analysis*/
+# Ignore all generated outputs
+data/processed/germanet/
+data/processed/diachronic/
 
 # Ignore all CSV/JSON by default
 data/**/*.csv
@@ -110,12 +114,6 @@ data/**/*.jsonl
 
 # BUT track these important small files:
 !data/evaluation/quick_eval/*.csv
-!data/processed/germanet/senses_base.csv
-!data/processed/target_words/*.tsv
-data/processed/germanet/target_word_senses.csv
-data/processed/diachronic/
-data/processed/germanet/senses_base.csv
-
 
 # Track .gitkeep files for folder structure
 !data/**/.gitkeep

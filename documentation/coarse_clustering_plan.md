@@ -36,22 +36,6 @@ GermaNet verbs often have 6–9 senses within the same semantic class (e.g. `sch
 ### Source 2: Data sparsity per word-decade (→ clustering helps, does not fully fix)
 Words like `groß` have only ~47 total contexts across 10 decades (~5/decade). With 5–9 fine senses, a single misclassification swings a proportion by 17–50%. Coarse merging reduces the number of competing categories, which helps, but words with fewer than ~100 total contexts remain unreliable regardless of clustering level.
 
-### Source 3: A pre-existing bug in `load_senses()` — fixed
-
-**Found and fixed (2026-03-10).** `src/diachronic/io.py::load_senses()` called `pd.read_csv()` on `senses_pilot.jsonl`. Pandas cannot meaningfully parse JSONL as CSV — it would produce a mangled DataFrame with no `llm_definition` column, causing `embed_with_representation("weighted")` to raise a `ValueError` immediately. The prediction script would crash rather than silently degrade.
-
-**What this means for the existing predictions:** `pilot_predictions.csv` was generated before the `Rework data-dir structure` commit (which moved and converted the senses file to JSONL). At that point the senses file was still a CSV with proper columns, so the predictions are **likely valid**. The bug only affects any future re-run of `predict_dwds_senses.py`.
-
-**Fix applied:** `load_senses()` now detects `.jsonl` vs `.csv` by extension. For JSONL it uses `pd.read_json(lines=True)` and expands `llm_examples` → `llm_example_1..5` (1-indexed, matching `embedding_strategies.py`). The CSV path is unchanged.
-
-### Inconsistencies between docs and code
-
-| Inconsistency | Impact |
-|---|---|
-| `pipeline.md` references `pilot_predictions_weighted_v2.csv`, `pilot_weighted_v2_decade_sense_counts.csv` — neither exists | Docs are out of date with current data dir structure |
-| `pipeline.md` references `src.data.sense_representations` — this module doesn't exist | Actual module is `src/wsd/embedding_strategies.py` |
-| `compare_embedding_methods.py` uses 0-indexed `llm_example_0..4`; `embedding_strategies.py` expects `llm_example_1..5` | These paths never intersect, but a trap when writing new code — always follow `embedding_strategies.py` |
-
 ---
 
 ## 3. Recommended Clustering Strategy
@@ -68,11 +52,13 @@ One concrete approach — not a menu of options.
 
 **Distance metric:** Cosine distance (`1 - cosine_similarity`). E5-large embeddings are already L2-normalized, so this equals `1 - dot_product`.
 
-**Stopping criterion:** Distance threshold starting at **0.25** (cosine similarity > 0.75). Rationale: with 96.8% top-3 accuracy, the true sense is almost always within cosine distance ~0.1–0.2 of the prediction. Senses within distance 0.25 are senses the model routinely confuses in practice. This is the threshold to validate first; 0.20 and 0.30 are the immediate alternatives if 0.25 looks wrong on inspection.
+**Stopping criterion:** Distance threshold. Three candidate values are evaluated during Phase 1 — **0.14, 0.16, 0.18** — and the final choice is made based on linguistic plausibility during manual inspection, not fixed in advance. 0.18 is the expected starting point. The `compute_sense_clusters.py` script accepts `--threshold` as a CLI argument so all three can be generated in one pass.
+
+**Note on threshold calibration:** The E5-large embedding space is denser than originally anticipated. All pairwise cosine distances for pilot words fall in the 0.13–0.21 range, so the originally planned thresholds (0.20–0.30) sit at or above the maximum pairwise distance and collapse everything to one cluster. The recalibrated range (0.14–0.18) is where organic splits first appear.
 
 **Fallback constraints:**
 - Minimum 2 clusters per lemma (never collapse to a single category)
-- Maximum clusters = `max(2, n_senses // 2)` (guarantee meaningful reduction)
+- No upper bound — the threshold alone determines granularity. Artificially capping clusters forces heterogeneous merges that hurt interpretability without improving statistics. Sparse word-decade cells are filtered at analysis time instead.
 - Words with 1 sense: pass through unchanged, map to `"{lemma}_c0"`
 
 ---
@@ -86,60 +72,88 @@ src/wsd/
   sense_clustering.py              ← new module
 
 scripts/
-  compute_sense_clusters.py        ← generate mapping + visual artifacts
+  compute_sense_clusters.py        ← generate mapping + visual artifacts (accepts --threshold)
   review_sense_clusters.py         ← generate Markdown review sheets per lemma
 
 scripts/diachronic/
   apply_coarse_mapping.py          ← transform fine predictions → coarse
 
 data/processed/germanet/
-  sense_clusters_0.25.json         ← primary output: fine→coarse mapping
-  sense_clusters_0.25_reviewed.json ← post-manual-review approved version
+  sense_clusters_0.14.json         ← candidate threshold
+  sense_clusters_0.16.json         ← candidate threshold
+  sense_clusters_0.18.json         ← candidate threshold (expected default)
+  sense_clusters_reviewed.json     ← final approved mapping (threshold-agnostic name)
 
 data/processed/sense_clustering/
-  dendrograms/                     ← {lemma}_dendrogram.png (90 files)
-  similarity_matrices/             ← {lemma}_sim_matrix.png (90 files)
-  review/
-    {lemma}_review.md              ← one per lemma (90 files)
-    _summary.md                    ← all-lemmas overview
+  t0.14/
+    dendrograms/                   ← {lemma}_dendrogram.png
+    similarity_matrices/           ← {lemma}_sim_matrix.png
+    review/                        ← {lemma}_review.md
+    cluster_summary.csv            ← lemma, threshold, n_fine_senses, n_organic_clusters, n_coarse_clusters, constrained, n_singleton_clusters, reduction_ratio, mean_intra_cluster_similarity, min_intra_cluster_similarity, max_cluster_size
+  t0.16/                           ← same structure
+  t0.18/                           ← same structure
 
 data/processed/diachronic/
   predictions/
     pilot_predictions.csv          (unchanged)
-    pilot_predictions_coarse_0.25.csv  ← new
+    pilot_predictions_coarse.csv   ← new (uses reviewed mapping, threshold in filename omitted
+                                      since the reviewed mapping is the canonical version)
   aggregated/
-    pilot_counts_coarse_0.25.csv   ← new
-    pilot_stats_coarse_0.25.csv    ← new
+    pilot_counts_coarse.csv        ← new
+    pilot_stats_coarse.csv         ← new
   metrics/
-    pilot_entropy_coarse_0.25.csv  ← new
-    pilot_divergence_coarse_0.25.csv  ← new
-    pilot_emergence_coarse_0.25.csv   ← new
-    pilot_decline_coarse_0.25.csv     ← new
+    pilot_entropy_coarse.csv       ← new
+    pilot_divergence_coarse.csv    ← new
+    pilot_emergence_coarse.csv     ← new
+    pilot_decline_coarse.csv       ← new
 ```
 
-### Mapping file format (`sense_clusters_0.25.json`)
+### Mapping file format (`sense_clusters_reviewed.json`)
+
+Two parallel structures are stored per lemma: a flat lookup for fast prediction remapping, and a richer cluster registry for review and reporting.
 
 ```json
 {
   "schlagen": {
-    "s56941": "schlagen_c0",
-    "s56959": "schlagen_c0",
-    "s56972": "schlagen_c0",
-    "s56930": "schlagen_c0",
-    "s56713": "schlagen_c1",
-    "s56641": "schlagen_c2"
-  },
-  "gehen": { ... }
+    "mapping": {
+      "s56941": "schlagen_c0",
+      "s56959": "schlagen_c0",
+      "s56972": "schlagen_c0",
+      "s56930": "schlagen_c0",
+      "s56713": "schlagen_c1",
+      "s56641": "schlagen_c2"
+    },
+    "clusters": {
+      "schlagen_c0": {
+        "label": "physical strike",
+        "members": ["s56941", "s56959", "s56972", "s56930"]
+      },
+      "schlagen_c1": {
+        "label": "defeat in competition",
+        "members": ["s56713"]
+      },
+      "schlagen_c2": {
+        "label": "hit a surface / produce sound",
+        "members": ["s56641"]
+      }
+    }
+  }
 }
 ```
 
-Cluster IDs use `"{lemma}_c{index}"` — globally unique and human-readable.
+- `mapping` — flat `fine_sense_id → coarse_cluster_id` lookup used by `apply_coarse_mapping.py`
+- `clusters` — richer structure used for review sheets and thesis reporting
+- `label` — added manually during Phase 2 review; left as `null` in the auto-generated file
+- Cluster IDs use `"{lemma}_c{index}"` — globally unique and human-readable
+
+The auto-generated files (`sense_clusters_0.20.json` etc.) contain `"label": null` for all clusters. Labels are filled in during manual review and saved to `sense_clusters_reviewed.json`.
 
 ### Key functions in `sense_clustering.py`
 
 - `cluster_senses_for_lemma(embeddings, sense_ids, threshold, min_clusters, max_clusters)` → `Dict[fine_id, coarse_id]`
-- `cluster_all_lemmas(senses_df, embedder, threshold)` → full mapping dict
+- `cluster_all_lemmas(senses_df, embedder, threshold)` → full mapping dict with `mapping` + `clusters` structure
 - `generate_coarse_cluster_id(lemma, cluster_index)` → `str`
+- `compute_cluster_summary(mapping_dict, senses_df)` → DataFrame with `lemma, threshold, n_fine_senses, n_coarse_clusters, n_singleton_clusters, reduction_ratio, mean_intra_cluster_similarity, min_intra_cluster_similarity, max_cluster_size`
 - `get_cluster_centroids(embeddings, mapping, sense_ids)` → for optional Phase B direct prediction later
 
 ### Reuse of existing aggregation and metrics scripts
@@ -179,20 +193,26 @@ Boltzmann-weighted assignment over top-3 coarse candidates is a valid Phase 4 ex
 
 ### Phase 1: Exploratory Clustering (1–2 days)
 
-**Goal:** Generate cluster artifacts for all 90 words and calibrate the threshold.
+**Goal:** Generate cluster artifacts for all 90 words at all three thresholds; select the threshold to carry into manual review.
 
 **Tasks:**
 1. Implement `src/wsd/sense_clustering.py`. Start in `notebooks/analysis/sense_clustering_exploration.ipynb` for interactive development on 3–4 words before writing the script.
-2. Write and run `scripts/compute_sense_clusters.py` at threshold 0.25.
-3. Write and run `scripts/review_sense_clusters.py`.
+2. Write `scripts/compute_sense_clusters.py` with a `--threshold` argument. Run it three times:
+   ```
+   python scripts/compute_sense_clusters.py --threshold 0.14 --output-dir data/processed/sense_clustering/t0.14/
+   python scripts/compute_sense_clusters.py --threshold 0.16 --output-dir data/processed/sense_clustering/t0.16/
+   python scripts/compute_sense_clusters.py --threshold 0.18 --output-dir data/processed/sense_clustering/t0.18/
+   ```
+3. Write and run `scripts/review_sense_clusters.py` on all three threshold directories.
 
-**Outputs:**
-- `data/processed/germanet/sense_clusters_0.25.json`
-- 90 dendrograms, 90 similarity matrices, 90 review Markdown files, `_summary.md`
+**Outputs per threshold:**
+- `data/processed/germanet/sense_clusters_{t}.json`
+- 90 dendrograms, 90 similarity matrices, 90 review Markdown files
+- `cluster_summary.csv` with columns `lemma, threshold, n_fine_senses, n_organic_clusters, n_coarse_clusters, constrained, n_singleton_clusters, reduction_ratio, mean_intra_cluster_similarity, min_intra_cluster_similarity, max_cluster_size` and aggregate stats (mean per numeric column). `constrained=True` rows indicate the min_clusters override fired (threshold collapsed to 1 cluster) — these should be inspected.
 
-**Decision gate:** Inspect dendrograms for `schlagen`, `gehen`, `spielen`, `fassen`, `Geist`, `Bank`. For `schlagen`, the 6 `Kontakt` physical-striking senses should merge at distance < 0.25 while semantically distinct senses (defeat in competition, affect someone) stay separate. If everything merges → lower threshold to 0.20. If nothing merges → raise to 0.30.
+**Decision gate:** Inspect dendrograms and review sheets for `schlagen`, `gehen`, `spielen`, `fassen`, `Geist`, `Bank` across all three thresholds side-by-side. Select the threshold where clusters are most linguistically coherent. For `schlagen`, the 6 `Kontakt` physical-striking senses should group together while semantically distinct senses (defeat in competition, affect someone) stay separate. Check `cluster_summary.csv` to confirm the chosen threshold yields a mean cluster count in the 2–5 range.
 
-**Risks:** Very polysemous verbs (14–19 senses) may need per-word threshold overrides. The dendrogram supports this: tree can be cut at any level and the override recorded in `sense_clusters_0.25_overrides.json`.
+**Risks:** Very polysemous verbs (14–19 senses) may still need per-word overrides at any threshold. These will be handled in Phase 2.
 
 ---
 
@@ -201,14 +221,22 @@ Boltzmann-weighted assignment over top-3 coarse candidates is a valid Phase 4 ex
 **Goal:** Produce a thesis-defensible, approved cluster mapping.
 
 **Tasks:**
-1. Review all 90 `review/{lemma}_review.md` files. Depth focus on: words with n_senses ≥ 9 (~15 words), and the top-20 words by mean JSD from `pilot_divergence.csv`.
-2. Record any overrides in `sense_clusters_0.25_overrides.json` (same structure as main mapping; entries here take precedence at merge time).
-3. Document reasoning in `documentation/research_log.md` for any word where automatic clustering was changed.
-4. Produce `sense_clusters_0.25_reviewed.json`.
+1. Review all 90 `review/{lemma}_review.md` files from the chosen threshold directory. Depth focus on: words with n_senses ≥ 9 (~15 words), and the top-20 words by mean JSD from `pilot_divergence.csv`.
+2. For each cluster, add a human-readable `label` directly in the review sheet (e.g. `"physical strike"`, `"defeat in competition"`). These will be copied into `sense_clusters_reviewed.json`.
+3. Record any structural overrides (merges or splits that differ from the automatic result) in a separate `sense_clusters_overrides.json`. Document the reasoning for each override in `documentation/research_log.md`.
+4. Produce `sense_clusters_reviewed.json` — the canonical approved mapping with labels, used for all downstream steps.
+5. **Re-score the atemporal eval set at coarse level** (sanity check before running the full diachronic pipeline):
+   - Apply the approved mapping to both the fine gold labels and the fine atemporal predictions
+   - `coarse_gold = mapping[lemma][fine_gold_sense_id]`
+   - `coarse_pred = mapping[lemma][fine_predicted_sense_id]`
+   - Compute `accuracy(coarse_pred, coarse_gold)`
+   - This requires no re-annotation — the mapping is applied uniformly to both sides
 
-**Outputs:** Reviewed mapping JSON, override file, research log entries.
+**Outputs:** Reviewed mapping JSON, override file, research log entries, coarse atemporal accuracy number.
 
-**Decision gate:** You can articulate a coherent semantic story for each cluster in the top-20 most-changed words. No cluster merges two categorically distinct meanings (e.g. `spielen_instrument` must never merge with `spielen_sport`).
+**Decision gate (two parts):**
+- *Linguistic:* You can articulate a coherent semantic story for each cluster in the top-20 most-changed words. No cluster merges two categorically distinct meanings (e.g. `spielen_instrument` must never merge with `spielen_sport`).
+- *Quantitative:* Coarse atemporal accuracy is meaningfully higher than the fine-grained 54.8% (expect ~65–75%). If it barely moves, the clusters are not absorbing genuine model confusion and the threshold should be revisited. If it jumps above 80%, the clusters may be too coarse. **The mapping must be finalised before checking this number** — do not adjust clusters based on what improves accuracy.
 
 ---
 
@@ -217,7 +245,7 @@ Boltzmann-weighted assignment over top-3 coarse candidates is a valid Phase 4 ex
 **Goal:** Re-aggregate the fine predictions using the approved mapping and recompute all metrics at coarse level.
 
 **Tasks:**
-1. Write and run `scripts/diachronic/apply_coarse_mapping.py` → `pilot_predictions_coarse_0.25.csv`.
+1. Write and run `scripts/diachronic/apply_coarse_mapping.py` → `pilot_predictions_coarse.csv`.
 2. Run existing `aggregate_temporal.py` on the coarse predictions → coarse counts/stats CSVs.
 3. Run existing `compute_change_metrics.py` on coarse counts → all four coarse metrics CSVs.
 4. Update `notebooks/analysis/diachronic_pilot_results.ipynb` to load fine and coarse files side-by-side.
@@ -262,7 +290,7 @@ Boltzmann-weighted assignment over top-3 coarse candidates is a valid Phase 4 ex
 Use `notebooks/analysis/sense_clustering_exploration.ipynb`. Test on `schlagen`, `Bank`, `Geist`, `spielen`. Generate the dendrogram for `schlagen` and check which senses merge at distance 0.25. This single visual check calibrates the threshold before running all 90 words.
 
 ### Action 2 — Write and run the two scripts on all 90 pilot words (day 2)
-`scripts/compute_sense_clusters.py` and `scripts/review_sense_clusters.py`. Open `_summary.md` to see sense reduction ratios across the full vocabulary (e.g. "spielen: 12 senses → 5 clusters"). This is the first concrete result to reason about.
+`scripts/compute_sense_clusters.py` and `scripts/review_sense_clusters.py`. Open `cluster_summary.csv` to see sense reduction ratios across the full vocabulary (e.g. "spielen: 12 senses → 5 clusters"). This is the first concrete result to reason about.
 
 ---
 
@@ -271,5 +299,5 @@ Use `notebooks/analysis/sense_clustering_exploration.ipynb`. Test on `schlagen`,
 1. **Do not use `pd.read_csv` on JSONL files.** Use `load_senses()` from `src/diachronic/io.py`, which now handles both formats correctly.
 2. **Do not copy the 0-indexed convention from `compare_embedding_methods.py`** (`llm_example_0..4`). The authoritative convention is `embedding_strategies.py` (1-indexed). Mixing these is a silent bug.
 3. **Include 1-sense words in the mapping JSON** (map their single sense → `"{lemma}_c0"`). `apply_coarse_mapping.py` will encounter them and needs a valid entry.
-4. **Do not apply coarse mapping to the atemporal eval set.** The 54.8% accuracy was measured at fine granularity. A coarse accuracy comparison is a separate, later question.
+4. **When re-scoring the atemporal eval set at coarse level, apply the mapping to both gold labels and predictions uniformly.** Finalise `sense_clusters_reviewed.json` before checking the coarse accuracy number — do not tune the clusters to maximise this metric.
 5. **Flag data-sparse words explicitly.** Words like `groß` (~47 total contexts) will remain noisy after clustering. Do not let them dominate the "top changed" ranking and mislead case study selection.

@@ -39,7 +39,8 @@ class BaseLLMClient(ABC):
                 elapsed = time.time() - start_time
                 last_error = e
                 if attempt < self.max_retries:
-                    wait_time = 2 ** attempt
+                    is_rate_limit = "429" in str(e) or "rate_limit" in str(e).lower()
+                    wait_time = (2 ** attempt) * (10 if is_rate_limit else 1)
                     logger.warning(
                         f"API call failed after {elapsed:.1f}s "
                         f"(attempt {attempt+1}/{self.max_retries+1}): {e}. "

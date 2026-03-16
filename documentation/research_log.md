@@ -19,6 +19,37 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-14: Core Gloss Quality Review and Prompt Refinement
+
+**Status**: Decision Made
+
+**Context**:
+After re-generating all 596 core_glosses with the improved sibling-context prompt (2026-03-12), a gloss quality review cell was added to `sense_clustering_exploration.ipynb` showing `baseline → core_gloss` side by side. Review revealed a systematic failure: many glosses had become too abstract and semantically uniform (e.g. multiple schlagen senses all mapping to "etwas mit Kraft treffen oder bewegen"), causing embeddings to collapse and clusters to be too large.
+
+**Root cause**:
+The sibling context instruction ("muss diese Bedeutung klar von den anderen unterscheiden") pushed the model toward abstract differentiation rather than grounding in the specific use case from the baseline. The model discarded distinctive baseline details (Sahne, Trommel, Flügel, Uhr) in favour of generic category descriptions. Additionally the prompt example "in einem Wettkampf gegen jemanden gewinnen" caused one sense to copy that phrase verbatim.
+
+**Prompt iterations**:
+1. Previous prompt (2026-03-12): long (30 lines, 12 rules, 7+ examples) — over-abstraction problem
+2. Lean prompt (attempt 1): too short — model regurgitated sibling list verbatim into output
+3. **Final prompt**: 12 lines, 6 rules, no examples. Key additions: "Genau eine Kernbedeutung, keine Liste"; "Konkrete Nomen müssen erhalten bleiben"; sibling block labelled "nur zur Orientierung — nicht aufzählen"
+
+**Final state**:
+- Prompt: `config/prompts/core_gloss.txt` — lean, 6 rules, no examples
+- Sibling instruction: "unterscheide durch konkretes Objekt oder Kontext — nicht aufzählen"
+- 3 manual patches applied directly to `senses_pilot.jsonl`:
+  - `s52049` (gehen): "akzeptabel sein oder gerade noch funktionieren"
+  - `s58716` (spielen): "Farben und Facetten reflektieren"
+  - `s58405` (spielen): "Licht auf einer Oberfläche reflektieren"
+- Backup of pre-patch state: `senses_pilot.jsonl.regen_bak`
+
+**Test set expanded**:
+Added `gehen` (19 senses) and `fassen` (12 senses) to notebook `TEST_LEMMAS`. t=0.10 confirmed on both. `Bank` absent from pilot words — confirmed by checking senses_pilot.jsonl.
+
+**Follow-up**: Run `compute_sense_clusters.py` at t=0.10 on all 90 pilot words.
+
+---
+
 ## 2025-01-09: Evaluation Set Design for Embedding Method Comparison
 
 **Status**: Decision Made
@@ -463,7 +494,7 @@ How to represent the sentence context being disambiguated?
 
 ---
 
-*Last updated: 2026-02-18*
+*Last updated: 2026-03-10*
 
 ---
 
@@ -663,3 +694,186 @@ After applying the n≥5 filter, we found that the median is still only ~8.5 sen
 - Implement 25-year binning in the aggregation pipeline
 - Re-run metrics and update notebook to use binned results
 - Adding subcorpora is the correct scaling path for the full study but requires genre-balancing
+
+---
+
+## 2026-03-10: Coarse Sense Clustering — Embedding Representation Choice
+
+**Status**: Resolved (2026-03-11)
+
+**Context**:
+During exploratory clustering (`notebooks/analysis/sense_clustering_exploration.ipynb`), all three candidate thresholds (0.20, 0.25, 0.30) produced the same result: everything collapsed to one cluster (before the `min_clusters=2` constraint forced an artificial split). The natural agglomerative merging finishes before any of the planned thresholds is reached.
+
+**Root cause (confirmed)**:
+The `weighted` representation uses verbose LLM-generated definitions that contain heavy boilerplate ("Diese Bedeutung unterscheidet sich von anderen Verwendungen des Begriffs..."). This shared phrasing is the same across all senses of a word, inflating cosine similarity uniformly. Combined with example sentences that share syntactic context, all pairwise distances for pilot words fall in a narrow 0.13–0.21 band.
+
+**Resolution**: Recalibrated candidate thresholds to **0.14 / 0.16 / 0.18**, where organic splits occur. At t=0.18, all three test lemmas cluster without constraint override. `coarse_clustering_plan.md` updated accordingly.
+
+**Remaining issue — addressed separately (see 2026-03-11 entry)**:
+The root cause (boilerplate inflating similarity) affects not just clustering but WSD accuracy too. Addressed by re-enriching with short core glosses.
+
+---
+
+## 2026-03-12: Clustering Representation Comparison Plan
+
+**Status**: In Progress
+
+**Context**:
+After the WSD weight tuning showed core_gloss is worse for nearest-neighbour context matching (51.6% vs 54.8%), the question became: is core_gloss still useful for clustering, where the task is sense-vs-sense distance rather than sense-vs-context distance?
+
+**Three representations to compare in `notebooks/analysis/sense_clustering_exploration.ipynb`**:
+
+| Name | Formula | Hypothesis |
+|------|---------|-----------|
+| Original | 0.5 × `llm_definition` + 0.5 × avg(examples) | Baseline — boilerplate compresses distances to 0.13–0.21 |
+| A | `core_gloss` only | Removes all boilerplate; may show wider distance range |
+| B | 0.5 × `core_gloss` + 0.5 × avg(examples) | Clean definition + rich usage examples; expected best |
+
+**Why B is expected to win**: The boilerplate problem is localised to `llm_definition`. The 5 examples are varied usage sentences without shared metalinguistic phrasing — they add useful discriminative signal without adding noise. Replacing only the noisy component (definition → core_gloss) while keeping examples should give the best of both worlds.
+
+**Decision criteria**: Compare min/mean/max pairwise cosine distances per lemma. Wider range = better clustering signal. Also check whether threshold calibration (0.14/0.16/0.18) needs to shift after switching representations.
+
+**Results**:
+
+| Representation | Distance range | max/min ratio | Verdict |
+|---|---|---|---|
+| Original (llm_def+ex) | 0.13–0.22 | ~1.7× | Boilerplate compresses distances |
+| A (core_gloss only) | 0.04–0.18 | ~5× | **Winner** — widest relative spread |
+| B (core_gloss+ex) | 0.02–0.11 | ~7× | Worst — examples dominate and compress everything |
+
+**Why B is unexpectedly bad**: all 5 examples for a lemma share its vocabulary regardless of which sense they illustrate (e.g., all "schlagen" examples contain schlagen-related vocabulary). This pulls all sense embeddings toward the same lemma centroid. The short core_gloss has too little weight to counteract it, so examples dominate completely.
+
+**Decision: use A (core_gloss only) for clustering.**
+
+**Threshold calibration result:**
+
+Lower threshold sweep with A showed organic splits in range 0.04–0.14 (vs 0.14–0.20 for Original). Evaluated [0.08, 0.10, 0.12]:
+
+| t | schlagen | Geist | spielen | verdict |
+|---|---|---|---|---|
+| 0.08 | 6 (constrained, organic=10) | 4 organic | 6 (constrained, organic=11) | too fine |
+| **0.10** | **5 organic ✓** | **4 organic ✓** | **6 (constrained, organic=9)** | **chosen** |
+| 0.12 | 3 organic — too coarse | 3 organic | 3 organic — too coarse | too aggressive |
+
+**Chosen threshold: t=0.10.** First point where schlagen clusters organically (5 clusters). Geist stable at 4 clusters (supernatural/mental/mindset/Branntwein). spielen still constrained at t=0.10 (organic=9 > max_clusters=6) but the 6 forced clusters are linguistically coherent. t=0.12 collapses 13/15 schlagen and 12/15 spielen senses into one cluster.
+
+**Follow-up**: Run `compute_sense_clusters.py` at t=0.10 on all 90 pilot words.
+
+---
+
+## 2026-03-12: Core Gloss Quality Improvement & Full Re-generation
+
+**Status**: Decision Made
+
+**Context**:
+After the initial core_gloss generation (via `enrich_senses_with_llm.py`) and the representation comparison experiment, a quality scan of `senses_pilot.jsonl` revealed two categories of problems:
+
+1. **Formatting issues** (265 senses, 44%): stray quotation marks and inconsistent trailing periods — fixed by one-off post-processing in-place
+2. **Content issues** (25 senses): 12 "eine Art von X" constructions (uninformative) + 13 generic/tautological glosses using forbidden words
+
+**Prompt improvements made** (`config/prompts/core_gloss.txt`):
+- Added POS-specific phrasing norms: Nomen → Nominalphrase, Verben → Infinitivphrase, Adjektive → Eigenschaft direkt
+- Added no-synonym rule ("Kein bloßes Synonym als gesamte Antwort")
+- Added "Art", "Form", "Typ" to list of forbidden generic words
+- Added "Keine 'eine Art von X'-Formulierungen" rule
+- Added "Keine Anführungszeichen" rule
+- Extended negative examples (3 total, including synonym example)
+
+**Sibling context** (new — most impactful change):
+The model previously saw each sense in isolation. The updated `generate_core_gloss()` now accepts `sibling_descriptions`: baseline descriptions of all other senses of the same lemma. These are passed in the prompt to force discriminative glosses. Implementation: `src/data/llm/text_generator.py`, `scripts/data/regen_core_glosses.py`.
+
+**Decision**: Full re-generation of all 596 core_glosses via `regen_core_glosses.py --all` rather than targeted patching. Reasons:
+- Updated prompt applies consistently across all senses
+- Sibling context improves discriminability for all lemmas
+- Cost negligible (~596 calls to gpt-4o-mini, < $0.10)
+- `llm_definition` and `llm_examples` left untouched
+
+**Results after re-generation** (verified in `sense_clustering_exploration.ipynb`):
+- Zero "Art von" constructions remaining
+- Zero stray quotation marks
+- Only 7 generic-word hits remaining, all false positives (word appears in meaningful compound phrase)
+- Distance ranges unchanged (A still wins with ~∞ ratio for schlagen/spielen — min=0.000 for near-identical fine senses)
+- **No constrained clusters** at t=0.08 or t=0.10 — all splits now organic
+- Geist: 3-way split (supernatural beings / alcohol / mental faculty) — cleaner than previous 4-way
+- spielen at t=0.10: 3 organic clusters (play-leisure, instrument, unserious) — previously forced to 6
+- schlagen at t=0.10: 4 clusters stable — large "hitting" cluster (12/15) reflects genuine GermaNet granularity
+
+**Threshold confirmed**: t=0.10 still optimal. No reason to change.
+
+**Follow-up**: Run `compute_sense_clusters.py` at t=0.10 on all 90 pilot words.
+
+---
+
+## 2026-03-12: Core Gloss Weight Tuning Result
+
+**Status**: Resolved
+
+**Context**:
+After re-enriching `senses_pilot.jsonl` with `core_gloss` (short 5–10 word denotative gloss), we re-ran `tune_representation_weights.py` on the 93-instance eval set to check whether `core_gloss` as the definition component outperforms the verbose `llm_definition`.
+
+**Result**:
+- v2 (core_gloss + examples): best 51.6% at α=0.3
+- v1 (llm_definition + examples): best 54.8% at α=0.5
+
+Core gloss is **worse** for WSD by 3.2 percentage points.
+
+**Root cause**:
+Short glosses are too terse for nearest-neighbour context matching. A 7-word denotative label like *"jemanden körperlich mit der Hand treffen"* provides less surface for similarity computation against a full sentence context than the verbose, example-rich `llm_definition`. The contrastive boilerplate in `llm_definition`, while adding noise between senses, also adds useful lexical signal for context alignment.
+
+**Decision**:
+- **WSD `weighted` representation**: revert to `llm_definition` — keep 54.8%
+- **Clustering**: use `core_gloss` separately (not through `weighted`) — the short gloss is still expected to reduce boilerplate-driven distance compression for clustering purposes
+- No new `core_gloss_weighted` representation added to `embedding_strategies.py` (keep API simple)
+- `tune_representation_weights.py` reverted to `DEF_COL = "llm_definition"`
+- `validate_sense_file` for `weighted` reverted to require `llm_definition`
+
+**Follow-up**:
+- Re-run clustering exploration notebook using `core_gloss` embeddings to check distance range
+- Decide how to expose `core_gloss` for clustering (simplest: embed it directly outside the `weighted` pathway)
+
+---
+
+## 2026-03-11: Re-enrichment with Short Core Glosses
+
+**Status**: Resolved (see 2026-03-12 entry for tuning result)
+
+**Context**:
+The current LLM-generated definitions (`llm_definition`) were written with a contrastive, metalinguistic prompt ("beschreibe diese Bedeutung so, dass sie sich von anderen Bedeutungen unterscheidet"). This produces verbose 2–3 sentence definitions filled with boilerplate phrases shared across all senses of a word. The result is that the definition embedding component carries substantial shared noise, compressing the inter-sense distance range to 0.13–0.21 for all pilot words.
+
+**Why this matters beyond clustering**:
+The same boilerplate inflation affects WSD nearest-neighbour matching. In a compressed similarity landscape, every context is nearly equidistant from all sense representations — making the model's top-1 decision noisy. Cleaner, more distinctive sense representations should improve both clustering distance range and WSD accuracy.
+
+**Decision**: Re-enrich `senses_pilot.jsonl` with a new `core_gloss` field — a short (5–10 word) denotative gloss stripped of all contrastive boilerplate.
+
+**Examples of target style**:
+- Current: *"Schlagen (Verb) bezeichnet die Handlung, jemandem einen oder mehrere körperliche Treffer zu versetzen, oft in Form von Schlägen mit der Hand oder einem Gegenstand... Diese Bedeutung unterscheidet sich von anderen Verwendungen..."*
+- Target: *"jemanden körperlich mit der Hand oder einem Gegenstand treffen"*
+
+**Format decision — add `core_gloss`, keep `llm_definition`**:
+Add `core_gloss` as a new field in the JSONL alongside the existing `llm_definition`. Do not overwrite or remove `llm_definition`. Reasons:
+- Non-destructive: existing pipeline continues to run unchanged until explicitly switched
+- Enables controlled comparison on the 93-instance eval set before committing to full re-run
+- Enrichment script generates both in one pass (negligible extra cost)
+- `embed_with_representation` gets a new `core_gloss_weighted` representation option
+
+**Downstream pipeline changes required**:
+1. Update prompt in `scripts/data/enrich_senses_with_llm.py` to also generate `core_gloss`
+2. Re-run enrichment on 595 pilot senses (fast, ~$2)
+3. Add `core_gloss_weighted` representation to `src/wsd/embedding_strategies.py`
+4. Re-tune embedding composition `α × core_gloss + β × mean(examples)` on 93-instance eval set
+5. If new composition improves on 54.8%: re-run `predict_dwds_senses.py` on 30,337 contexts
+6. Re-run clustering in `sense_clustering_exploration.ipynb` with new embeddings — distance range and optimal threshold may shift
+
+**Expected outcome**:
+- Wider inter-sense distance range (organic clustering more meaningful)
+- Improved atemporal WSD accuracy (expect 58–68%, to be verified on eval set)
+- Optimal embedding weight may shift away from 50/50 (core gloss is more informative than verbose definition was)
+
+**Rationale for doing this before full clustering run**:
+Running `compute_sense_clusters.py` on all 90 words with the current representations would produce clusters based on inflated similarity. Re-enriching first means the one full-scale run is based on the best representations available.
+
+**Follow-up**:
+- Update `scripts/data/enrich_senses_with_llm.py` with new prompt
+- Add `core_gloss_weighted` to `src/wsd/embedding_strategies.py`
+- Re-tune on eval set, document result in new research log entry
+- Update `documentation/pipeline.md` Step 2 once format is finalised

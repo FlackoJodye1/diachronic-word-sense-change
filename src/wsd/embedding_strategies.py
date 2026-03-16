@@ -13,6 +13,7 @@ import numpy as np
 RepresentationType = Literal[
     "baseline",           # GermaNet template text
     "llm_definition",     # LLM-generated definition only
+    "core_gloss",         # Short denotative gloss — used for clustering only (not WSD)
     "llm_example_1",      # Single LLM example
     "llm_examples_concat", # All 5 examples concatenated
     "llm_examples_avg",   # Average embedding of 5 examples (requires embedder)
@@ -94,8 +95,13 @@ def embed_with_representation(
         return [f"{passage_prefix}{t}" for t in texts] if passage_prefix else texts
 
     # Simple cases: single text per sense
-    if representation in ["baseline", "llm_definition", "llm_example_1", "llm_examples_concat"]:
-        texts = get_text_for_embedding(sense_df, representation)
+    if representation in ["baseline", "llm_definition", "core_gloss", "llm_example_1", "llm_examples_concat"]:
+        if representation == "core_gloss":
+            if "core_gloss" not in sense_df.columns:
+                raise ValueError("core_gloss requires enhanced sense file with core_gloss column")
+            texts = sense_df["core_gloss"].fillna("").tolist()
+        else:
+            texts = get_text_for_embedding(sense_df, representation)
         return embedder.encode(_prefix(texts), show_progress=show_progress)
 
     # Special case: average of 5 examples
@@ -118,8 +124,10 @@ def embed_with_representation(
 
         return np.array(embeddings)
 
-    # Special case: weighted combination (BEST METHOD - 54.8% accuracy)
-    # Weight α=0.5 validated via grid search (see documentation/research_log.md)
+    # Special case: weighted combination (BEST METHOD — 54.8% accuracy)
+    # 0.5 * llm_definition + 0.5 * avg(examples), α=0.5 validated via grid search
+    # Note: core_gloss was tested as definition component but scored lower (best 51.6% at α=0.3)
+    # Verbose llm_definition retained for WSD; core_gloss used separately for clustering only
     elif representation == "weighted":
         if 'llm_definition' not in sense_df.columns:
             raise ValueError("weighted requires enhanced sense file with llm_definition")
@@ -163,6 +171,7 @@ def validate_sense_file(sense_df: pd.DataFrame, representation: RepresentationTy
     required_cols = {
         "baseline": ["text_for_embedding"],
         "llm_definition": ["llm_definition"],
+        "core_gloss": ["core_gloss"],
         "llm_example_1": ["llm_example_1"],
         "llm_examples_concat": [f"llm_example_{i}" for i in range(1, 6)],
         "llm_examples_avg": [f"llm_example_{i}" for i in range(1, 6)],
@@ -194,7 +203,7 @@ def get_available_representations(sense_df: pd.DataFrame) -> List[str]:
     """
     available = []
 
-    for rep in ["baseline", "llm_definition", "llm_example_1",
+    for rep in ["baseline", "llm_definition", "core_gloss", "llm_example_1",
                 "llm_examples_concat", "llm_examples_avg", "weighted"]:
         try:
             validate_sense_file(sense_df, rep)

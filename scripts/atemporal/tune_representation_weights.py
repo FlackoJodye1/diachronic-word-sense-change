@@ -41,6 +41,7 @@ OUTPUT_FILE = ATEMPORAL_DIR / "results" / "weight_tuning.csv"
 MODEL_NAME = "intfloat/multilingual-e5-large"
 
 # Columns for weighted combination
+# v1: verbose llm_definition (54.8% at α=0.5) — core_gloss tested but scored lower (51.6% at α=0.3)
 DEF_COL = "llm_definition"
 EXAMPLE_COLS = [f"llm_example_{i}" for i in range(5)]
 

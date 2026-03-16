@@ -124,6 +124,7 @@ def save_as_jsonl(df: pd.DataFrame, output_path: Path):
                 'synset_id': row['synset_id'],
                 'class': row['class'],
                 'baseline': row['text_for_embedding'],
+                'core_gloss': row.get('core_gloss'),
                 'llm_definition': row['llm_definition'],
                 'llm_examples': examples
             }
@@ -157,6 +158,8 @@ def enrich_senses(
 
     # Add new columns (only if they don't exist)
     result_df = senses_df.copy()
+    if 'core_gloss' not in result_df.columns:
+        result_df['core_gloss'] = None
     if 'llm_definition' not in result_df.columns:
         result_df['llm_definition'] = None
     for i in range(1, 6):
@@ -173,13 +176,14 @@ def enrich_senses(
         sense_description = row['text_for_embedding']
 
         # Skip if already has LLM content (for resuming partial runs)
-        if pd.notna(result_df.at[idx, 'llm_definition']) and result_df.at[idx, 'llm_definition']:
+        if pd.notna(result_df.at[idx, 'core_gloss']) and result_df.at[idx, 'core_gloss']:
             logger.info(f"[{counter}/{total}] Skipping {lemma} ({synset_id}) - already processed")
             continue
 
         logger.info(f"[{counter}/{total}] Processing: {lemma} ({synset_id})")
 
         if dry_run:
+            result_df.at[idx, 'core_gloss'] = f"[DRY RUN] Core gloss for {lemma}"
             result_df.at[idx, 'llm_definition'] = f"[DRY RUN] Definition for {lemma}"
             for i in range(1, 6):
                 result_df.at[idx, f'llm_example_{i}'] = f"[DRY RUN] Example {i} for {lemma}"
@@ -191,6 +195,7 @@ def enrich_senses(
                     sense_description=sense_description
                 )
 
+                result_df.at[idx, 'core_gloss'] = variants['core_gloss']
                 result_df.at[idx, 'llm_definition'] = variants['definition']
 
                 examples = variants['examples_5']
@@ -205,6 +210,7 @@ def enrich_senses(
 
             except Exception as e:
                 logger.error(f"  Failed: {e}")
+                result_df.at[idx, 'core_gloss'] = f"[ERROR] {e}"
                 result_df.at[idx, 'llm_definition'] = f"[ERROR] {e}"
                 for i in range(1, 6):
                     result_df.at[idx, f'llm_example_{i}'] = ""
@@ -298,6 +304,7 @@ def main():
     logger.info("=" * 70)
 
     # Load or resume
+    remaining = 0
     if args.resume:
         senses_df = load_checkpoint(Path(args.resume))
         logger.info("Resuming from checkpoint")
@@ -339,8 +346,8 @@ def main():
         logger.info("COST ESTIMATE")
         logger.info(f"{'=' * 70}")
         logger.info(f"Senses to process: {n_senses}")
-        logger.info(f"API calls per sense: 2 (definition + 5 examples)")
-        logger.info(f"Total API calls: ~{n_senses * 2}")
+        logger.info(f"API calls per sense: 3 (core_gloss + definition + 5 examples)")
+        logger.info(f"Total API calls: ~{n_senses * 3}")
 
         if args.provider == 'openai':
             cost_per_call = 0.001  # gpt-4o-mini rough estimate

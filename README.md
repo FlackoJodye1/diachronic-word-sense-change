@@ -31,6 +31,16 @@ This project addresses German Word Sense Disambiguation by enhancing sparse Germ
 pip install -r requirements.txt
 ```
 
+### 2. Configure API Key
+
+Create a `.env` file in the project root with your OpenAI API key:
+
+```
+OPENAI_API_KEY=your-key-here
+```
+
+This file is git-ignored and must be created manually. The key is used by the LLM enrichment scripts (e.g. `scripts/data/enrich_senses_with_llm.py`) via `python-dotenv`.
+
 ### 2. View Enhanced Data
 
 ```python

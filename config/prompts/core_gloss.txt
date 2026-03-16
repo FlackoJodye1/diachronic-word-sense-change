@@ -1,0 +1,14 @@
+Schreibe eine einzige kurze Kernbedeutung für die folgende Wortbedeutung.
+
+Wort: {lemma} ({pos_german})
+Bedeutungsbeschreibung: {sense_description}
+{other_senses_block}
+Regeln:
+- Genau eine Kernbedeutung, maximal 12 Wörter, kein vollständiger Satz, keine Liste
+- Verben: Infinitivphrase ("Hefeteig durch Gärung auflockern", "Edelstein in Metall einsetzen")
+- Nomen: Nominalphrase ("Geldinstitut für Einlagen und Kredite")
+- Adjektive: charakteristische Eigenschaft ("von dunkler, lichtloser Farbe")
+- Konkrete Nomen aus der Bedeutungsbeschreibung (Objekte, Werkzeuge, Körperteile) müssen erhalten bleiben
+- Unterscheide durch spezifischen Kontext oder Objekt — nicht durch abstrakte Umformulierung
+
+Antworte nur mit der Kernbedeutung, ohne Erklärung.

@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-08
+**Last updated:** 2026-03-12
 
 ---
 
@@ -46,6 +46,29 @@ A quick-reference document tracking what's done, what's in progress, and what's 
 **Best result:** `intfloat/multilingual-e5-large` + weighted(0.5 x definition + 0.5 x avg(5 examples)) = **54.8% accuracy**, 96.8% top-3, 100% top-5
 
 **Key scripts:** `scripts/atemporal/`
+
+### 2c. Re-enrichment with Short Core Glosses — COMPLETE (WSD); IN PROGRESS (clustering)
+
+**Purpose:** Add short `core_gloss` field to sense JSONL to reduce boilerplate-driven distance compression for clustering. WSD `weighted` representation unchanged (llm_definition still used).
+
+**Outcome:** core_gloss tested worse for WSD (51.6% at α=0.3 vs 54.8% at α=0.5 for llm_definition). `weighted` reverted to use `llm_definition`. core_gloss will be used separately for clustering only.
+
+| Step | Status | Details |
+|------|--------|---------|
+| Update enrichment prompt in `enrich_senses_with_llm.py` | Done | `config/prompts/core_gloss.txt` — max 10 words, no boilerplate |
+| Re-run enrichment on 596 pilot senses | Done | `senses_pilot.jsonl` now has `core_gloss` field alongside `llm_definition` |
+| Re-enrich 10 eval words' sense file | Done | `data/evaluation/atemporal/input/sense_text_representations.jsonl` updated with `core_gloss` |
+| Re-tune α on 93-instance eval set | Done | core_gloss: 51.6% best (α=0.3) — worse than llm_definition. `weighted` reverted to llm_definition at α=0.5. |
+| Re-run `predict_dwds_senses.py` (v3 predictions) | **Skipped** | core_gloss worse for WSD — no reason to re-run; v2 predictions remain current best |
+| Compare 3 representations in clustering notebook | Done | A (core_gloss only) wins: distance ratio ~5× vs ~1.7× Original. B unexpectedly worst — examples compress distances. |
+| Recalibrate thresholds with A, choose final threshold | Done | t=0.10 chosen: first organic split for schlagen, Geist 4-way stable, spielen coherent under max_clusters=6 |
+| Improve core_gloss prompt + full re-generation | Done | Added sibling context, POS norms, no-synonym rule. Re-generated all 596 glosses via `regen_core_glosses.py --all`. All splits now organic; Geist 3-way, spielen 3-way at t=0.10. t=0.10 confirmed. |
+| Gloss quality review + prompt refinement | Done | Identified over-abstraction failure mode (2026-03-14). Iteratively refined prompt to lean version (12 rules → 6, "keine Liste" constraint). 3 manual patches applied (s52049, s58716, s58405). See research log 2026-03-14. |
+| Extend test set to 10 words | Done | Added `gehen` (19 senses) and `fassen` (12 senses) to notebook. t=0.10 confirmed on both. |
+| Remove max_clusters cap | Done | No upper bound on clusters. Threshold determines granularity; sparse cells filtered at analysis time. schlagen=8, spielen=8, gehen=14, fassen=6 organic clusters at t=0.10. |
+| Run `compute_sense_clusters.py` on all 90 words at t=0.10 | Done | `sense_clusters_0.10.json` + `sense_clustering/t010/cluster_summary.csv`. Mean 6.6→3.7 clusters (39.5% reduction). 11 words constrained by min=2. |
+
+See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 ### 2b. Second Annotation Set (benchmark expansion) — NOT STARTED
 

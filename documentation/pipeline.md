@@ -117,32 +117,45 @@ Example: "Bank ist eine Art von Sitzgelegenheit. Bank ist ein Begriff aus Artefa
 python scripts/data/process_germanet.py
 ```
 
-### Step 2: Enrich with LLM Text (NEW!)
+### Step 2: Enrich with LLM Text
 
 **Script:** `scripts/data/enrich_senses_with_llm.py`
 
 **What it does:**
 1. Loads baseline sense file
 2. For each sense, generates via LLM:
-   - Natural language definition
+   - Short core gloss (5–10 words, denotative, no boilerplate)
+   - Verbose definition (longer, contrastive — kept for reference)
    - 5 diverse usage examples
 3. Saves enhanced file with both baseline + LLM text
 
-**Why:** LLM-generated text improves WSD accuracy from 36.6% → 54.8%
+**Why:** LLM-generated text improves WSD accuracy from 36.6% → 54.8% (verbose definition). Short core glosses are expected to improve further by reducing shared boilerplate noise that compresses inter-sense distances. See research log entry 2026-03-11.
 
 **Input:** `senses_base.csv` (from Step 1)
 
-**Output:**
-- `senses_full.jsonl` (CSV format)
-- `senses_full.jsonl` (JSONL format - recommended)
+**Output:** `senses_pilot.jsonl` / `senses_full.jsonl` (JSONL, recommended)
 
-**New columns added (CSV):**
-- `llm_definition` - LLM-generated definition
-- `llm_example_1` through `llm_example_5` - usage examples
+**JSONL structure (current — v2 with core_gloss):**
+```json
+{
+  "lemma": "schlagen",
+  "pos": "VERB",
+  "synset_id": "s56930",
+  "class": "Kontakt",
+  "baseline": "schlagen ist eine Art von ...",
+  "core_gloss": "jemanden körperlich mit der Hand oder einem Gegenstand treffen",
+  "llm_definition": "Schlagen (Verb) bezeichnet die Handlung, jemandem ... Diese Bedeutung unterscheidet sich von anderen Verwendungen...",
+  "llm_examples": [
+    "Er schlug ihn mit der flachen Hand.",
+    ...
+  ]
+}
+```
 
-**JSONL structure:**
-- `llm_examples` - array of 5 examples (cleaner than separate columns)
-- `baseline` - renamed from `text_for_embedding` for clarity
+**Field notes:**
+- `core_gloss` — short denotative gloss, used as the primary definition component for embedding (v2+)
+- `llm_definition` — verbose contrastive definition, kept for reference and comparison; was the primary definition component in v1
+- `llm_examples` — array of 5 usage examples (unchanged across versions)
 
 **Scope options:**
 
@@ -231,11 +244,13 @@ Find the best way to represent senses as embeddings for WSD.
 | llm_examples_avg | Average of 5 examples | ~48% |
 | **weighted** | **0.5×def + 0.5×avg(ex)** | **54.8%** ✓ BEST |
 
-### Best Configuration
+### Best Configuration (v1 — verbose definition)
 
 **Model:** `intfloat/multilingual-e5-large` (1024-dim)
-**Text:** Weighted combination (0.5 definition + 0.5 averaged examples)
+**Text:** Weighted combination (0.5 × `llm_definition` + 0.5 × avg(examples))
 **Accuracy:** 54.8%
+
+**Note:** v2 re-enrichment (short `core_gloss`) expected to improve on this. Re-tune on eval set after re-enrichment; see research log 2026-03-11.
 
 **Weight optimization:** α=0.5 validated via grid search (see below)
 
@@ -640,19 +655,20 @@ scripts/
 
 ### Key Modules
 
-#### `src.data.sense_representations` (NEW!)
+#### `src.wsd.embedding_strategies`
 
 Utilities for working with sense text representations:
 
 ```python
-from src.data.sense_representations import (
+from src.wsd.embedding_strategies import (
     embed_with_representation,
     get_text_for_embedding,
     validate_sense_file
 )
 
-# Load enhanced senses
-senses = pd.read_csv('senses_full.jsonl')
+# Load enhanced senses (JSONL — use load_senses from src.diachronic.io)
+from src.diachronic.io import load_senses
+senses = load_senses('data/processed/germanet/senses_pilot.jsonl')
 
 # Get text for different representations
 baseline_texts = get_text_for_embedding(senses, "baseline")
@@ -771,11 +787,17 @@ data/evaluation/
 
 ```
 data/processed/diachronic/
-├── pilot_predictions_weighted_v2.csv             # Step 1 output (v2)
-├── pilot_weighted_v2_decade_sense_counts.csv     # Step 2 output
-├── pilot_weighted_v2_decade_stats.csv            # Step 2 output
-├── pilot_weighted_v2_filtered_decade_*.csv       # Step 3 output (min 5 contexts filter)
-└── plots/                                        # Step 4 output
+├── predictions/
+│   └── pilot_predictions.csv                    # Step 1 output
+├── aggregated/
+│   ├── pilot_counts.csv                         # Step 2 output (counts per word-decade-sense)
+│   └── pilot_stats.csv                          # Step 2 output (summary per word-decade)
+├── metrics/
+│   ├── pilot_entropy.csv                        # Step 3 output
+│   ├── pilot_divergence.csv                     # Step 3 output
+│   ├── pilot_emergence.csv                      # Step 3 output
+│   └── pilot_decline.csv                        # Step 3 output
+└── plots/                                       # Step 4 output
     ├── trajectory_*.png
     ├── heatmap_*.png
     └── entropy_*.png
@@ -865,10 +887,11 @@ PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --all-lemmas
 ```python
 import pandas as pd
 from src.wsd import Embedder
-from src.data.sense_representations import embed_with_representation
+from src.wsd.embedding_strategies import embed_with_representation
+from src.diachronic.io import load_senses
 
 # Load enhanced senses
-senses = pd.read_json('data/processed/germanet/senses_full.jsonl', lines=True)
+senses = load_senses('data/processed/germanet/senses_full.jsonl')
 
 # Filter to words of interest
 my_senses = senses[senses['lemma'].isin(['Geist', 'Bank'])]
@@ -886,15 +909,16 @@ weighted_emb = embed_with_representation(my_senses, embedder, "weighted")
 ### Check Available Representations
 
 ```python
-from src.data.sense_representations import get_available_representations
+from src.wsd.embedding_strategies import get_available_representations
+from src.diachronic.io import load_senses
 
-senses = pd.read_csv('data/processed/germanet/senses_base.csv')
+senses = load_senses('data/processed/germanet/senses_base.csv')
 print(get_available_representations(senses))
 # → ['baseline']  (only baseline available)
 
-senses_enhanced = pd.read_json('data/processed/germanet/senses_full.jsonl', lines=True)
+senses_enhanced = load_senses('data/processed/germanet/senses_full.jsonl')
 print(get_available_representations(senses_enhanced))
-# → ['baseline', 'llm_definition', 'llm_examples', 'weighted']
+# → ['baseline', 'llm_definition', 'llm_examples_avg', 'weighted']
 ```
 
 ---
