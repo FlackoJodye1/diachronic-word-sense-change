@@ -1,103 +1,98 @@
 # German Word Sense Disambiguation (WSD)
 
-A comprehensive system for disambiguating polysemous German words using enhanced GermaNet semantic relations and BERT embeddings.
+A research system for diachronic Word Sense Disambiguation of German words using GermaNet senses, DWDS corpus data, and multilingual sentence embeddings.
 
-## 🎯 Project Overview
+## Project Overview
 
-This project addresses German Word Sense Disambiguation by enhancing sparse GermaNet data with rich semantic relations to create better word sense embeddings.
+The goal is to track how the meaning distribution of polysemous German words shifts over time (1900–1999) by:
+1. Enriching GermaNet senses with LLM-generated definitions and examples
+2. Disambiguating ~30k DWDS corpus sentences using embedding-based WSD
+3. Clustering fine-grained senses into coarser groupings to reduce noise
+4. Aggregating predictions per decade and computing change metrics (JSD, emergence, decline)
 
-### Key Achievements
-- ✅ Enhanced 2,022 German word senses with semantic relations
-- ✅ Achieved 48.6% accuracy on real DWDS corpus evaluation  
-- ✅ Complete coverage vs 5.3% in original sparse GermaNet
-- ✅ Built evaluation framework with real German sentences
+## Current Status
 
-## 📊 Current Status
+| Stage | Status | Key Result |
+|-------|--------|------------|
+| Data preparation | Complete | `senses_pilot.jsonl` — 90 words, 595 senses, `core_gloss` + `llm_definition` + `llm_examples` |
+| Atemporal WSD | Complete | 54.8% fine / **81.7% coarse** accuracy (E5-large, weighted representation) |
+| Diachronic pipeline | Complete | 24,325 predictions across 90 words, 1900–1999 |
+| Coarse clustering | Complete | 305 clusters (90 pilot lemmas), t=0.10, manual review done |
+| Coarse diachronic rerun | Complete | Max JSD 0.835→0.532, events 518→194 (~60% reduction) |
+| Analysis & validation | In progress | Top candidates: spielen, fassen, Kasse, passen |
 
-### Data Ready ✅
-- **Enhanced GermaNet**: 2,022 senses for 700 German words
-- **DWDS Corpus**: 4,809 real German sentences (25 words)
-- **Evaluation Results**: 48.6% accuracy baseline established
+## Key Numbers
 
-### Core Files
-- `data/processed/germanet/wsd_senses_enhanced.csv` - Main enhanced dataset
-- `data/processed/dwds/fetch_progress_25_words.jsonl` - Real corpus sentences
-- `scripts/` - Core processing and evaluation scripts
+- **Pilot corpus**: 30,337 sentences, 90 words, 1900–1999 (DWDS kern)
+- **WSD accuracy**: 54.8% fine-grained → 81.7% coarse-grained (93-instance eval set)
+- **Sense clustering**: 595 fine senses → 305 coarse clusters (39.5% reduction, t=0.10)
+- **Top change signal**: spielen, fassen, Kasse, passen (by JSD)
 
-## 🚀 Quick Start
+## Repository Structure
 
-### 1. Setup Environment
+```
+├── data/
+│   ├── processed/
+│   │   ├── dwds/                  # Corpus contexts (pilot_contexts.jsonl)
+│   │   ├── germanet/              # Enriched senses + cluster mapping
+│   │   ├── diachronic/            # Predictions, aggregations, metrics
+│   │   └── sense_clustering/      # Cluster summary artifacts
+│   └── evaluation/
+│       └── atemporal/             # 93-instance gold eval set (10 words)
+├── notebooks/
+│   ├── analysis/                  # diachronic_pilot_results.ipynb, sense_clustering_analysis.ipynb
+│   └── exploration/               # Target word and corpus exploration
+├── scripts/
+│   ├── atemporal/                 # WSD method comparison and tuning
+│   ├── clustering/                # Sense clustering + review app
+│   ├── diachronic/                # Full diachronic pipeline scripts
+│   └── data/                      # Data fetching and enrichment
+└── src/
+    ├── wsd/                       # Embedder, embedding strategies, sense clustering
+    ├── diachronic/                # IO, aggregation, metrics
+    ├── annotation/                # Annotation utilities
+    └── data/                      # GermaNet and DWDS data loaders
+```
+
+## Diachronic Pipeline
+
+```
+senses_pilot.jsonl
+    → scripts/diachronic/predict_dwds_senses.py       → pilot_predictions.csv
+    → scripts/diachronic/apply_coarse_mapping.py      → pilot_predictions_coarse.csv
+    → scripts/diachronic/aggregate_temporal.py        → pilot_coarse_sense_counts.csv
+    → scripts/diachronic/compute_change_metrics.py    → pilot_coarse_{entropy,divergence,emergence,decline}.csv
+```
+
+## Setup
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure API Key
-
-Create a `.env` file in the project root with your OpenAI API key:
-
+Create a `.env` file with API keys used by LLM enrichment scripts:
 ```
 OPENAI_API_KEY=your-key-here
+ANTHROPIC_API_KEY=your-key-here
 ```
 
-This file is git-ignored and must be created manually. The key is used by the LLM enrichment scripts (e.g. `scripts/data/enrich_senses_with_llm.py`) via `python-dotenv`.
+## Best WSD Configuration
 
-### 2. View Enhanced Data
+**Model**: `intfloat/multilingual-e5-large`
+**Representation**: Weighted (0.5 × `llm_definition` + 0.5 × avg(`llm_examples`))
+**Clustering**: `core_gloss` embeddings, cosine distance threshold t=0.10, min 2 clusters
 
-```python
-import pandas as pd
+## Documentation
 
-data = pd.read_csv('data/processed/germanet/senses_base.csv')
-print(f"Enhanced senses: {len(data)}")
-```
+- `documentation/roadmap.md` — project status and next steps
+- `documentation/research_log.md` — dated entries for all key decisions
+- `documentation/pipeline.md` — full pipeline walkthrough
+- `documentation/coarse_clustering_plan.md` — clustering design decisions
+- `scripts/atemporal/README.md` — atemporal WSD experiments detail
 
-### 3. Run WSD Evaluation  
-```bash
-python scripts/real_dwds_wsd_evaluation.py
-```
+## Known Limitations
 
-## 📁 Repository Structure
-
-```
-├── data/
-│   ├── processed/germanet/          # Enhanced GermaNet data  
-│   ├── processed/dwds/              # Real German corpus sentences
-│   └── external/germanet_v190/     # Original GermaNet data
-├── scripts/                        # Core working scripts
-├── analysis/                       # Analysis and comparison tools
-├── notebooks/                      # Jupyter exploration notebooks
-└── src/                           # Source code modules
-```
-
-## 🔬 Key Results
-
-| Metric | Performance | Description |
-|--------|-------------|-------------|
-| **WSD Accuracy** | **48.6%** | Real German corpus evaluation |
-| **Coverage** | **100%** | All senses have descriptions |  
-| **Text Quality** | **15.7 words avg** | Rich semantic content |
-| **Improvement** | **+42.4%** | Over majority baseline |
-
-### Text Enhancement Example
-- **Before**: "Bank" (just keyword)
-- **After**: "Bank ist eine Art von Sitzgelegenheit. Bank hat Lehne und Sitzfläche."
-
-## 🎯 Next Steps
-
-1. **Ground Truth Creation**: Manual annotation for gold standard evaluation
-2. **Corpus Expansion**: Fetch remaining 675 words from DWDS  
-3. **Model Improvements**: Neural classifiers, fine-tuning
-4. **Production**: API deployment for real applications
-
-## 📚 Key Papers & References
-
-- GermaNet: German WordNet
-- DWDS: Digital Dictionary of German Language
-- Multilingual BERT for semantic similarity
-
-## 🤝 Contributing
-
-This is a research project focused on German NLP and Word Sense Disambiguation.
-
-## 📄 License
-
-See LICENSE file for details.
+- 26 pilot words have no GermaNet senses (fahren, sehen, halten, etc.) — deferred
+- DWDS kern corpus has genre drift (Belletristik ↓, Wissenschaft ↑) — structural, documented
+- Coarse accuracy (81.7%) measured on contemporary texts; accuracy on 1900s data is unknown
+- Words with <100 total contexts are unreliable regardless of clustering
