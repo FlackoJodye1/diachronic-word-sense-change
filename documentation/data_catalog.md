@@ -2,26 +2,26 @@
 
 Reference for all data files in the project: what each file is, which script produces it, and what it is used for.
 
-**Last updated:** 2026-03-09
+**Last updated:** 2026-03-18
 
 ---
 
 ## Overview: Data Flow
 
 ```
-Raw Sources                  Processed Intermediates              Analysis Outputs
-──────────────               ────────────────────────             ────────────────
-GermaNet XML        ──►  germanet_base/          ──►  germanet/senses_base.csv
-                              (parsed tables)              (senses + LLM enrichment)
+Raw Sources                    Processed                         Analysis Outputs
+───────────────                ─────────────────────────         ────────────────
+GermaNet XML        ──►  germanet_base/ (parsed tables)
+                    ──►  germanet/senses_base.csv
+                    ──►  germanet/senses_pilot.jsonl      ──►  diachronic/predictions/pilot_predictions.csv
+                                                          ──►  diachronic/predictions/pilot_predictions_coarse.csv
+                                                          ──►  diachronic/aggregated/pilot_coarse_*.csv
+                                                          ──►  diachronic/metrics/pilot_coarse_*.csv
 
-Target word lists   ──►  processed/dwds/                ──►  diachronic/pilot_predictions*.csv
-  (pilot, full)           (DWDS sentences)                    (sense predictions per sentence)
+Target word lists   ──►  dwds/pilot_contexts.jsonl
 
-                                                         ──►  diachronic/pilot_weighted_v2_*.csv
-                                                              (aggregated metrics per decade)
-
-Eval word lists     ──►  evaluation/atemporal/input/    ──►  evaluation/atemporal/results/
-  (10 words)              (contexts + gold labels)            (accuracy, weight tuning)
+Eval word lists     ──►  evaluation/atemporal/input/      ──►  evaluation/atemporal/results/
+  (10 words)              (contexts + gold labels)              (accuracy, weight tuning)
 ```
 
 ---
@@ -54,59 +54,73 @@ Eval word lists     ──►  evaluation/atemporal/input/    ──►  evaluat
 
 ---
 
-## `data/processed/germanet/` — Enhanced Sense Representations
+## `data/processed/germanet/` — Sense Representations & Cluster Mapping
 
-### Core sense files
+### Sense files
 
 | File | Produced by | Contents |
 |---|---|---|
-| `senses_base.csv` | `scripts/data/setup/rebuild_complete_wsd_senses.py` | Baseline sense file: GermaNet template text (`text_for_embedding`) for all target words. Input to LLM enrichment. |
-| `senses_full.jsonl` | `scripts/data/enrich_senses_with_llm.py` | LLM-enriched senses for all 750 words. Contains `baseline`, `llm_definition`, and `llm_examples` (array of 5). |
-| `senses_pilot.jsonl` | `scripts/data/enrich_senses_with_llm.py --word-list pilot_words_diachronic.txt` | LLM-enriched senses for the 90 pilot words with GermaNet data. **Used by the diachronic pipeline.** |
+| `senses_base.csv` | `scripts/data/setup/rebuild_complete_wsd_senses.py` | Baseline sense file: GermaNet template text for all target words. Input to LLM enrichment. |
+| `senses_pilot.jsonl` | `scripts/data/enrich_senses_with_llm.py` + `scripts/data/regen_core_glosses.py` | LLM-enriched senses for the 90 pilot words. **Used by the diachronic pipeline.** |
 
-**Column reference (JSONL):**
+**senses_pilot.jsonl field reference:**
 ```
-lemma, pos, synset_id, class, baseline (template text),
-llm_definition, llm_examples: [5 example sentences]
+lemma, pos, synset_id, class,
+baseline          — GermaNet template text
+core_gloss        — 5–10 word denotative gloss (used for clustering embeddings)
+llm_definition    — verbose contrastive definition (used for WSD weighted representation)
+llm_examples      — array of 5 usage examples (used for WSD weighted representation)
+```
+
+### Cluster mapping
+
+| File | Produced by | Contents |
+|---|---|---|
+| `sense_clusters_reviewed.json` | `scripts/clustering/compute_sense_clusters.py` + manual review | **Canonical coarse cluster mapping.** 96 lemmas (90 pilot + 6 eval), 317 clusters. All cluster labels filled. Antwort manually merged to 1 cluster. |
+
+**Structure:**
+```json
+{
+  "schlagen": {
+    "mapping": {"s56941": "schlagen_c0", "s56942": "schlagen_c0", ...},
+    "clusters": {
+      "schlagen_c0": {"label": "physically strike", "members": ["s56941", "s56942"]},
+      ...
+    }
+  }
+}
 ```
 
 ---
 
-## `data/processed/target_words/`
+## `data/processed/sense_clustering/` — Clustering Artifacts
 
-| File | Produced by | Contents |
-|---|---|---|
-| `target_words_sense_counts.tsv` | `scripts/data/setup/calculate_germanet_senses.py` | Number of GermaNet senses per target word. Used to stratify word selection and identify highly polysemous words. |
+**Produced by:** `scripts/clustering/compute_sense_clusters.py`
+
+| File | Contents |
+|---|---|
+| `t010/cluster_summary.csv` | Per-lemma clustering stats at t=0.10: `lemma, threshold, n_fine_senses, n_organic_clusters, n_coarse_clusters, constrained, n_singleton_clusters, reduction_ratio, mean_intra_cluster_similarity, min_intra_cluster_similarity, max_cluster_size` |
 
 ---
 
 ## `data/processed/dwds/` — DWDS Corpus Sentences
 
 **Produced by:** `scripts/data/fetch_dwds_contexts.py`
-**Purpose:** Historical German sentences from the DWDS Kernkorpus (1900–1999), fetched via DWDS API.
 
 | File | Contents |
 |---|---|
-| `pilot_contexts.jsonl` | **30,337 sentences** for 90 pilot words. Fetched with `--max-tokens 60`. This is the v2 context file used by all current analyses. |
+| `pilot_contexts.jsonl` | **30,337 sentences** for 90 pilot words (1900–1999, DWDS kern, `--max-tokens 60`) |
 
 **Record format:**
 ```json
 {"lemma": "Geist", "sentence": "...", "year": 1956, "decade": 1950, "genre": "Zeitung", "bibl": "..."}
 ```
 
-**Run:**
-```bash
-python scripts/data/fetch_dwds_contexts.py \
-  --word-list data/raw/target_words/pilot_words_diachronic.txt \
-  --output data/processed/dwds/pilot_contexts.jsonl \
-  --max-tokens 60
-```
-
 ---
 
 ## `data/evaluation/atemporal/` — Atemporal WSD Evaluation
 
-Used for method development only (Phase 2). These files are stable — re-running scripts only updates `results/`.
+Used for method development only. Ground truth files are stable — re-running scripts only updates `results/`.
 
 ### `input/` — Ground truth (do not overwrite)
 
@@ -114,104 +128,50 @@ Used for method development only (Phase 2). These files are stable — re-runnin
 |---|---|---|
 | `words.csv` | `scripts/annotation/select_eval_words.py` | 10 eval words, stratified by polysemy and POS |
 | `contexts.csv` | `scripts/data/extract_eval_contexts.py` | 93 DWDS contexts for the 10 words |
-| `gold_annotations.csv` | Manual annotation (via `scripts/annotation/app.py`) | Human sense labels for each context |
+| `gold_annotations.csv` | Manual annotation | Human sense labels for each context |
 | `sense_text_representations.jsonl` | `scripts/data/enrich_senses_with_llm.py` | LLM-enriched senses for the 10 eval words |
-
-### `annotation/` — Annotation infrastructure
-
-| File | Produced by | Contents |
-|---|---|---|
-| `annotation_tasks.json` | `scripts/annotation/export_annotation_tasks_json.py` | Annotation tasks in JSON format |
-| `annotation_tasks.pkl` | `scripts/annotation/generate_annotation_tasks.py` | Annotation tasks as Python objects |
-| `annotation_summary.json` | `scripts/annotation/app.py` | Progress summary |
-| `eval_contexts.csv` | `scripts/annotation/app.py` | Contexts formatted for the annotation app |
 
 ### `results/` — Evaluation outputs
 
 | File | Produced by | Contents |
 |---|---|---|
-| `embedding_comparison.csv` | `scripts/atemporal/compare_embedding_methods.py` | Accuracy of each representation method (baseline, llm_definition, llm_examples, weighted) across embedding models |
-| `weight_tuning.csv` | `scripts/atemporal/tune_representation_weights.py` | Grid search over α for weighted = α×definition + (1-α)×examples. Best: α=0.5 → 54.8% |
-| `predictions.csv` | `scripts/atemporal/generate_predictions.py` | Raw predictions for all eval contexts under the best method |
+| `embedding_comparison.csv` | `scripts/atemporal/compare_embedding_methods.py` | Accuracy per representation method and embedding model |
+| `weight_tuning.csv` | `scripts/atemporal/tune_representation_weights.py` | Grid search over α. Best: α=0.5 → 54.8% fine, 81.7% coarse |
+| `predictions.csv` | `scripts/atemporal/generate_predictions.py` | Raw predictions for all eval contexts under best method |
 
 ---
 
 ## `data/processed/diachronic/` — Diachronic Pilot Study Results
 
-All current files are from the **v2 pipeline** (contexts re-fetched with `--max-tokens 60`, JSD=1.0 artifacts eliminated).
+All files are from the v2 pipeline (contexts re-fetched with `--max-tokens 60`, JSD=1.0 artifacts eliminated). Fine and coarse variants exist for all steps after prediction.
 
-### Step 1 — Sense predictions
-
-| File | Produced by | Contents |
-|---|---|---|
-| `pilot_predictions_weighted_v2.csv` | `scripts/diachronic/predict_dwds_senses.py` | **24,325 predictions** for 90 words × all decades. One row per context sentence. Columns: `lemma, sentence, year, decade, predicted_sense_id, confidence, sense_class` |
-
-**Run:**
-```bash
-PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py \
-  --dwds-file data/processed/dwds/pilot_contexts.jsonl \
-  --senses-file data/processed/germanet/senses_pilot.jsonl \
-  --representation weighted \
-  --output data/processed/diachronic/predictions/pilot_predictions.csv
-```
-
-### Step 2 — Temporal aggregation
+### `predictions/`
 
 | File | Produced by | Contents |
 |---|---|---|
-| `pilot_weighted_v2_decade_sense_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Sense usage counts per (lemma × decade × sense). Columns: `lemma, decade, predicted_sense_id, count, total, proportion` |
-| `pilot_weighted_v2_decade_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Summary per (lemma × decade): n_contexts, n_senses used, dominant sense, dominant proportion |
+| `pilot_predictions.csv` | `scripts/diachronic/predict_dwds_senses.py` | **24,325 fine-grained predictions** for 90 words × all decades. Columns: `lemma, sentence, year, decade, predicted_sense_id, confidence` |
+| `pilot_predictions_coarse.csv` | `scripts/diachronic/apply_coarse_mapping.py` | Coarse predictions: fine `predicted_sense_id` replaced with coarse cluster ID. Same row count (0 rows dropped). |
 
-**Run:**
-```bash
-PYTHONPATH=src python scripts/diachronic/aggregate_temporal.py \
-  --input data/processed/diachronic/predictions/pilot_predictions.csv \
-  --output-prefix pilot_weighted_v2
-```
-
-### Step 3 — Change metrics (min 5 contexts/decade filter applied)
+### `aggregated/`
 
 | File | Produced by | Contents |
 |---|---|---|
-| `pilot_weighted_v2_filtered_decade_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Shannon entropy per (lemma × decade). High entropy = more ambiguous / evenly distributed senses |
-| `pilot_weighted_v2_filtered_decade_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Jensen-Shannon divergence between consecutive decades per word. Measures how much the sense distribution shifted |
-| `pilot_weighted_v2_filtered_decade_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Sense emergence events (proportion crosses 10% threshold upward). 518 events detected |
-| `pilot_weighted_v2_filtered_decade_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Sense decline events (proportion crosses 10% threshold downward). 521 events detected |
+| `pilot_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Fine sense counts per (lemma × decade × sense). Columns: `lemma, decade, predicted_sense_id, count, total, proportion` |
+| `pilot_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Fine summary per (lemma × decade): n_contexts, dominant sense, dominant proportion |
+| `pilot_coarse_sense_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse sense counts per (lemma × decade × cluster). 2,450 rows (vs 3,852 fine) |
+| `pilot_coarse_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse summary per (lemma × decade) |
 
-**Run:**
-```bash
-PYTHONPATH=src python scripts/diachronic/compute_change_metrics.py \
-  --counts data/processed/diachronic/aggregated/pilot_counts.csv \
-  --output-prefix pilot_weighted_v2_filtered \
-  --min-contexts 5
-```
+### `metrics/`
 
-### Step 4 — Visualizations
-
-| File/Directory | Produced by | Contents |
-|---|---|---|
-| `plots/trajectory_*.png` | `scripts/diachronic/visualize_trajectories.py` | Stacked area charts of sense proportions over time, per word |
-| `plots/heatmap_*.png` | `scripts/diachronic/visualize_trajectories.py` | Sense × decade heatmaps, per word |
-| `plots/entropy_*.png` | `scripts/diachronic/visualize_trajectories.py` | Entropy over time, per word |
-| `plots/entropy_heatmap.png` | `visualize_pilot_results.py` | All-words entropy heatmap |
-| `plots/top_words_analysis.png` | `visualize_pilot_results.py` | Ranking by divergence and entropy range |
-| `plots/wwii_patterns.png` | `visualize_pilot_results.py` | JSD trajectories for top words around WWII era |
-| `plots/confidence_by_decade.png` | `visualize_pilot_results.py` | Prediction confidence distribution and by-decade breakdown |
-
-### Reports
+All metrics use `--min-contexts 10` filter.
 
 | File | Produced by | Contents |
 |---|---|---|
-| `pilot_study_analysis_report.md` | `analyze_diachronic_pilot.py` | Auto-generated markdown report: top-10 words by composite score, historical patterns, per-decade confidence stats |
-| `PILOT_STUDY_SUMMARY.md` | Manually written | High-level summary of the pilot study design and v2 results |
-
----
-
-## Root-Level Analysis Scripts
-
-These scripts are entry points for exploratory analysis — not part of the core pipeline scripts under `scripts/`.
-
-| Script | Reads | Writes | Purpose |
-|---|---|---|---|
-| `analyze_diachronic_pilot.py` | `pilot_predictions_weighted_v2.csv`, `pilot_weighted_v2_filtered_decade_*.csv` | `pilot_study_analysis_report.md` | Generates ranked word report and summary statistics |
-| `visualize_pilot_results.py` | `pilot_predictions_weighted_v2.csv`, `pilot_weighted_v2_filtered_decade_divergence/entropy.csv` | `plots/confidence_by_decade.png`, `plots/top_words_analysis.png`, `plots/wwii_patterns.png`, `plots/entropy_heatmap.png` | Generates overview visualizations for pilot results |
+| `pilot_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine Shannon entropy per (lemma × decade) |
+| `pilot_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine JSD between consecutive decades. Max JSD: 0.835 |
+| `pilot_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine emergence events (proportion crosses 10% upward). 518 events |
+| `pilot_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine decline events (proportion crosses 10% downward). 521 events |
+| `pilot_coarse_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse Shannon entropy per (lemma × decade) |
+| `pilot_coarse_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse JSD. Max JSD: 0.532. Mean JSD: 0.165 |
+| `pilot_coarse_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse emergence events. 194 events (~60% reduction from fine) |
+| `pilot_coarse_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse decline events. 197 events |
