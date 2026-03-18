@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-12
+**Last updated:** 2026-03-18
 
 ---
 
@@ -47,7 +47,7 @@ A quick-reference document tracking what's done, what's in progress, and what's 
 
 **Key scripts:** `scripts/atemporal/`
 
-### 2c. Re-enrichment with Short Core Glosses — COMPLETE (WSD); IN PROGRESS (clustering)
+### 2c. Re-enrichment with Short Core Glosses — COMPLETE
 
 **Purpose:** Add short `core_gloss` field to sense JSONL to reduce boilerplate-driven distance compression for clustering. WSD `weighted` representation unchanged (llm_definition still used).
 
@@ -67,6 +67,8 @@ A quick-reference document tracking what's done, what's in progress, and what's 
 | Extend test set to 10 words | Done | Added `gehen` (19 senses) and `fassen` (12 senses) to notebook. t=0.10 confirmed on both. |
 | Remove max_clusters cap | Done | No upper bound on clusters. Threshold determines granularity; sparse cells filtered at analysis time. schlagen=8, spielen=8, gehen=14, fassen=6 organic clusters at t=0.10. |
 | Run `compute_sense_clusters.py` on all 90 words at t=0.10 | Done | `sense_clusters_0.10.json` + `sense_clustering/t010/cluster_summary.csv`. Mean 6.6→3.7 clusters (39.5% reduction). 11 words constrained by min=2. |
+| Manual review of all 90 cluster assignments | Done | All 305 clusters reviewed and labelled. Overrides applied where needed. |
+| Produce `sense_clusters_reviewed.json` | Done | 90 lemmas, 305 clusters, all labels filled in. Canonical mapping for downstream pipeline. |
 
 See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
@@ -111,10 +113,14 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 **Top 10 words by temporal change (v1):** spielen, werfen, zeigen, laufen, schlagen, tragen, ziehen, Stamm, Satz, nehmen — **to be re-ranked using v2 metrics**
 
-### 3b. Analysis & Validation — NOT STARTED
+### 3b. Analysis & Validation — IN PROGRESS
 
 | Step | Status | Details |
 |------|--------|---------|
+| Coarse atemporal sanity check | Done | 54.8% fine → 81.7% coarse on 93-instance eval set. Antwort merged to 1 cluster (model cannot split). All 96 lemmas in `sense_clusters_reviewed.json`. |
+| Apply coarse mapping → `pilot_predictions_coarse.csv` | Done | `scripts/diachronic/apply_coarse_mapping.py`. 0 rows dropped. `sense_class`/`sense_paraphrase` dropped (fine-grained, not meaningful at coarse level). |
+| Re-aggregate with coarse sense IDs | Done | `pilot_coarse_sense_counts.csv`, `pilot_coarse_stats.csv`. 2,450 lemma-period-sense rows (vs 3,852 fine). |
+| Recompute change metrics at coarse level | Done | Mean JSD=0.165, Max JSD=0.532, 194 emergence / 197 decline events (vs 518/521 fine). Top words: spielen, fassen, Kasse, passen. |
 | Manual validation of top 10 words | Not done | Check if detected changes are real or WSD artifacts |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
 | Statistical significance testing | Not done | Chi-square on distribution shifts, confidence intervals |
@@ -124,7 +130,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 ### 3c. Key Concern
 
-The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The remaining concern is that model prediction errors accumulate, so some emergence/decline events may still reflect WSD noise rather than genuine semantic change. **Manual validation of top-changed words is the critical next step.**
+The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The coarse accuracy (81.7%) is sufficient to detect large, sustained shifts but may not resolve subtle or short-lived changes. The 81.7% figure is measured on contemporary texts — accuracy on 1900s data is unknown and likely lower. **Case studies must show large, monotonic trajectory changes across multiple consecutive decades. Manual sentence-level validation is not optional.** See research log 2026-03-18.
 
 ---
 
@@ -135,6 +141,7 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Expand gold annotations (target: 100-200 words) | Not started |
 | Add 2nd annotator, compute inter-annotator agreement (kappa > 0.7) | Not started |
 | Extend diachronic analysis to more words (target: 150-200) | Not started |
+| **Consider re-fetching with full DWDS corpus** (`--corpus ddc`) | Deferred — script already supports it via `--corpus` arg. Max kern contexts = 108/word-decade; full corpus would increase density. Do after case studies if results warrant scale-up. Genre controls needed. |
 | Draft paper (methods, results, discussion) | Not started |
 | Release benchmark dataset | Not started |
 

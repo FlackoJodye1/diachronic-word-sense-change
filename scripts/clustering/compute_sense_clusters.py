@@ -14,11 +14,15 @@ Pipeline position:
                                        → sense_clustering/t0.10/cluster_summary.csv
 
 Usage:
-    python scripts/compute_sense_clusters.py
+    python scripts/clustering/compute_sense_clusters.py
 
-    python scripts/compute_sense_clusters.py --threshold 0.12
+    python scripts/clustering/compute_sense_clusters.py --threshold 0.12
 
-    python scripts/compute_sense_clusters.py --threshold 0.10 --dry-run
+    python scripts/clustering/compute_sense_clusters.py --threshold 0.10 --dry-run
+
+    python scripts/clustering/compute_sense_clusters.py \\
+        --senses-file data/evaluation/atemporal/input/sense_text_representations.jsonl \\
+        --words Antwort Doktor Glas Schatz bitter wagen
 """
 
 import argparse
@@ -29,7 +33,7 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.diachronic.io import load_senses
 from src.wsd.embedder import Embedder
@@ -39,7 +43,7 @@ from src.wsd.sense_clustering import cluster_all_lemmas, compute_cluster_summary
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).resolve().parents[1]
+BASE_DIR = Path(__file__).resolve().parents[2]
 SENSES_FILE = BASE_DIR / "data" / "processed" / "germanet" / "senses_pilot.jsonl"
 CLUSTERS_DIR = BASE_DIR / "data" / "processed" / "germanet"
 SUMMARY_BASE_DIR = BASE_DIR / "data" / "processed" / "sense_clustering"
@@ -55,17 +59,31 @@ def main():
                         help="Cosine distance threshold (default: 0.10)")
     parser.add_argument("--min-clusters", type=int, default=2,
                         help="Minimum clusters per lemma (default: 2)")
+    parser.add_argument("--senses-file", type=Path, default=SENSES_FILE,
+                        help="Path to senses JSONL file (default: senses_pilot.jsonl)")
+    parser.add_argument("--words", nargs="+", default=None,
+                        help="Only cluster these lemmas (default: all lemmas in senses file)")
+    parser.add_argument("--output", type=Path, default=None,
+                        help="Output path for cluster mapping JSON (default: sense_clusters_{threshold}.json)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Load and embed senses but do not write output files")
     args = parser.parse_args()
 
     t = args.threshold
     t_str = f"{t:.2f}".replace(".", "")  # e.g. "010"
-    clusters_out = CLUSTERS_DIR / f"sense_clusters_{t:.2f}.json"
+    clusters_out = args.output if args.output else CLUSTERS_DIR / f"sense_clusters_{t:.2f}.json"
     summary_dir = SUMMARY_BASE_DIR / f"t{t_str}"
 
-    logger.info(f"Loading senses from {SENSES_FILE}")
-    senses_df = load_senses(SENSES_FILE)
+    logger.info(f"Loading senses from {args.senses_file}")
+    senses_df = load_senses(args.senses_file)
+
+    if args.words:
+        missing = set(args.words) - set(senses_df["lemma"].unique())
+        if missing:
+            logger.error(f"Words not found in senses file: {sorted(missing)}")
+            sys.exit(1)
+        senses_df = senses_df[senses_df["lemma"].isin(args.words)].reset_index(drop=True)
+
     n_lemmas = senses_df["lemma"].nunique()
     n_senses = len(senses_df)
     logger.info(f"  {n_senses} senses across {n_lemmas} lemmas")

@@ -19,6 +19,87 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-18: Coarse Diachronic Rerun — Complete
+
+**Status**: Complete
+
+**What was done:**
+Ran Phase 3 of the clustering plan end-to-end:
+1. `apply_coarse_mapping.py` — mapped 24,325 fine predictions → coarse cluster IDs using `sense_clusters_reviewed.json`. 0 rows dropped. `sense_class` and `sense_paraphrase` dropped from output (caused duplicate rows in aggregation; coarse cluster labels in `sense_clusters_reviewed.json` serve as the replacement).
+2. `aggregate_temporal.py` → `pilot_coarse_sense_counts.csv`, `pilot_coarse_stats.csv`
+3. `compute_change_metrics.py` (min-contexts=10) → `pilot_coarse_entropy.csv`, `pilot_coarse_divergence.csv`, `pilot_coarse_emergence.csv`, `pilot_coarse_decline.csv`
+
+**Results vs. fine-grained:**
+| Metric | Fine | Coarse |
+|---|---|---|
+| Max JSD | 0.835 | 0.532 |
+| Emergence events | 518 | 194 |
+| Decline events | 521 | 197 |
+| Mean JSD | — | 0.165 |
+
+**Interpretation:** ~60% reduction in events as expected. Remaining 194/197 events still require filtering for sustained, monotonic shifts — not all are genuine. Top candidates by JSD: `spielen` (1920→1930, 1980→1990), `fassen` (1960→1980), `Kasse`, `passen`.
+
+**Next step:** Update `diachronic_pilot_results.ipynb` to load fine and coarse results side-by-side, re-rank top words, and identify case study candidates.
+
+---
+
+## 2026-03-18: Classifier Sufficiency Assessment
+
+**Status**: Decision Made
+
+**Question:** Is the WSD classifier good enough to detect meaningful diachronic change?
+
+**Short answer:** Yes for large, sustained shifts. Uncertain for subtle or short-lived ones.
+
+**Arguments for sufficiency:**
+- 81.7% coarse accuracy means individual errors average out when aggregating hundreds of contexts per decade. A genuine 20-point distribution shift will remain visible through the noise.
+- Coarse clustering was explicitly designed to reduce fake JSD from fine-grained sense confusion. Remaining JSD should reflect real change more reliably.
+
+**Key uncertainty:**
+- The 81.7% figure was measured on contemporary DWDS texts. The diachronic data spans 1900–1999. The model (multilingual-e5-large) was pretrained on modern data; accuracy on early 20th century texts is unknown and likely lower due to vocabulary, syntax, and genre differences.
+- No historical gold standard exists to measure this directly.
+
+**Practical implications for case study selection:**
+- Only report words with **large, monotonic trajectory changes across multiple consecutive decades** — not one-decade spikes.
+- Manual sentence-level validation (15–30 raw sentences per key transition decade) is not optional — it is what separates genuine findings from classifier noise.
+- Words with <100 total contexts (`Bass`, `groß`, `Zwiebel`) and constrained words (11 words forced to 2 clusters) should be excluded from case studies regardless of their metric values.
+
+---
+
+## 2026-03-17: Coarse Atemporal Sanity Check
+
+**Status**: Complete
+
+**What was done:**
+Clustered the 6 eval words missing from `sense_clusters_reviewed.json` (`Antwort`, `Doktor`, `Glas`, `Schatz`, `bitter`, `wagen`) using `compute_sense_clusters.py --senses-file ... --words ... --output sense_clusters_eval_0.10.json`. Labels assigned and merged into `sense_clusters_reviewed.json` (now 96 lemmas, 317 clusters).
+
+Applied the coarse mapping to both gold labels and fine predictions on the 93-instance eval set.
+
+**Result:**
+- Fine-grained accuracy: 54.8% (51/93)
+- Coarse-grained accuracy: 81.7% (76/93)
+
+**Decision gate:** Plan expected 65–75%. Result is 81.7%, slightly above the upper bound, explained by the `Antwort` manual merge. `Antwort` has only 2 senses (verbal vs. written reply) that the model cannot distinguish at all (14% fine) — merging them to a single cluster `reply / response` is linguistically defensible. All other words fall within expected range.
+
+**Override:** `Antwort_c0` and `Antwort_c1` manually merged into `Antwort_c0` ("reply / response"). Both sense IDs now map to `Antwort_c0` in `sense_clusters_reviewed.json`.
+
+**Next step:** Phase 3 — write `scripts/diachronic/apply_coarse_mapping.py`.
+
+---
+
+## 2026-03-17: Sense Clustering Manual Review — Complete
+
+**Status**: Complete
+
+**What was done:**
+Manual review of all 90 lemma cluster assignments produced by `compute_sense_clusters.py` at t=0.10. All 305 clusters were reviewed and labelled. Overrides applied where the automatic clustering produced linguistically incoherent groupings.
+
+**Output:** `data/processed/germanet/sense_clusters_reviewed.json` — 90 lemmas, 305 clusters, all labels filled. Canonical mapping for all downstream pipeline steps.
+
+**Next step:** Write `scripts/diachronic/apply_coarse_mapping.py`, then re-aggregate and recompute metrics at coarse level.
+
+---
+
 ## 2026-03-14: Core Gloss Quality Review and Prompt Refinement
 
 **Status**: Decision Made

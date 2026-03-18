@@ -54,6 +54,8 @@ One concrete approach — not a menu of options.
 
 **Stopping criterion:** Distance threshold. Three candidate values are evaluated during Phase 1 — **0.14, 0.16, 0.18** — and the final choice is made based on linguistic plausibility during manual inspection, not fixed in advance. 0.18 is the expected starting point. The `compute_sense_clusters.py` script accepts `--threshold` as a CLI argument so all three can be generated in one pass.
 
+**CLI arguments:** `--threshold`, `--min-clusters`, `--dry-run`, `--senses-file` (override default `senses_pilot.jsonl`), `--words` (filter to specific lemmas). The `--senses-file` + `--words` combination allows clustering words from a different senses file (e.g. the atemporal eval set) without modifying the script.
+
 **Note on threshold calibration:** The E5-large embedding space is denser than originally anticipated. All pairwise cosine distances for pilot words fall in the 0.13–0.21 range, so the originally planned thresholds (0.20–0.30) sit at or above the maximum pairwise distance and collapse everything to one cluster. The recalibrated range (0.14–0.18) is where organic splits first appear.
 
 **Fallback constraints:**
