@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-18
+**Last updated:** 2026-03-19
 
 ---
 
@@ -121,12 +121,14 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Apply coarse mapping → `pilot_predictions_coarse.csv` | Done | `scripts/diachronic/apply_coarse_mapping.py`. 0 rows dropped. `sense_class`/`sense_paraphrase` dropped (fine-grained, not meaningful at coarse level). |
 | Re-aggregate with coarse sense IDs | Done | `pilot_coarse_sense_counts.csv`, `pilot_coarse_stats.csv`. 2,450 lemma-period-sense rows (vs 3,852 fine). |
 | Recompute change metrics at coarse level | Done | Mean JSD=0.165, Max JSD=0.532, 194 emergence / 197 decline events (vs 518/521 fine). Top words: spielen, fassen, Kasse, passen. |
-| Manual validation of top 10 words | Not done | Check if detected changes are real or WSD artifacts |
+| Restructure analysis notebooks | Done | `diachronic_pilot_results.ipynb` stripped to coarse-only (50 cells, 7 sections). `sense_granularity_analysis.ipynb` created for fine vs. coarse methodological comparison. Section 7 (Case Study Candidates) added with Spearman ρ monotonicity scoring. |
+| Identify case study candidates | Done | 11 strong candidates (spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld). Top picks: Krone (monarchy decline post-1918, ρ=−0.69), ziehen (ρ=+0.842), Blatt (ρ=+0.810). See Section 7 of `diachronic_pilot_results.ipynb`. |
+| Manual validation of case study candidates | **Next step** | Read 15–30 raw sentences per key transition decade for Krone, ziehen, Blatt to confirm shifts are real, not WSD artifacts. |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
 | Statistical significance testing | Not done | Chi-square on distribution shifts, confidence intervals |
 | Investigate JSD=1.0 values | Done (v2) | Eliminated by re-fetching with --max-tokens 60. Only 22/894 word-decades remain sparse. Max JSD now 0.835. |
-| WWII case study (schlagen, geben, handeln, werfen) | Not done | Interesting pattern but needs validation |
-| Publication-ready figures | Not done | Only 14 plots for 3 words so far |
+| WWII case study (schlagen, geben, handeln, werfen) | Not done | Pattern visible in Section 6 of results notebook — needs manual validation before reporting |
+| Publication-ready figures | Not done | Trajectory plots in notebook are exploratory only |
 
 ### 3c. Key Concern
 
@@ -156,8 +158,11 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Atemporal gold annotations | `data/evaluation/atemporal/input/gold_annotations.csv` |
 | Atemporal results | `data/evaluation/atemporal/results/` |
 | Diachronic predictions (v2) | `data/processed/diachronic/predictions/pilot_predictions.csv` |
-| Diachronic metrics (v2) | `data/processed/diachronic/metrics/pilot_*.csv` |
+| Coarse predictions | `data/processed/diachronic/predictions/pilot_predictions_coarse.csv` |
+| Coarse metrics | `data/processed/diachronic/metrics/pilot_coarse_*.csv` |
+| Diachronic metrics (fine, v2) | `data/processed/diachronic/metrics/pilot_*.csv` |
 | Diachronic plots | `data/processed/diachronic/plots/` |
+| Sense granularity analysis | `notebooks/analysis/sense_granularity_analysis.ipynb` |
 | Atemporal scripts | `scripts/atemporal/` |
 | Diachronic scripts | `scripts/diachronic/` |
 | Data prep scripts | `scripts/data/` |

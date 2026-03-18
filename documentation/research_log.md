@@ -19,6 +19,36 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-19: Notebook Restructuring & Case Study Candidate Selection — Complete
+
+**Status**: Complete
+
+**What was done:**
+
+1. **`diachronic_pilot_results.ipynb` — stripped to coarse-only (50 cells, 7 sections)**
+   - Removed all fine-grained data loading, the `USE_COARSE` toggle, and the fine vs. coarse comparison section.
+   - All analysis now uses coarse predictions only (`pilot_predictions_coarse.csv`).
+   - Section numbers updated (old 5–8 → new 4–7 after removal of former Section 4).
+   - Cell 0 updated to reflect 24,325 predictions / coarse-only scope.
+   - Cell 2 now points to `sense_granularity_analysis.ipynb` instead of describing both methods.
+
+2. **`sense_granularity_analysis.ipynb` — new notebook created**
+   - Documents the methodological justification for using coarse senses.
+   - 6 sections: Setup, Atemporal Accuracy table, Cluster Reduction statistics, Noise Reduction in diachronic metrics, Top-10 Fine vs. Coarse ranking, Conclusion.
+   - Key result: Coarse clustering improves atemporal accuracy 54.8% → 81.7% and reduces emergence/decline events by ~60% (518 → 194).
+
+3. **Section 7: Case Study Candidates (in `diachronic_pilot_results.ipynb`)**
+   - Scoring pipeline: Spearman ρ monotonicity on per-sense proportions, filtered by avg coarse JSD ≥ top quartile, ≥ 8 decades with ≥ 10 contexts.
+   - **11 strong candidates:** spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld.
+   - **Top picks for case studies:**
+     - `Krone`: royal crown usage declining post-1918 monarchy collapse (ρ = −0.69)
+     - `ziehen`: strong directional shift (ρ = +0.842)
+     - `Blatt`: strong directional shift (ρ = +0.810)
+
+**Next step:** Manual sentence-level validation for Krone, ziehen, Blatt — read 15–30 raw sentences per key transition decade to confirm shifts are genuine and not WSD artifacts.
+
+---
+
 ## 2026-03-18: Coarse Diachronic Rerun — Complete
 
 **Status**: Complete
