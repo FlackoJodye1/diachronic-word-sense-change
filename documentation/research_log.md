@@ -19,6 +19,31 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-18: Results Validation & Temporal Aggregation Decision — Complete
+
+**Status**: Decision Made
+
+**What was done:**
+
+1. **Full run of `diachronic_pilot_results.ipynb` validated** — notebook ran clean end-to-end. All 7 sections executed without errors. Key stats confirmed: 90 words, 24,325 predictions, 717 transitions, 194 emergence / 197 decline events, no JSD ≥ 0.99 artifacts.
+
+2. **Fixed `Styler.applymap` deprecation warnings** — cells 47 and 49 updated to use `.map()` instead of `.applymap()` (deprecated in pandas ≥ 2.1). No functional change.
+
+3. **Temporal granularity: 10-year decades confirmed** — evaluated whether aggregating to 20-year periods would reduce noise from sparse cells.
+
+**Decision:** Keep 10-year decades.
+
+**Rationale:**
+- Only 22/894 word-decade cells (2%) are below the n=5 threshold — sparsity is not a structural problem.
+- 20-year aggregation would collapse the DWDS range to 5 time points, making Spearman ρ near-meaningless (currently computed over ≥6 valid points out of 10).
+- WWII-era transitions (1930s→1940s→1950s) would be lost entirely.
+- Genre drift (Belletristik → Wissenschaft) is the real confound, and it is not addressable by re-binning.
+- Raising the minimum contexts threshold from 5 to 10 at analysis time (already done for change metrics) is sufficient.
+
+**Follow-up:** Proceed to manual sentence-level validation for Krone, ziehen, Blatt.
+
+---
+
 ## 2026-03-19: Notebook Restructuring & Case Study Candidate Selection — Complete
 
 **Status**: Complete

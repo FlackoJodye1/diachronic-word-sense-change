@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-19
+**Last updated:** 2026-03-18
 
 ---
 
@@ -105,7 +105,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Run weighted WSD predictions (v2) | Done | `data/processed/diachronic/predictions/pilot_predictions.csv` — 24,325 predictions, 90 words |
 | Aggregate by decade (v2) | Done | `data/processed/diachronic/aggregated/pilot_counts.csv`, `pilot_weighted_v2_decade_stats.csv` |
 | Compute change metrics (v2, filtered) | Done | `data/processed/diachronic/metrics/pilot_*.csv` — only 22/894 word-decades filtered (vs 371 in v1). Max JSD: 0.835. |
-| Re-bin to 25-year periods | **TODO** | With v2 data, decade-level density is now much better (only 22 sparse word-decades). Assess whether binning is still needed after reviewing v2 results. |
+| Re-bin to 25-year periods | **Decided against** | Only 22/894 word-decades sparse (2%) — binning not needed. 20-year aggregation would reduce Spearman to 5 time points and lose WWII-era resolution. Keeping 10-year decades. |
 
 **Key finding (v1):** Weighted method has +4.9% higher confidence than baseline. 82 emergence events, 84 decline events detected. Verbs dominate the most-changed words.
 

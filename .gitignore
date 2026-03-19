@@ -126,6 +126,7 @@ results/figures/
 results/reports/
 
 notebooks/data/
+resources/
 
 # ------------------------
 # Typing / mypy
