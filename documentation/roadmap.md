@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-19
+**Last updated:** 2026-03-20
 
 ---
 
@@ -123,6 +123,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Recompute change metrics at coarse level | Done | Mean JSD=0.165, Max JSD=0.532, 194 emergence / 197 decline events (vs 518/521 fine). Top words: spielen, fassen, Kasse, passen. |
 | Restructure analysis notebooks | Done | `diachronic_pilot_results.ipynb` stripped to coarse-only (50 cells, 7 sections). `sense_granularity_analysis.ipynb` created for fine vs. coarse methodological comparison. Section 7 (Case Study Candidates) added with Spearman ρ monotonicity scoring. |
 | Refactor results notebook (2026-03-19) | Done | Exclusions now filtered at load time (all downstream cells clean). Composite score removed; rankings use avg_jsd (primary) and entropy_range (secondary). Word totals table enriched with avg_jsd and max_jsd. Per-lemma stacked area chart collapses to top-6 + Other; contexts-per-decade support table added above chart. |
+| Extend rankings to normalized JSD (2026-03-20) | Done | Added `normalized_jsd = avg_jsd / n_coarse_senses` as third ranking metric. Three-panel bar chart shows all three rankings. All section 3 and 4 plots (small-multiples, JSD-over-time, emergence/decline) now use top-5 by normalized JSD consistently. |
 | Identify case study candidates | Done | 11 strong candidates (spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld). Top picks: Krone (monarchy decline post-1918, ρ=−0.69), ziehen (ρ=+0.842), Blatt (ρ=+0.810). See Section 7 of `diachronic_pilot_results.ipynb`. |
 | Manual validation of case study candidates | **Next step** | Read 15–30 raw sentences per key transition decade for Krone, ziehen, Blatt to confirm shifts are real, not WSD artifacts. |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
