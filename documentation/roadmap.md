@@ -106,7 +106,10 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Aggregate by decade (v2) | Done | `data/processed/diachronic/aggregated/pilot_counts.csv`, `pilot_weighted_v2_decade_stats.csv` |
 | Compute change metrics (v2, filtered) | Done | `data/processed/diachronic/metrics/pilot_*.csv` — only 22/894 word-decades filtered (vs 371 in v1). Max JSD: 0.835. |
 | Re-bin to 25-year periods | **Decided against** | Only 22/894 word-decades sparse (2%) — binning not needed. 20-year aggregation would reduce Spearman to 5 time points and lose WWII-era resolution. Keeping 10-year decades. |
-| **Re-fetch with ddc corpus for higher density** | **Next step** | kern ceiling (~20/decade) confirmed as bottleneck. Settings: `--corpus ddc --limit 2000 --per-decade-n 50 --max-tokens 60 --output pilot_contexts_ddc.jsonl`. Test one word (Krone) first, then full 90-word run. Full pipeline re-run required downstream. |
+| Re-fetch with limit=5000 for full corpus coverage | Done (2026-03-23) | 30,337 → 90,130 contexts (+197%). Output: `pilot_contexts_v3.jsonl`. Settings: `--limit 5000 --min-tokens 6 --max-tokens 60 --sort random`. |
+| **Add pagination to `DWDSClient`** | **Planned** | API supports `&p=n` for page-by-page fetching (5,000/page). Current client fetches page 1 only — misses data for words with >5,000 hits. Needed before ZEIT fetch. See research log 2026-03-23. |
+| **Add session-cookie auth to `DWDSClient`** | **Planned** | ZEIT/FAZ/Spiegel require DWDS login session cookie. No API key system. User logs in via browser, extracts cookie, passes to client. See research log 2026-03-23. |
+| **Re-fetch including ZEIT corpus** | **Pending** | Waiting on DWDS login + auth implementation. ZEIT covers 1946–present with consistent Zeitung register — most valuable for sparse 1950s–1990s decades. |
 
 **Key finding (v1):** Weighted method has +4.9% higher confidence than baseline. 82 emergence events, 84 decline events detected. Verbs dominate the most-changed words.
 

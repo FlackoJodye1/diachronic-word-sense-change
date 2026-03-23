@@ -19,6 +19,7 @@ from .predictor import (
     is_e5_model,
     add_prefix,
     predict_senses,
+    predict_senses_for_lemma,
 )
 from .visualization import (
     plot_sense_trajectory,
@@ -44,6 +45,7 @@ __all__ = [
     "is_e5_model",
     "add_prefix",
     "predict_senses",
+    "predict_senses_for_lemma",
     # Visualization
     "plot_sense_trajectory",
     "plot_entropy_over_time",

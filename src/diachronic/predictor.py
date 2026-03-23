@@ -22,6 +22,69 @@ def add_prefix(texts: List[str], prefix: str) -> List[str]:
     return [f"{prefix}{t}" for t in texts]
 
 
+def predict_senses_for_lemma(
+    lemma: str,
+    contexts_df: pd.DataFrame,
+    senses_df: pd.DataFrame,
+    embedder,
+    wsd,
+    use_e5: bool = True,
+) -> pd.DataFrame:
+    """Predict senses for a single lemma using pre-loaded model and sense embeddings.
+
+    Args:
+        lemma: Target lemma
+        contexts_df: DataFrame of contexts for this lemma only
+        senses_df: Full senses DataFrame (for metadata merge)
+        embedder: Pre-loaded Embedder instance
+        wsd: Pre-loaded SimilarityWSD instance
+        use_e5: Whether to apply E5 query prefix
+
+    Returns:
+        DataFrame with predictions for this lemma
+    """
+    context_texts = contexts_df["sentence"].fillna("").tolist()
+    if use_e5:
+        context_texts = add_prefix(context_texts, "query: ")
+
+    context_embeddings = embedder.encode(context_texts, show_progress=False, batch_size=64)
+
+    predictions = wsd.predict_batch(
+        context_embeddings=context_embeddings,
+        lemmas=contexts_df["lemma"].tolist(),
+    )
+
+    del context_embeddings
+    gc.collect()
+
+    predicted_senses = []
+    confidences = []
+    for pred in predictions:
+        if pred is not None:
+            predicted_senses.append(pred.predicted_sense_id)
+            confidences.append(pred.confidence)
+        else:
+            predicted_senses.append(None)
+            confidences.append(None)
+
+    results_df = contexts_df.copy()
+    results_df["predicted_sense_id"] = predicted_senses
+    results_df["confidence"] = confidences
+
+    meta_cols = ["synset_id", "class"]
+    if "paraphrase" in senses_df.columns:
+        meta_cols.append("paraphrase")
+    sense_meta = senses_df[senses_df["lemma"] == lemma][meta_cols].drop_duplicates()
+    results_df = results_df.merge(sense_meta, left_on="predicted_sense_id", right_on="synset_id", how="left")
+    results_df = results_df.drop(columns=["synset_id"])
+    rename_map = {"class": "sense_class"}
+    if "paraphrase" in results_df.columns:
+        rename_map["paraphrase"] = "sense_paraphrase"
+    results_df = results_df.rename(columns=rename_map)
+
+    return results_df
+
+
 def predict_senses(
     contexts_df: pd.DataFrame,
     senses_df: pd.DataFrame,

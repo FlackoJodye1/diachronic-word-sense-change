@@ -19,6 +19,37 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-23: DWDS API — Pagination and Authentication
+
+**Status**: Decision Made
+
+**Context**:
+While investigating corpus options and ZEIT access, two important API features were discovered that affect how much data we can retrieve.
+
+**Finding 1 — Pagination (`&p=n`)**:
+The DWDS export API supports page-by-page fetching via the `p` parameter. Each page returns up to `limit` rows (max 5,000). Our current `DWDSClient` fetches only page 1 — meaning for words with more than 5,000 corpus hits, we silently miss everything beyond the first page.
+
+For kern this matters less (most words have <5,000 unique documents, confirmed for Krone at ~3,514). But for ZEIT and other larger corpora, pagination is essential.
+
+**Finding 2 — ZEIT requires session-cookie authentication**:
+The DWDS API does not use API keys. Access to licensed corpora (ZEIT, FAZ, Spiegel) requires a valid browser session cookie — i.e., the user must be logged in to DWDS. Confirmed by DWDS admin response (2026-03-23): export is allowed at large scale once authenticated. The `DWDSClient` currently sends no authentication headers, which is why `corpus=zeit` returns 404.
+
+**What needs to change in `DWDSClient`**:
+1. Add pagination support — loop over `&p=1`, `&p=2`, ... until fewer than `limit` rows are returned (signals last page)
+2. Add optional session cookie parameter — user extracts cookie from browser after logging in to DWDS, passes it to the client
+
+**Priority**:
+- Pagination: medium — worth doing before ZEIT fetch. Also slightly helps kern for very frequent words.
+- Auth: needed before any ZEIT fetch. Straightforward to implement once pagination is in place.
+
+**Follow-up**:
+- Implement pagination in `DWDSClient.corpus_csv()`
+- Add optional `session_cookie` parameter to `DWDSClient.__init__()`
+- Test ZEIT access with authenticated session
+- Document cookie extraction steps for reproducibility
+
+---
+
 ## 2026-03-23: Institutional DWDS Access Applied For
 
 **Status**: Pending
@@ -57,28 +88,34 @@ Pilot study results look promising but context density is insufficient for relia
 **Decision**: Switch to `--corpus ddc` with the following settings:
 
 ```
---corpus ddc
---limit 2000
---per-decade-n 50
+--corpus kern
+--limit 5000
+--min-tokens 6
 --max-tokens 60
 --sort random
---output data/processed/dwds/pilot_contexts_ddc.jsonl
+--output data/processed/dwds/pilot_contexts_v3.jsonl
 ```
 
 **Rationale for each parameter**:
-- `--corpus ddc`: breaks the kern ceiling; ddc is the full DWDS corpus
-- `--limit 2000`: gives enough headroom to retrieve what's available; ddc has far more hits than kern per query
-- `--per-decade-n 50`: caps per-decade sampling to ensure temporal balance — prevents data-rich decades (e.g. 1920s) from dominating while sparse decades remain thin
-- `--max-tokens 60`: carried over from v2, good balance of context richness vs. truncation (0.3% truncation rate in v2)
-- New output file: preserves kern data (`pilot_contexts.jsonl`) as fallback
+- `--corpus kern`: only valid historical corpus (1900–1999). `ddc` returns 404; `public` is modern-only.
+- `--limit 5000`: effectively no artificial cap — the kern corpus ceiling per word is ~3,500 (confirmed for Krone). Above 5000–7500 the API silently falls back to 100 rows. Setting 5000 guarantees we retrieve everything available without hitting the fallback.
+- `--min-tokens 6`: lowered from 8 to reduce genre/decade bias from dropping short newspaper-style sentences
+- `--per-decade-n`: disabled (0) — no artificial cap per decade. JSD is computed on proportions so more data in data-rich decades is better, not worse.
+- `--max-tokens 60`: carried over from v2 (0.3% truncation rate)
+- New output file: preserves kern v2 data (`pilot_contexts.jsonl`) as fallback
+
+**Yield confirmed for Krone**: v2 limit=1000 → 287 contexts; limit=5000 → 682 contexts (+138%). All decades improved.
 
 **Key concern — genre composition**:
 The `ddc` corpus has less controlled genre composition than `kern`. Genre drift (Belletristik ↓, Wissenschaft ↑ over time) is already a documented confound in the kern data; it will be more pronounced in `ddc`. Any apparent sense shift that correlates with a genre composition shift should be treated with caution. **At minimum**, genre distribution must be reported alongside diachronic results. At best, genre-stratified sampling should be implemented in `aggregate_temporal.py` before the full-study scale-up.
 
+**Result (2026-03-23)**: Fetch complete. 30,337 → 90,130 contexts (+197%). All 116 words fetched. Most words +150–350%. Genuinely sparse words unchanged (Bass 23→25, Frosch 106→109, Knoten 266→270) — kern corpus ceiling confirmed for those. Case study words: Krone 287→682, ziehen 212→778, Blatt 224→752. Output: `data/processed/dwds/pilot_contexts_v3.jsonl`.
+
 **Follow-up**:
-- Run a single-word test fetch (e.g. `Krone`) to confirm ddc yield and inspect genre breakdown before committing to full 90-word run
-- Full re-run of downstream pipeline: `predict_dwds_senses.py` → `apply_coarse_mapping.py` → `aggregate_temporal.py` → `compute_change_metrics.py` → notebooks
+- Run predictions on v3 contexts → `pilot_predictions_v3.csv`
+- Apply coarse mapping, re-aggregate, recompute metrics, re-run notebooks
 - Consider adding genre stratification to `aggregate_temporal.py` (Phase 4 concern, but worth flagging now)
+- Re-run when ZEIT institutional access granted (applied 2026-03-23)
 
 ---
 
