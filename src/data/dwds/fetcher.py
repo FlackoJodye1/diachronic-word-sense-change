@@ -33,6 +33,7 @@ class FetchOptions:
     min_year: Optional[int] = None
     max_year: Optional[int] = None
     seed: int = 42
+    paginate: bool = False
 
 
 def apply_filters(
@@ -122,6 +123,7 @@ def fetch_contexts_for_word(
         corpus=options.corpus,
         limit=limit,
         sort=options.sort,
+        paginate=options.paginate,
     )
     if contexts_df is None or len(contexts_df) == 0:
         return pd.DataFrame()

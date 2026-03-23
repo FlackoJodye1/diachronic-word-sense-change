@@ -189,6 +189,19 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Skip lemmas already present in the output JSONL",
     )
+    parser.add_argument(
+        "--session-cookie",
+        type=str,
+        default=None,
+        help="DWDS session cookie for accessing licensed corpora (ZEIT, FAZ, Spiegel). "
+             "Log in at dwds.de, open DevTools → Application → Cookies, copy the session cookie value.",
+    )
+    parser.add_argument(
+        "--paginate",
+        action="store_true",
+        default=False,
+        help="Fetch all pages of results (use with deterministic sort, not --sort random).",
+    )
     return parser.parse_args()
 
 
@@ -208,9 +221,10 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     write_mode = "a" if args.resume else "w"
-    client = DWDSClient(delay=args.delay)
+    client = DWDSClient(delay=args.delay, session_cookie=args.session_cookie)
     options = FetchOptions(
         corpus=args.corpus,
+        paginate=args.paginate,
         limit=args.limit,
         sort=args.sort,
         min_tokens=args.min_tokens,
