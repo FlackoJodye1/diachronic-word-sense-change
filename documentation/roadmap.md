@@ -106,6 +106,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Aggregate by decade (v2) | Done | `data/processed/diachronic/aggregated/pilot_counts.csv`, `pilot_weighted_v2_decade_stats.csv` |
 | Compute change metrics (v2, filtered) | Done | `data/processed/diachronic/metrics/pilot_*.csv` — only 22/894 word-decades filtered (vs 371 in v1). Max JSD: 0.835. |
 | Re-bin to 25-year periods | **Decided against** | Only 22/894 word-decades sparse (2%) — binning not needed. 20-year aggregation would reduce Spearman to 5 time points and lose WWII-era resolution. Keeping 10-year decades. |
+| **Re-fetch with ddc corpus for higher density** | **Next step** | kern ceiling (~20/decade) confirmed as bottleneck. Settings: `--corpus ddc --limit 2000 --per-decade-n 50 --max-tokens 60 --output pilot_contexts_ddc.jsonl`. Test one word (Krone) first, then full 90-word run. Full pipeline re-run required downstream. |
 
 **Key finding (v1):** Weighted method has +4.9% higher confidence than baseline. 82 emergence events, 84 decline events detected. Verbs dominate the most-changed words.
 
@@ -125,7 +126,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Refactor results notebook (2026-03-19) | Done | Exclusions now filtered at load time (all downstream cells clean). Composite score removed; rankings use avg_jsd (primary) and entropy_range (secondary). Word totals table enriched with avg_jsd and max_jsd. Per-lemma stacked area chart collapses to top-6 + Other; contexts-per-decade support table added above chart. |
 | Extend rankings to normalized JSD (2026-03-20) | Done | Added `normalized_jsd = avg_jsd / n_coarse_senses` as third ranking metric. Three-panel bar chart shows all three rankings. All section 3 and 4 plots (small-multiples, JSD-over-time, emergence/decline) now use top-5 by normalized JSD consistently. |
 | Identify case study candidates | Done | 11 strong candidates (spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld). Top picks: Krone (monarchy decline post-1918, ρ=−0.69), ziehen (ρ=+0.842), Blatt (ρ=+0.810). See Section 7 of `diachronic_pilot_results.ipynb`. |
-| Manual validation of case study candidates | **Next step** | Read 15–30 raw sentences per key transition decade for Krone, ziehen, Blatt to confirm shifts are real, not WSD artifacts. |
+| Manual validation of case study candidates | Deferred | Deferred until ddc re-fetch + pipeline re-run complete — results may shift rankings. |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
 | Statistical significance testing | Not done | Chi-square on distribution shifts, confidence intervals |
 | Investigate JSD=1.0 values | Done (v2) | Eliminated by re-fetching with --max-tokens 60. Only 22/894 word-decades remain sparse. Max JSD now 0.835. |
@@ -145,7 +146,7 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Expand gold annotations (target: 100-200 words) | Not started |
 | Add 2nd annotator, compute inter-annotator agreement (kappa > 0.7) | Not started |
 | Extend diachronic analysis to more words (target: 150-200) | Not started |
-| **Consider re-fetching with full DWDS corpus** (`--corpus ddc`) | Deferred — script already supports it via `--corpus` arg. Max kern contexts = 108/word-decade; full corpus would increase density. Do after case studies if results warrant scale-up. Genre controls needed. |
+| Add ZEIT corpus (Die Zeit 1946–present) | **Pending institutional access** (applied 2026-03-23). Would significantly increase 1950s–1990s density with consistent Zeitung register. Decide on kern+ZEIT merge strategy once access confirmed. |
 | Draft paper (methods, results, discussion) | Not started |
 | Release benchmark dataset | Not started |
 

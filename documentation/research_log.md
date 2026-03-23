@@ -19,6 +19,69 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-23: Institutional DWDS Access Applied For
+
+**Status**: Pending
+
+**Context**:
+During corpus exploration, the ZEIT corpus (`corpus=zeit`) was found to exist in DWDS but return HTML rather than CSV — indicating restricted/licensed access. Institutional access has been applied for.
+
+**What institutional access would unlock**:
+- **ZEIT corpus** (Die Zeit, 1946–present): high-quality weekly newspaper, consistent Zeitung register throughout. Particularly valuable for 1950s–1990s, which are the sparsest decades in kern. Single-genre corpus removes the Belletristik/Wissenschaft/Zeitung mix confound present in kern.
+- Potentially other restricted corpora (DDR corpus is already accessible publicly; others unknown until access granted).
+
+**Why this matters**:
+The kern corpus is our only current option for 1900–1999. It is mixed-genre and sparse in later decades (1970s–1990s: 19–31 contexts per word-decade for Krone even at limit=2000). ZEIT would substantially increase density for 1950–1999 and with a cleaner genre profile.
+
+**Follow-up**:
+- When access is granted: test ZEIT corpus availability via API (`corpus=zeit` or institutional variant)
+- Check year range and genre fields returned
+- Decide whether to use ZEIT as a supplement to kern (merge strategy) or as a separate parallel analysis
+- Genre-stratified sampling will be needed if merging kern + ZEIT (different genre compositions)
+
+---
+
+## 2026-03-23: Corpus Switch kern → ddc for Increased Context Density
+
+**Status**: Decision Made (pending test run)
+
+**Context**:
+Pilot study results look promising but context density is insufficient for reliable sense proportion estimates. Current `kern` fetch (`--limit 1000`, `--max-tokens 60`) yields a median of **23 sentences per word-decade** and **39% of word-decades have fewer than 20 sentences**. The research log (2026-02-19) previously documented that the kern corpus has a hard ceiling of ~10–20 sentences per word-decade regardless of `--limit` — the corpus simply does not contain more unique documents per decade for most lemmas. Several words are critically sparse (Bass: 23 total, groß: 47 total across all decades).
+
+**Options Considered**:
+
+1. **Increase `--limit` on kern** — not a real solution; ceiling is a corpus size constraint, not a fetch parameter issue.
+2. **Switch to `--corpus ddc`** — full DWDS corpus, substantially larger than kern. Already supported by the script via `--corpus` arg. More data but less controlled genre composition.
+3. **Merge to 25-year bins** — previously decided against (2026-03-18) because only 22/894 word-decades are sparse after the v2 re-fetch. Doesn't solve per-decade density, just hides it.
+
+**Decision**: Switch to `--corpus ddc` with the following settings:
+
+```
+--corpus ddc
+--limit 2000
+--per-decade-n 50
+--max-tokens 60
+--sort random
+--output data/processed/dwds/pilot_contexts_ddc.jsonl
+```
+
+**Rationale for each parameter**:
+- `--corpus ddc`: breaks the kern ceiling; ddc is the full DWDS corpus
+- `--limit 2000`: gives enough headroom to retrieve what's available; ddc has far more hits than kern per query
+- `--per-decade-n 50`: caps per-decade sampling to ensure temporal balance — prevents data-rich decades (e.g. 1920s) from dominating while sparse decades remain thin
+- `--max-tokens 60`: carried over from v2, good balance of context richness vs. truncation (0.3% truncation rate in v2)
+- New output file: preserves kern data (`pilot_contexts.jsonl`) as fallback
+
+**Key concern — genre composition**:
+The `ddc` corpus has less controlled genre composition than `kern`. Genre drift (Belletristik ↓, Wissenschaft ↑ over time) is already a documented confound in the kern data; it will be more pronounced in `ddc`. Any apparent sense shift that correlates with a genre composition shift should be treated with caution. **At minimum**, genre distribution must be reported alongside diachronic results. At best, genre-stratified sampling should be implemented in `aggregate_temporal.py` before the full-study scale-up.
+
+**Follow-up**:
+- Run a single-word test fetch (e.g. `Krone`) to confirm ddc yield and inspect genre breakdown before committing to full 90-word run
+- Full re-run of downstream pipeline: `predict_dwds_senses.py` → `apply_coarse_mapping.py` → `aggregate_temporal.py` → `compute_change_metrics.py` → notebooks
+- Consider adding genre stratification to `aggregate_temporal.py` (Phase 4 concern, but worth flagging now)
+
+---
+
 ## 2026-03-18: Results Validation & Temporal Aggregation Decision — Complete
 
 **Status**: Decision Made
