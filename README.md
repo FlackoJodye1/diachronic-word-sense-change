@@ -16,17 +16,17 @@ The goal is to track how the meaning distribution of polysemous German words shi
 |-------|--------|------------|
 | Data preparation | Complete | `senses_pilot.jsonl` — 90 words, 595 senses, `core_gloss` + `llm_definition` + `llm_examples` |
 | Atemporal WSD | Complete | 54.8% fine / **81.7% coarse** accuracy (E5-large, weighted representation) |
-| Diachronic pipeline | Complete | 24,325 predictions across 90 words, 1900–1999 |
+| Diachronic pipeline (v3) | In progress | 90,130 contexts (+197% vs v2). Predictions running overnight (use `--resume`). |
 | Coarse clustering | Complete | 305 clusters (90 pilot lemmas), t=0.10, manual review done |
-| Coarse diachronic rerun | Complete | Max JSD 0.835→0.532, events 518→194 (~60% reduction) |
-| Analysis & validation | In progress | Top candidates: spielen, fassen, Kasse, passen |
+| Coarse diachronic rerun (v2) | Complete | Max JSD 0.835→0.532, events 518→194 (~60% reduction) |
+| Analysis & validation | Pending v3 | Top v2 candidates: spielen, fassen, Kasse, passen — rankings will update after v3 pipeline |
 
 ## Key Numbers
 
-- **Pilot corpus**: 30,337 sentences, 90 words, 1900–1999 (DWDS kern)
+- **Pilot corpus (v3)**: 90,130 sentences, 90 words, 1900–1999 (DWDS kern, `--limit 5000`)
 - **WSD accuracy**: 54.8% fine-grained → 81.7% coarse-grained (93-instance eval set)
 - **Sense clustering**: 595 fine senses → 305 coarse clusters (39.5% reduction, t=0.10)
-- **Top change signal**: spielen, fassen, Kasse, passen (by JSD)
+- **Top change signal (v2)**: spielen, fassen, Kasse, passen (by JSD) — to be re-ranked on v3
 
 ## Repository Structure
 
@@ -74,6 +74,10 @@ Create a `.env` file with API keys used by LLM enrichment scripts:
 ```
 OPENAI_API_KEY=your-key-here
 ANTHROPIC_API_KEY=your-key-here
+
+# Optional: DWDS session cookie for licensed corpora (ZEIT, FAZ, Spiegel)
+# Log in at dwds.de → DevTools → Application → Cookies → copy session cookie value
+DWDS_SESSION_COOKIE=
 ```
 
 ## Best WSD Configuration

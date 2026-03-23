@@ -1,6 +1,6 @@
 # German WSD Pipeline Guide
 
-**Last updated:** 2026-03-18
+**Last updated:** 2026-03-23
 
 A practical guide to the pipeline from raw data through diachronic analysis.
 
@@ -61,13 +61,21 @@ Supports checkpointing (resumes if interrupted). `core_gloss` can be regenerated
 
 ```bash
 python scripts/data/fetch_dwds_contexts.py \
-  --word-list data/raw/target_words/pilot_words_diachronic.txt \
-  --output data/processed/dwds/pilot_contexts.jsonl \
-  --max-tokens 60
+  --words-file data/raw/target_words/pilot_words_diachronic.txt \
+  --corpus kern \
+  --limit 5000 \
+  --min-tokens 6 \
+  --max-tokens 60 \
+  --sort random \
+  --output data/processed/dwds/pilot_contexts_v3.jsonl
 ```
 
 Queries the DWDS API per word, filters by quality (length, duplicates), extracts decade metadata.
-Output: `pilot_contexts.jsonl` — **30,337 sentences** for 90 words.
+Output: `pilot_contexts_v3.jsonl` — **90,130 sentences** for 90 words.
+
+**For licensed corpora (ZEIT, FAZ, Spiegel):** set `DWDS_SESSION_COOKIE` in `.env` or pass `--session-cookie`. Use `--paginate` with a deterministic sort (not `--sort random`) to fetch all pages.
+
+**API limits:** max `--limit` is 5,000 (API silently reverts to 100 above ~7,500). `kern` corpus ceiling is ~3,500 unique documents per word.
 
 ---
 
@@ -100,15 +108,13 @@ See `scripts/atemporal/README.md` for full detail.
 ### Step 3.1 — Predict senses (fine-grained)
 
 ```bash
-PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py \
-  --dwds-file data/processed/dwds/pilot_contexts.jsonl \
-  --senses-file data/processed/germanet/senses_pilot.jsonl \
-  --representation weighted \
-  --output data/processed/diachronic/predictions/pilot_predictions.csv
+python scripts/diachronic/predict_dwds_senses.py \
+  --dwds-file data/processed/dwds/pilot_contexts_v3.jsonl \
+  --output data/processed/diachronic/predictions/pilot_predictions_v3.csv
 ```
 
-For each sentence: embed → compare cosine similarity to all candidate sense embeddings → predict best sense.
-Output: `pilot_predictions.csv` — **24,325 rows** (90 words with GermaNet data, 26 skipped).
+Processes one lemma at a time (memory-efficient). Supports `--resume` to continue after a crash.
+Output: `pilot_predictions_v3.csv` — ~72,000 rows expected (90 words, 26 skipped — no GermaNet senses).
 
 ### Step 3.2 — Apply coarse cluster mapping
 
@@ -170,11 +176,18 @@ Generates stacked area charts, sense × decade heatmaps, entropy plots per word.
 ### Full pipeline (coarse)
 
 ```bash
-PYTHONPATH=src python scripts/diachronic/predict_dwds_senses.py && \
-PYTHONPATH=src python scripts/diachronic/apply_coarse_mapping.py && \
-PYTHONPATH=src python scripts/diachronic/aggregate_temporal.py && \
-PYTHONPATH=src python scripts/diachronic/compute_change_metrics.py && \
-PYTHONPATH=src python scripts/diachronic/visualize_trajectories.py --all-lemmas
+python scripts/diachronic/predict_dwds_senses.py \
+  --dwds-file data/processed/dwds/pilot_contexts_v3.jsonl \
+  --output data/processed/diachronic/predictions/pilot_predictions_v3.csv && \
+python scripts/diachronic/apply_coarse_mapping.py \
+  --predictions data/processed/diachronic/predictions/pilot_predictions_v3.csv \
+  --output data/processed/diachronic/predictions/pilot_predictions_v3_coarse.csv && \
+python scripts/diachronic/aggregate_temporal.py \
+  --input data/processed/diachronic/predictions/pilot_predictions_v3_coarse.csv \
+  --output-dir data/processed/diachronic/aggregated/ --prefix pilot_coarse_v3 && \
+python scripts/diachronic/compute_change_metrics.py \
+  --counts data/processed/diachronic/aggregated/pilot_coarse_v3_sense_counts.csv \
+  --output-dir data/processed/diachronic/metrics/ --prefix pilot_coarse_v3 --min-contexts 10
 ```
 
 ---

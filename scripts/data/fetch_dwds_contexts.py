@@ -8,10 +8,14 @@ This is a general-purpose fetcher for building diachronic inputs.
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -221,7 +225,8 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     write_mode = "a" if args.resume else "w"
-    client = DWDSClient(delay=args.delay, session_cookie=args.session_cookie)
+    session_cookie = args.session_cookie or os.getenv("DWDS_SESSION_COOKIE") or None
+    client = DWDSClient(delay=args.delay, session_cookie=session_cookie)
     options = FetchOptions(
         corpus=args.corpus,
         paginate=args.paginate,

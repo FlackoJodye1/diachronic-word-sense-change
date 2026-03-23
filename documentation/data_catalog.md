@@ -2,7 +2,7 @@
 
 Reference for all data files in the project: what each file is, which script produces it, and what it is used for.
 
-**Last updated:** 2026-03-18
+**Last updated:** 2026-03-23
 
 ---
 
@@ -13,12 +13,13 @@ Raw Sources                    Processed                         Analysis Output
 ───────────────                ─────────────────────────         ────────────────
 GermaNet XML        ──►  germanet_base/ (parsed tables)
                     ──►  germanet/senses_base.csv
-                    ──►  germanet/senses_pilot.jsonl      ──►  diachronic/predictions/pilot_predictions.csv
-                                                          ──►  diachronic/predictions/pilot_predictions_coarse.csv
-                                                          ──►  diachronic/aggregated/pilot_coarse_*.csv
-                                                          ──►  diachronic/metrics/pilot_coarse_*.csv
+                    ──►  germanet/senses_pilot.jsonl      ──►  diachronic/predictions/pilot_predictions_v3.csv
+                                                          ──►  diachronic/predictions/pilot_predictions_v3_coarse.csv
+                                                          ──►  diachronic/aggregated/pilot_coarse_v3_*.csv
+                                                          ──►  diachronic/metrics/pilot_coarse_v3_*.csv
 
-Target word lists   ──►  dwds/pilot_contexts.jsonl
+Target word lists   ──►  dwds/pilot_contexts_v3.jsonl  (current)
+                    ──►  dwds/pilot_contexts.jsonl      (v2, superseded)
 
 Eval word lists     ──►  evaluation/atemporal/input/      ──►  evaluation/atemporal/results/
   (10 words)              (contexts + gold labels)              (accuracy, weight tuning)
@@ -107,14 +108,24 @@ llm_examples      — array of 5 usage examples (used for WSD weighted represent
 
 **Produced by:** `scripts/data/fetch_dwds_contexts.py`
 
-| File | Contents |
-|---|---|
-| `pilot_contexts.jsonl` | **30,337 sentences** for 90 pilot words (1900–1999, DWDS kern, `--max-tokens 60`) |
+| File | Contents | Status |
+|---|---|---|
+| `pilot_contexts_v3.jsonl` | **90,130 sentences** for 90 pilot words (1900–1999, DWDS kern, `--limit 5000 --min-tokens 6`) | **Current — use this** |
+| `pilot_contexts.jsonl` | 30,337 sentences for 90 pilot words (1900–1999, DWDS kern, `--limit 1000 --min-tokens 8`) | v2 — superseded |
+
+**v3 fetch settings:** `--limit 5000 --min-tokens 6 --max-tokens 60 --sort random --corpus kern`
+- `--limit 5000`: API max before silent fallback to 100. Raises density from ~337 → ~1,000 contexts/word.
+- `--min-tokens 6` (was 8): Reduces bias against short Zeitung headlines, which are disproportionately from early decades.
 
 **Record format:**
 ```json
-{"lemma": "Geist", "sentence": "...", "year": 1956, "decade": 1950, "genre": "Zeitung", "bibl": "..."}
+{"lemma": "Geist", "sentence": "...", "year": 1956, "decade": 1950, "genre": "Zeitung", "bibl": "...", "corpus": "kern", "source": "dwds_corpus_csv"}
 ```
+
+**DWDSClient capabilities (as of 2026-03-23):**
+- Session-cookie auth: pass `DWDS_SESSION_COOKIE` in `.env` or `--session-cookie` arg → enables ZEIT, FAZ, Spiegel corpora
+- Pagination: `--paginate` flag fetches all pages (use with deterministic sort, not `--sort random`)
+- ZEIT corpus: requires institutional access approval from DWDS team (applied 2026-03-23)
 
 ---
 
@@ -143,35 +154,44 @@ Used for method development only. Ground truth files are stable — re-running s
 
 ## `data/processed/diachronic/` — Diachronic Pilot Study Results
 
-All files are from the v2 pipeline (contexts re-fetched with `--max-tokens 60`, JSD=1.0 artifacts eliminated). Fine and coarse variants exist for all steps after prediction.
+**Current pipeline version: v3** (90,130 contexts, `--limit 5000 --min-tokens 6`). v2 files retained for reference.
+
+The prediction script (`predict_dwds_senses.py`) was refactored for v3 to process one lemma at a time — peak RAM ~7 MB/step (vs. ~370 MB for full-batch v2). Supports `--resume` to continue after interruption.
 
 ### `predictions/`
 
-| File | Produced by | Contents |
-|---|---|---|
-| `pilot_predictions.csv` | `scripts/diachronic/predict_dwds_senses.py` | **24,325 fine-grained predictions** for 90 words × all decades. Columns: `lemma, sentence, year, decade, predicted_sense_id, confidence` |
-| `pilot_predictions_coarse.csv` | `scripts/diachronic/apply_coarse_mapping.py` | Coarse predictions: fine `predicted_sense_id` replaced with coarse cluster ID. Same row count (0 rows dropped). |
+| File | Produced by | Contents | Status |
+|---|---|---|---|
+| `pilot_predictions_v3.csv` | `scripts/diachronic/predict_dwds_senses.py` | **~72,000 fine-grained predictions** for 90 words × all decades. Columns: `lemma, sentence, year, decade, predicted_sense_id, confidence` | In progress — use `--resume` |
+| `pilot_predictions_v3_coarse.csv` | `scripts/diachronic/apply_coarse_mapping.py` | Coarse predictions: fine `predicted_sense_id` replaced with coarse cluster ID | Pending v3 predictions |
+| `pilot_predictions.csv` | `scripts/diachronic/predict_dwds_senses.py` | 24,325 fine predictions (v2, 30,337 contexts) | v2 — superseded |
+| `pilot_predictions_coarse.csv` | `scripts/diachronic/apply_coarse_mapping.py` | Coarse v2 predictions | v2 — superseded |
 
 ### `aggregated/`
 
-| File | Produced by | Contents |
-|---|---|---|
-| `pilot_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Fine sense counts per (lemma × decade × sense). Columns: `lemma, decade, predicted_sense_id, count, total, proportion` |
-| `pilot_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Fine summary per (lemma × decade): n_contexts, dominant sense, dominant proportion |
-| `pilot_coarse_sense_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse sense counts per (lemma × decade × cluster). 2,450 rows (vs 3,852 fine) |
-| `pilot_coarse_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse summary per (lemma × decade) |
+| File | Produced by | Contents | Status |
+|---|---|---|---|
+| `pilot_coarse_v3_sense_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse sense counts per (lemma × decade × cluster) for v3 | Pending v3 predictions |
+| `pilot_coarse_v3_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse summary per (lemma × decade) for v3 | Pending v3 predictions |
+| `pilot_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Fine v2 sense counts | v2 — superseded |
+| `pilot_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Fine v2 summary | v2 — superseded |
+| `pilot_coarse_sense_counts.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse v2 sense counts. 2,450 rows (vs 3,852 fine) | v2 — superseded |
+| `pilot_coarse_stats.csv` | `scripts/diachronic/aggregate_temporal.py` | Coarse v2 summary | v2 — superseded |
 
 ### `metrics/`
 
 All metrics use `--min-contexts 10` filter.
 
-| File | Produced by | Contents |
-|---|---|---|
-| `pilot_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine Shannon entropy per (lemma × decade) |
-| `pilot_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine JSD between consecutive decades. Max JSD: 0.835 |
-| `pilot_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine emergence events (proportion crosses 10% upward). 518 events |
-| `pilot_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine decline events (proportion crosses 10% downward). 521 events |
-| `pilot_coarse_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse Shannon entropy per (lemma × decade) |
-| `pilot_coarse_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse JSD. Max JSD: 0.532. Mean JSD: 0.165 |
-| `pilot_coarse_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse emergence events. 194 events (~60% reduction from fine) |
-| `pilot_coarse_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse decline events. 197 events |
+| File | Produced by | Contents | Status |
+|---|---|---|---|
+| `pilot_coarse_v3_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse Shannon entropy per (lemma × decade) for v3 | Pending v3 pipeline |
+| `pilot_coarse_v3_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse JSD for v3 | Pending v3 pipeline |
+| `pilot_coarse_v3_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse emergence events for v3 | Pending v3 pipeline |
+| `pilot_coarse_v3_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse decline events for v3 | Pending v3 pipeline |
+| `pilot_coarse_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse JSD v2. Max JSD: 0.532. Mean JSD: 0.165 | v2 — superseded |
+| `pilot_coarse_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse emergence events v2. 194 events | v2 — superseded |
+| `pilot_coarse_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Coarse decline events v2. 197 events | v2 — superseded |
+| `pilot_entropy.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine entropy v2 | v2 — superseded |
+| `pilot_divergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine JSD v2. Max JSD: 0.835 | v2 — superseded |
+| `pilot_emergence.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine emergence events v2. 518 events | v2 — superseded |
+| `pilot_decline.csv` | `scripts/diachronic/compute_change_metrics.py` | Fine decline events v2. 521 events | v2 — superseded |
