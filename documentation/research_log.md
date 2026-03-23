@@ -19,6 +19,29 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-23: v3 Corpus Fetch + Prediction Pipeline Refactor
+
+**Status**: In Progress (predictions running overnight)
+
+**What was done today**:
+
+1. **Corpus exploration** — investigated all available DWDS corpora via the public API. `kern` is the only valid historical corpus (1900–1999). `ddc` returns 404. `public` is modern-only (Wikipedia-dominated, 2020s). `kern21` (2000–2005), `ddr` (1959–1989), `tsp`/`tagesspiegel` (1998–2004) are available but out of scope. ZEIT/FAZ/Spiegel require session-cookie authentication.
+
+2. **API limit investigation** — discovered the `--limit` parameter was the bottleneck, not a hard corpus ceiling. Tested 1000 → 2000 → 5000: API silently reverts to 100 rows above ~7,500. Optimal setting confirmed as `--limit 5000`. Also discovered `--min-tokens 8` introduced genre/decade bias (Zeitung headlines dropped disproportionately) — lowered to 6.
+
+3. **v3 re-fetch** — ran full 116-word fetch with `--limit 5000 --min-tokens 6 --max-tokens 60`. Result: 30,337 → 90,130 contexts (+197%). Most words +150–350%. Genuinely kern-sparse words unchanged (Bass 23→25, Frosch 106→109).
+
+4. **Prediction pipeline memory refactor** — original script encoded all 90k contexts at once (~370MB embedding matrix), exhausting swap. Refactored to process one lemma at a time: model + sense embeddings loaded once, context embeddings computed and deleted per lemma. Added `--resume` flag for crash recovery. Peak RAM per step now ~7MB (down from 370MB).
+
+5. **Overnight predictions** — running with `--resume`. 14/90 lemmas complete at time of writing. Full pipeline (coarse mapping → aggregation → metrics → notebooks) to follow tomorrow.
+
+**Follow-up**:
+- Tomorrow: chain downstream pipeline after predictions finish
+- Implement DWDSClient pagination + session-cookie auth (see separate entry)
+- Re-run analysis notebooks with v3 results; re-evaluate case study candidates
+
+---
+
 ## 2026-03-23: DWDS API — Pagination and Authentication
 
 **Status**: Decision Made
@@ -34,19 +57,24 @@ For kern this matters less (most words have <5,000 unique documents, confirmed f
 **Finding 2 — ZEIT requires session-cookie authentication**:
 The DWDS API does not use API keys. Access to licensed corpora (ZEIT, FAZ, Spiegel) requires a valid browser session cookie — i.e., the user must be logged in to DWDS. Confirmed by DWDS admin response (2026-03-23): export is allowed at large scale once authenticated. The `DWDSClient` currently sends no authentication headers, which is why `corpus=zeit` returns 404.
 
-**What needs to change in `DWDSClient`**:
-1. Add pagination support — loop over `&p=1`, `&p=2`, ... until fewer than `limit` rows are returned (signals last page)
-2. Add optional session cookie parameter — user extracts cookie from browser after logging in to DWDS, passes it to the client
+**Implemented (2026-03-23)** in `src/data/dwds/client.py`, `src/data/dwds/fetcher.py`, `scripts/data/fetch_dwds_contexts.py`:
 
-**Priority**:
-- Pagination: medium — worth doing before ZEIT fetch. Also slightly helps kern for very frequent words.
-- Auth: needed before any ZEIT fetch. Straightforward to implement once pagination is in place.
+- `pd.read_csv(url)` replaced with `requests.get()` + `io.StringIO` — necessary to attach custom headers
+- `DWDSClient(session_cookie=str)` — cookie attached as `Cookie` header on every request
+- `corpus_csv(paginate=False)` — when `True`, loops `&p=1,2,...` until page returns fewer rows than limit
+- `FetchOptions.paginate` + `--paginate` flag in fetch script; `--session-cookie` arg in fetch script
+
+**How to extract session cookie**:
+1. Log in at https://www.dwds.de in browser
+2. DevTools → Application → Cookies → dwds.de
+3. Copy session cookie value, pass as `--session-cookie "<value>"`
+
+**Note**: `--paginate` only meaningful with deterministic sort. Do NOT combine with `--sort random`.
 
 **Follow-up**:
-- Implement pagination in `DWDSClient.corpus_csv()`
-- Add optional `session_cookie` parameter to `DWDSClient.__init__()`
-- Test ZEIT access with authenticated session
-- Document cookie extraction steps for reproducibility
+- Test `corpus=zeit` with authenticated session on one word (e.g. Krone)
+- Check year range and genre fields returned by ZEIT
+- Decide merge strategy: kern + ZEIT combined, or ZEIT as separate parallel analysis
 
 ---
 

@@ -89,7 +89,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 **Purpose:** Apply best WSD method to historical DWDS data and analyze how word senses change across decades (1900–1999).
 
-### 3a. Data & Pipeline — COMPLETE
+### 3a. Data & Pipeline — v3 IN PROGRESS
 
 | Step | Status | Details |
 |------|--------|---------|
@@ -102,14 +102,17 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Initial analysis & visualization | Done | `data/processed/diachronic/PILOT_STUDY_SUMMARY.md`, 14 plots in `data/processed/diachronic/plots/` |
 | Corpus quality assessment | Done | Sentences usable (avg 21 words, <1% truncated). Fixed expressions (~20%) documented as known limitation. Genre/decade imbalance documented. |
 | Re-fetch with relaxed cap (--max-tokens 60) | Done | 30,337 sentences (5x increase). 0.3% truncation. Output: `pilot_contexts.jsonl` |
-| Run weighted WSD predictions (v2) | Done | `data/processed/diachronic/predictions/pilot_predictions.csv` — 24,325 predictions, 90 words |
-| Aggregate by decade (v2) | Done | `data/processed/diachronic/aggregated/pilot_counts.csv`, `pilot_weighted_v2_decade_stats.csv` |
-| Compute change metrics (v2, filtered) | Done | `data/processed/diachronic/metrics/pilot_*.csv` — only 22/894 word-decades filtered (vs 371 in v1). Max JSD: 0.835. |
-| Re-bin to 25-year periods | **Decided against** | Only 22/894 word-decades sparse (2%) — binning not needed. 20-year aggregation would reduce Spearman to 5 time points and lose WWII-era resolution. Keeping 10-year decades. |
-| Re-fetch with limit=5000 for full corpus coverage | Done (2026-03-23) | 30,337 → 90,130 contexts (+197%). Output: `pilot_contexts_v3.jsonl`. Settings: `--limit 5000 --min-tokens 6 --max-tokens 60 --sort random`. |
-| **Add pagination to `DWDSClient`** | **Planned** | API supports `&p=n` for page-by-page fetching (5,000/page). Current client fetches page 1 only — misses data for words with >5,000 hits. Needed before ZEIT fetch. See research log 2026-03-23. |
-| **Add session-cookie auth to `DWDSClient`** | **Planned** | ZEIT/FAZ/Spiegel require DWDS login session cookie. No API key system. User logs in via browser, extracts cookie, passes to client. See research log 2026-03-23. |
-| **Re-fetch including ZEIT corpus** | **Pending** | Waiting on DWDS login + auth implementation. ZEIT covers 1946–present with consistent Zeitung register — most valuable for sparse 1950s–1990s decades. |
+| Run weighted WSD predictions (v2) | Done (superseded) | `data/processed/diachronic/predictions/pilot_predictions.csv` — 24,325 predictions, 90 words |
+| Aggregate by decade (v2) | Done (superseded) | `data/processed/diachronic/aggregated/pilot_counts.csv` |
+| Compute change metrics (v2) | Done (superseded) | `data/processed/diachronic/metrics/pilot_*.csv` — Max JSD: 0.835. |
+| Re-bin to 25-year periods | Decided against | Only 22/894 word-decades sparse (2%). Keeping 10-year decades. |
+| Re-fetch with limit=5000 for full corpus coverage | Done (2026-03-23) | 30,337 → 90,130 contexts (+197%). `pilot_contexts_v3.jsonl`. `--limit 5000 --min-tokens 6 --max-tokens 60`. |
+| **Run v3 predictions** | **In progress (overnight)** | 14/90 lemmas done. Resume with `--resume` flag. Output: `pilot_predictions_v3.csv`. |
+| **Apply coarse mapping (v3)** | **Pending predictions** | `apply_coarse_mapping.py` → `pilot_predictions_v3_coarse.csv` |
+| **Re-aggregate + recompute metrics (v3)** | **Pending** | `aggregate_temporal.py` → `compute_change_metrics.py` |
+| Add pagination to `DWDSClient` | Done (2026-03-23) | `corpus_csv(paginate=True)` loops `&p=1,2,...` until page < limit. Off by default — use with deterministic sort only, not `random`. |
+| Add session-cookie auth to `DWDSClient` | Done (2026-03-23) | `DWDSClient(session_cookie=...)` + `--session-cookie` arg in fetch script. Cookie extracted from browser DevTools after DWDS login. |
+| **Re-fetch including ZEIT corpus** | Pending | Waiting on auth implementation + DWDS login. ZEIT covers 1946–present. |
 
 **Key finding (v1):** Weighted method has +4.9% higher confidence than baseline. 82 emergence events, 84 decline events detected. Verbs dominate the most-changed words.
 
