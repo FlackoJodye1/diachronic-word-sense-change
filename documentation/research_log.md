@@ -19,9 +19,29 @@ Each entry follows this structure:
 
 ---
 
+## 2026-03-24: v3 Pipeline Complete — Pre-Analysis Snapshot
+
+**Status**: Complete (pipeline done, analysis pending)
+
+**What was completed today:**
+- v3 predictions finished: 90/90 lemmas, 72,591 rows (+198% vs v2's 24,325). Interrupted by disk-full error at 87/90; resumed after clearing space, all 3 remaining lemmas completed cleanly.
+- Coarse mapping applied: `pilot_predictions_v3_coarse.csv` (0 rows dropped).
+- Temporal aggregation: `pilot_v3_coarse_sense_counts.csv`, `pilot_v3_coarse_stats.csv`.
+- Change metrics recomputed: mean JSD=0.112, 806 transitions, 126 emergence / 118 decline events.
+- `diachronic_pilot_results.ipynb` updated to load v3 files.
+
+**Key finding — v3 vs v2 comparison:**
+- 3x more data across all decades; 1970s got the biggest relative boost (+258%).
+- Mean JSD dropped from 0.165 → 0.112. This is expected and desirable: v2 signals were partially inflated by sparse-sample variance. v3 estimates are more reliable, not weaker.
+- v2 top candidates (Krone ρ=−0.69, ziehen ρ=+0.842, Blatt ρ=+0.810) will likely shift in v3 rankings — effects will be smaller but more trustworthy.
+
+**Immediate next step:** Re-run `diachronic_pilot_results.ipynb` on v3 data to get updated candidate rankings.
+
+---
+
 ## 2026-03-23: v3 Corpus Fetch + Prediction Pipeline Refactor
 
-**Status**: In Progress (predictions running overnight)
+**Status**: Complete
 
 **What was done today**:
 

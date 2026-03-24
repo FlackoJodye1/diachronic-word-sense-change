@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-20
+**Last updated:** 2026-03-24
 
 ---
 
@@ -107,9 +107,9 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Compute change metrics (v2) | Done (superseded) | `data/processed/diachronic/metrics/pilot_*.csv` — Max JSD: 0.835. |
 | Re-bin to 25-year periods | Decided against | Only 22/894 word-decades sparse (2%). Keeping 10-year decades. |
 | Re-fetch with limit=5000 for full corpus coverage | Done (2026-03-23) | 30,337 → 90,130 contexts (+197%). `pilot_contexts_v3.jsonl`. `--limit 5000 --min-tokens 6 --max-tokens 60`. |
-| **Run v3 predictions** | **In progress (overnight)** | 14/90 lemmas done. Resume with `--resume` flag. Output: `pilot_predictions_v3.csv`. |
-| **Apply coarse mapping (v3)** | **Pending predictions** | `apply_coarse_mapping.py` → `pilot_predictions_v3_coarse.csv` |
-| **Re-aggregate + recompute metrics (v3)** | **Pending** | `aggregate_temporal.py` → `compute_change_metrics.py` |
+| Run v3 predictions | Done (2026-03-24) | 90/90 lemmas, 72,591 rows (+198% vs v2). Output: `pilot_predictions_v3.csv`. |
+| Apply coarse mapping (v3) | Done (2026-03-24) | `apply_coarse_mapping.py` → `pilot_predictions_v3_coarse.csv`. 0 rows dropped. |
+| Re-aggregate + recompute metrics (v3) | Done (2026-03-24) | `pilot_v3_coarse_sense_counts.csv`, `pilot_v3_coarse_stats.csv`. Mean JSD=0.112, 806 transitions, 126 emergence / 118 decline events. |
 | Add pagination to `DWDSClient` | Done (2026-03-23) | `corpus_csv(paginate=True)` loops `&p=1,2,...` until page < limit. Off by default — use with deterministic sort only, not `random`. |
 | Add session-cookie auth to `DWDSClient` | Done (2026-03-23) | `DWDSClient(session_cookie=...)` + `--session-cookie` arg in fetch script. Cookie extracted from browser DevTools after DWDS login. |
 | **Re-fetch including ZEIT corpus** | Pending | Waiting on auth implementation + DWDS login. ZEIT covers 1946–present. |
@@ -131,8 +131,9 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Restructure analysis notebooks | Done | `diachronic_pilot_results.ipynb` stripped to coarse-only (50 cells, 7 sections). `sense_granularity_analysis.ipynb` created for fine vs. coarse methodological comparison. Section 7 (Case Study Candidates) added with Spearman ρ monotonicity scoring. |
 | Refactor results notebook (2026-03-19) | Done | Exclusions now filtered at load time (all downstream cells clean). Composite score removed; rankings use avg_jsd (primary) and entropy_range (secondary). Word totals table enriched with avg_jsd and max_jsd. Per-lemma stacked area chart collapses to top-6 + Other; contexts-per-decade support table added above chart. |
 | Extend rankings to normalized JSD (2026-03-20) | Done | Added `normalized_jsd = avg_jsd / n_coarse_senses` as third ranking metric. Three-panel bar chart shows all three rankings. All section 3 and 4 plots (small-multiples, JSD-over-time, emergence/decline) now use top-5 by normalized JSD consistently. |
-| Identify case study candidates | Done | 11 strong candidates (spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld). Top picks: Krone (monarchy decline post-1918, ρ=−0.69), ziehen (ρ=+0.842), Blatt (ρ=+0.810). See Section 7 of `diachronic_pilot_results.ipynb`. |
-| Manual validation of case study candidates | Deferred | Deferred until ddc re-fetch + pipeline re-run complete — results may shift rankings. |
+| Identify case study candidates | Done (v2) | 11 strong candidates from v2 (spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld). Top picks: Krone (ρ=−0.69), ziehen (ρ=+0.842), Blatt (ρ=+0.810). Rankings will shift in v3 — v2 signals were partially noise-inflated. |
+| **Re-run analysis notebook on v3 data** | **Next** | Notebook updated to load v3 files. Re-run all sections to get updated rankings and candidates. Note: mean JSD dropped from 0.165 → 0.112 (more reliable, less noise). |
+| Manual validation of case study candidates | Deferred | Deferred until v3 analysis complete and candidates re-ranked. |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
 | Statistical significance testing | Not done | Chi-square on distribution shifts, confidence intervals |
 | Investigate JSD=1.0 values | Done (v2) | Eliminated by re-fetching with --max-tokens 60. Only 22/894 word-decades remain sparse. Max JSD now 0.835. |
@@ -166,10 +167,12 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | LLM-enriched senses | `data/processed/germanet/senses_full.jsonl` |
 | Atemporal gold annotations | `data/evaluation/atemporal/input/gold_annotations.csv` |
 | Atemporal results | `data/evaluation/atemporal/results/` |
-| Diachronic predictions (v2) | `data/processed/diachronic/predictions/pilot_predictions.csv` |
-| Coarse predictions | `data/processed/diachronic/predictions/pilot_predictions_coarse.csv` |
-| Coarse metrics | `data/processed/diachronic/metrics/pilot_coarse_*.csv` |
-| Diachronic metrics (fine, v2) | `data/processed/diachronic/metrics/pilot_*.csv` |
+| Diachronic predictions (v3, current) | `data/processed/diachronic/predictions/pilot_predictions_v3.csv` |
+| Coarse predictions (v3, current) | `data/processed/diachronic/predictions/pilot_predictions_v3_coarse.csv` |
+| Coarse metrics (v3, current) | `data/processed/diachronic/metrics/pilot_v3_coarse_*.csv` |
+| Diachronic predictions (v2, superseded) | `data/processed/diachronic/predictions/pilot_predictions.csv` |
+| Coarse predictions (v2, superseded) | `data/processed/diachronic/predictions/pilot_predictions_coarse.csv` |
+| Coarse metrics (v2, superseded) | `data/processed/diachronic/metrics/pilot_coarse_*.csv` |
 | Diachronic plots | `data/processed/diachronic/plots/` |
 | Sense granularity analysis | `notebooks/analysis/sense_granularity_analysis.ipynb` |
 | Atemporal scripts | `scripts/atemporal/` |
