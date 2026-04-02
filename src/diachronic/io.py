@@ -41,6 +41,50 @@ def load_dwds_contexts(filepath: Path) -> pd.DataFrame:
     return df
 
 
+_SENSE_FILES = [
+    "data/processed/germanet/senses_pilot.jsonl",
+    "data/processed/germanet/senses_expanded.jsonl",
+    "data/evaluation/atemporal/input/sense_text_representations.jsonl",
+]
+
+
+def load_all_senses(
+    base_dir: Optional[Path] = None,
+    target_lemmas: Optional[List[str]] = None,
+) -> pd.DataFrame:
+    """Load senses from all known sense files and merge into one DataFrame.
+
+    Covers both pilot words (senses_pilot.jsonl) and eval words
+    (sense_text_representations.jsonl). Use this instead of load_senses()
+    when you need a complete sense lookup across all 96 lemmas.
+
+    Args:
+        base_dir: Project root. Defaults to three levels above this file.
+        target_lemmas: Optional list of lemmas to filter to.
+    """
+    if base_dir is None:
+        base_dir = Path(__file__).resolve().parents[2]
+
+    frames = []
+    for rel_path in _SENSE_FILES:
+        path = base_dir / rel_path
+        if path.exists():
+            frames.append(load_senses(path))
+        else:
+            logger.warning(f"Sense file not found, skipping: {path}")
+
+    if not frames:
+        raise FileNotFoundError("No sense files found.")
+
+    df = pd.concat(frames, ignore_index=True).drop_duplicates(subset=["synset_id"])
+
+    if target_lemmas:
+        df = df[df["lemma"].isin(target_lemmas)]
+
+    logger.info(f"load_all_senses: {len(df)} senses for {df['lemma'].nunique()} words total")
+    return df
+
+
 def load_senses(
     filepath: Path,
     target_lemmas: Optional[List[str]] = None,

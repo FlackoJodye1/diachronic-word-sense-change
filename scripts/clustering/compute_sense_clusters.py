@@ -67,6 +67,8 @@ def main():
                         help="Output path for cluster mapping JSON (default: sense_clusters_{threshold}.json)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Load and embed senses but do not write output files")
+    parser.add_argument("--merge-into", type=Path, default=None,
+                        help="Merge new lemmas into this existing cluster JSON (skips lemmas already present)")
     args = parser.parse_args()
 
     t = args.threshold
@@ -131,6 +133,21 @@ def main():
 
     logger.info(f"Writing cluster summary to {summary_out}")
     summary_df.to_csv(summary_out, index=False)
+
+    if args.merge_into:
+        merge_path = args.merge_into
+        if merge_path.exists():
+            with open(merge_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+            skipped = [l for l in mapping_dict if l in existing]
+            added = [l for l in mapping_dict if l not in existing]
+            for lemma in added:
+                existing[lemma] = mapping_dict[lemma]
+            with open(merge_path, "w", encoding="utf-8") as f:
+                json.dump(existing, f, ensure_ascii=False, indent=2)
+            logger.info(f"Merged into {merge_path}: +{len(added)} new lemmas, {len(skipped)} skipped (already present)")
+        else:
+            logger.warning(f"--merge-into path does not exist: {merge_path} — skipping merge")
 
     logger.info("Done.")
     print(f"\nOutput files:")

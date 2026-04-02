@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-03-24
+**Last updated:** 2026-04-02
 
 ---
 
@@ -118,7 +118,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 **Key finding (v2):** 518 emergence events, 521 decline events. Max JSD 0.835 (no more JSD=1.0 artifacts). Only 22 sparse word-decades remaining. Results substantially more reliable than v1.
 
-**Top 10 words by temporal change (v1):** spielen, werfen, zeigen, laufen, schlagen, tragen, ziehen, Stamm, Satz, nehmen — **to be re-ranked using v2 metrics**
+**Top 10 words by temporal change (v3, normalized JSD):** Film, Lappen, Saft, schneiden, springen, Stiefel, Nest, Kasse, Hütte, Meister. Verbs dominate raw JSD but normalization favours simpler words with cleaner shifts.
 
 ### 3b. Analysis & Validation — IN PROGRESS
 
@@ -131,9 +131,9 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 | Restructure analysis notebooks | Done | `diachronic_pilot_results.ipynb` stripped to coarse-only (50 cells, 7 sections). `sense_granularity_analysis.ipynb` created for fine vs. coarse methodological comparison. Section 7 (Case Study Candidates) added with Spearman ρ monotonicity scoring. |
 | Refactor results notebook (2026-03-19) | Done | Exclusions now filtered at load time (all downstream cells clean). Composite score removed; rankings use avg_jsd (primary) and entropy_range (secondary). Word totals table enriched with avg_jsd and max_jsd. Per-lemma stacked area chart collapses to top-6 + Other; contexts-per-decade support table added above chart. |
 | Extend rankings to normalized JSD (2026-03-20) | Done | Added `normalized_jsd = avg_jsd / n_coarse_senses` as third ranking metric. Three-panel bar chart shows all three rankings. All section 3 and 4 plots (small-multiples, JSD-over-time, emergence/decline) now use top-5 by normalized JSD consistently. |
-| Identify case study candidates | Done (v2) | 11 strong candidates from v2 (spielen, gehen, fassen, laufen, tragen, ziehen, nehmen, Krone, zählen, Blatt, Feld). Top picks: Krone (ρ=−0.69), ziehen (ρ=+0.842), Blatt (ρ=+0.810). Rankings will shift in v3 — v2 signals were partially noise-inflated. |
-| **Re-run analysis notebook on v3 data** | **Next** | Notebook updated to load v3 files. Re-run all sections to get updated rankings and candidates. Note: mean JSD dropped from 0.165 → 0.112 (more reliable, less noise). |
-| Manual validation of case study candidates | Deferred | Deferred until v3 analysis complete and candidates re-ranked. |
+| Re-run analysis notebook on v3 data | Done (2026-03-27) | All sections re-run on v3. Updated rankings, candidates, and trajectory plots in `diachronic_pilot_results.ipynb`. |
+| Identify case study candidates (v3) | Done (2026-03-27) | 6 automated strong candidates (springen, Löffel, Welle, Hof, Stamm, Kugel). Manual reliability review (§7.1–7.2) narrows to **2 selected: `springen` and `Welle`**. Remaining 4 excluded: Stamm/Löffel (sparse later decades), Hof/Kugel (non-monotonic). |
+| **Manual sentence-level validation of case studies** | **Next** | Validate springen and Welle predictions against raw DWDS sentences. Confirm trend is real and not a WSD artifact. |
 | Validate against DWDS dictionary / lexicographic evidence | Not done | Cross-reference emergence/decline with historical records |
 | Statistical significance testing | Not done | Chi-square on distribution shifts, confidence intervals |
 | Investigate JSD=1.0 values | Done (v2) | Eliminated by re-fetching with --max-tokens 60. Only 22/894 word-decades remain sparse. Max JSD now 0.835. |
@@ -146,13 +146,17 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 
 ---
 
-## Phase 4: Scale Up & Publish — NOT STARTED
+## Phase 4: Scale Up & Publish — IN PROGRESS
 
 | Step | Status |
 |------|--------|
 | Expand gold annotations (target: 100-200 words) | Not started |
 | Add 2nd annotator, compute inter-annotator agreement (kappa > 0.7) | Not started |
-| Extend diachronic analysis to more words (target: 150-200) | Not started |
+| Generate `core_gloss` for expanded word set | Done (2026-04-02) | `generate_expanded_senses.py` run on 413 polysemous non-pilot lemmas → `senses_expanded.jsonl` (1229 senses). Workers reduced to 1 to avoid memory pressure on Mac. |
+| Cluster expanded words + merge into reviewed mapping | Done (2026-04-02) | `compute_sense_clusters.py --merge-into sense_clusters_reviewed.json` → 407 new lemmas added (6 eval lemmas already present). 160/413 constrained. `sense_clusters_reviewed.json` now covers 503 lemmas total. |
+| Annotate cluster labels for expanded words | In progress | Review app updated with progress bar + stats. Annotate on-demand via dashboard as words are selected for diachronic study. |
+| Fetch DWDS contexts for expanded words | Not started | Select subset of annotated words, run `fetch_dwds_contexts.py`. Same settings as v3: `--corpus kern --limit 5000 --min-tokens 6 --max-tokens 60 --sort random`. |
+| Run predictions + aggregate for expanded words | Not started | Same pipeline as v3: predict → coarse mapping → aggregate → metrics. |
 | Add ZEIT corpus (Die Zeit 1946–present) | **Pending institutional access** (applied 2026-03-23). Would significantly increase 1950s–1990s density with consistent Zeitung register. Decide on kern+ZEIT merge strategy once access confirmed. |
 | Draft paper (methods, results, discussion) | Not started |
 | Release benchmark dataset | Not started |

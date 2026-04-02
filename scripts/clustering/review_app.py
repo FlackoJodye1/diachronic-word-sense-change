@@ -21,12 +21,11 @@ from flask import Flask, request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.diachronic.io import load_senses
+from src.diachronic.io import load_all_senses
 
 app = Flask(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-SENSES_FILE = BASE_DIR / "data" / "processed" / "germanet" / "senses_pilot.jsonl"
 SOURCE_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_0.10.json"
 REVIEWED_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_reviewed.json"
 SUMMARY_FILE = BASE_DIR / "data" / "processed" / "sense_clustering" / "t010" / "cluster_summary.csv"
@@ -45,8 +44,16 @@ if not REVIEWED_FILE.exists():
 with open(REVIEWED_FILE, "r", encoding="utf-8") as f:
     reviewed_data = json.load(f)
 
-senses_df = load_senses(SENSES_FILE)
+senses_df = load_all_senses(BASE_DIR)
 senses_lookup = {row["synset_id"]: row.to_dict() for _, row in senses_df.iterrows()}
+
+pilot_lemmas: set[str] = set()
+_pilot_path = BASE_DIR / "data" / "processed" / "germanet" / "senses_pilot.jsonl"
+if _pilot_path.exists():
+    import json as _json
+    with open(_pilot_path, encoding="utf-8") as _f:
+        for _line in _f:
+            pilot_lemmas.add(_json.loads(_line)["lemma"])
 
 constrained_set = set()
 if SUMMARY_FILE.exists():
@@ -99,8 +106,20 @@ CSS = """
     a { color: #007bff; text-decoration: none; }
     a:hover { text-decoration: underline; }
 
+    /* Progress bar */
+    .progress-bar-wrap { background: #e9ecef; border-radius: 6px; height: 18px; margin: 10px 0 4px 0; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 6px; background: #28a745; transition: width 0.3s; }
+    .stats-row { display: flex; gap: 24px; margin: 10px 0 18px 0; flex-wrap: wrap; }
+    .stat-box { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px 18px; min-width: 120px; text-align: center; }
+    .stat-box .stat-val { font-size: 22px; font-weight: bold; color: #333; }
+    .stat-box .stat-val.green { color: #28a745; }
+    .stat-box .stat-val.yellow { color: #e6a800; }
+    .stat-box .stat-val.gray { color: #aaa; }
+    .stat-box .stat-label { font-size: 11px; color: #888; margin-top: 2px; }
+    .section-header { font-size: 13px; font-weight: bold; color: #555; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+
     /* Dashboard */
-    .lemma-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 20px; }
+    .lemma-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 8px; }
     .lemma-card { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 12px; }
     .lemma-card.done { border-color: #28a745; background: #f0fff4; }
     .lemma-card.partial { border-color: #ffc107; background: #fffdf0; }
@@ -142,27 +161,59 @@ def dashboard():
     lemmas = sorted(reviewed_data.keys())
     total_labeled = 0
     total_clusters = 0
+    words_done = 0
+    words_partial = 0
+    words_empty = 0
 
-    cards = ""
+    pilot_cards = ""
+    expanded_cards = ""
+
     for lemma in lemmas:
         labeled, n = count_labeled(lemma)
         total_labeled += labeled
         total_clusters += n
+        if labeled == n:
+            words_done += 1
+        elif labeled > 0:
+            words_partial += 1
+        else:
+            words_empty += 1
+
         cls = "done" if labeled == n else ("partial" if labeled > 0 else "")
         badge = '<span class="badge">C</span>' if lemma in constrained_set else ""
-        cards += f"""
+        card = f"""
         <div class="lemma-card {cls}">
             <h3><a href="/review/{lemma}">{lemma}</a>{badge}</h3>
             <div class="progress">{labeled}/{n} clusters labeled</div>
         </div>"""
+        if lemma in pilot_lemmas:
+            pilot_cards += card
+        else:
+            expanded_cards += card
+
+    pct = round(100 * total_labeled / total_clusters) if total_clusters else 0
+    bar = f'<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{pct}%"></div></div>'
+
+    stats = f"""
+    <div style="margin-top:6px;font-size:13px;color:#555;">{pct}% of clusters labeled ({total_labeled}/{total_clusters})</div>
+    {bar}
+    <div class="stats-row">
+        <div class="stat-box"><div class="stat-val green">{words_done}</div><div class="stat-label">Words fully done</div></div>
+        <div class="stat-box"><div class="stat-val yellow">{words_partial}</div><div class="stat-label">Words in progress</div></div>
+        <div class="stat-box"><div class="stat-val gray">{words_empty}</div><div class="stat-label">Words not started</div></div>
+        <div class="stat-box"><div class="stat-val">{len(lemmas)}</div><div class="stat-label">Total words</div></div>
+    </div>"""
 
     return f"""<!DOCTYPE html>
 <html><head><title>Cluster Review</title><style>{CSS}</style></head>
 <body><div class="container">
 <h1>Sense Cluster Review</h1>
-<p>Progress: <strong>{total_labeled}/{total_clusters}</strong> clusters labeled across {len(lemmas)} words.
-<span style="font-size:12px;color:#666;margin-left:12px;"><span class="badge">C</span> = constrained (forced split)</span></p>
-<div class="lemma-grid">{cards}</div>
+{stats}
+<p style="font-size:12px;color:#666;"><span class="badge">C</span> = constrained (forced split)</p>
+<div class="section-header">Pilot words ({len(pilot_lemmas)} lemmas)</div>
+<div class="lemma-grid">{pilot_cards}</div>
+<div class="section-header">Expanded words ({len(lemmas) - len(pilot_lemmas)} lemmas)</div>
+<div class="lemma-grid">{expanded_cards}</div>
 </div></body></html>"""
 
 

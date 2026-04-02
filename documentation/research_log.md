@@ -19,6 +19,59 @@ Each entry follows this structure:
 
 ---
 
+## 2026-04-02: Pilot Set Expansion — Senses + Clusters Generated
+
+**Status**: In progress (annotation ongoing)
+
+**What was done today:**
+- Generated `core_gloss` for all 413 polysemous non-pilot lemmas (≥2 senses, not in pilot) via `generate_expanded_senses.py`. Output: `senses_expanded.jsonl` (1229 senses). Workers reduced to 1 to avoid memory pressure on Mac.
+- Ran `compute_sense_clusters.py --senses-file senses_expanded.jsonl --merge-into sense_clusters_reviewed.json`. 407 new lemmas merged; 6 eval lemmas already present were skipped. `sense_clusters_reviewed.json` now covers 503 lemmas total (90 pilot + 6 eval + 407 expanded).
+- 160/413 new words had the min_clusters=2 constraint fire — these words' glosses were too similar to split organically at t=0.10. Worth extra scrutiny during annotation.
+- Updated review dashboard (`review_app.py`) with a progress bar, word-level stat boxes (fully done / in progress / not started), and separate sections for pilot vs. expanded words.
+- `load_all_senses()` in `src/diachronic/io.py` already listed `senses_expanded.jsonl` — review app picks up the new senses automatically.
+
+**Strategy:**
+Cluster everything upfront, annotate on-demand in the review dashboard as words are selected for the diachronic study. Avoids committing to a fixed expansion set before seeing which words have sufficient DWDS coverage.
+
+**Follow-up:**
+- Annotate cluster labels for candidate words in the dashboard
+- Select subset to fetch DWDS contexts for (targeting ~60–110 new words on top of 90 pilot)
+- Run full diachronic pipeline on expanded set
+
+---
+
+## 2026-03-27: v3 Analysis Complete — Case Study Candidates Selected
+
+**Status**: Complete
+
+**What was done today:**
+- Re-ran all sections of `diachronic_pilot_results.ipynb` on v3 data. Updated rankings, trajectory plots, and candidate scoring throughout.
+- Added notebook sections §7.1 (Manual Trajectory Review) and §7.2 (Per-Word Verdicts) documenting the selection rationale beyond automated criteria.
+- Fixed trajectory plot bug: stacked area charts were overlaying the dashed "most monotonic sense" line at raw proportions, which don't correspond to stacked y-positions. Replaced with line plots throughout (cells 60 and 65).
+
+**Case study selection — v3 results:**
+
+6 words passed all three automated criteria (normalized JSD top quartile, Spearman |ρ| ≥ 0.6, ≥ 8 dense decades): springen, Löffel, Welle, Hof, Stamm, Kugel.
+
+Manual reliability review narrowed this to **2 selected words**:
+
+- **springen** ✓ — binary split (literal vs. figurative topic-switch sense). Figurative sense rises from ~9% (1900) to ~31–44% (1970s–1990s). Consistent trend, 21–86 contexts per decade throughout.
+- **Welle** ✓ — figurative 'trend/wave-of-events' sense rises from 19% (1900) to 76% (1940), remains dominant at 55–69% through 1990. Strongest single-decade shift in dataset. Plausible historical motivation (politically charged 1930s–40s).
+
+**4 words excluded:**
+- **Stamm** — trend plausible but counts collapse to 19–31/decade post-1960; ρ inflated by sparse tail.
+- **Löffel** — ρ=0.729 driven entirely by sparse tail (n=10 in 1980s); data artifact.
+- **Hof** — royal-court sense spikes to 83% (1970) then reverses to 47% (1990); non-monotonic U-shape.
+- **Kugel** — non-monotonic (bullet sense peaks, then sphere sense surges in 1950, then reverses); sparse post-1950.
+
+**Key methodological note:**
+Normalized JSD (avg_jsd / n_coarse_senses) is the primary ranking metric. Raw JSD is strongly correlated with number of senses (+0.687) and systematically favours high-polysemy verbs regardless of whether the change is interpretable.
+
+**Follow-up:**
+- Manual sentence-level validation of springen and Welle predictions against raw DWDS contexts — required before reporting results.
+
+---
+
 ## 2026-03-24: v3 Pipeline Complete — Pre-Analysis Snapshot
 
 **Status**: Complete (pipeline done, analysis pending)

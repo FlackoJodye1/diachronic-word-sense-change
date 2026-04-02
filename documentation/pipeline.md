@@ -161,8 +161,8 @@ Computes four metrics per word:
 | Emergence | proportion crosses 10% upward | Sense gains usage |
 | Decline | proportion crosses 10% downward | Sense loses usage |
 
-**Coarse results:** Mean JSD=0.165, Max JSD=0.532, 194 emergence / 197 decline events.
-Top candidates by JSD: **spielen, fassen, Kasse, passen**.
+**Coarse results (v3):** Mean JSD=0.112, 806 transitions, 126 emergence / 118 decline events.
+Top candidates by normalized JSD: **springen, Welle** (selected as case studies after manual reliability review — see `diachronic_pilot_results.ipynb` §7.1–7.2). v2 figures: Mean JSD=0.165, Max JSD=0.532, 194 emergence / 197 decline events.
 
 ### Step 3.5 — Visualize
 
@@ -252,9 +252,12 @@ scripts/
 ### Key usage patterns
 
 ```python
-# Load senses — always use load_senses(), NOT pd.read_csv (llm_examples is a list)
-from src.diachronic.io import load_senses
-senses = load_senses('data/processed/germanet/senses_pilot.jsonl')
+# Load senses — always use load_all_senses(), NOT pd.read_csv (llm_examples is a list)
+# load_all_senses() merges senses_pilot.jsonl (90 pilot words) and
+# sense_text_representations.jsonl (10 eval words) into one DataFrame.
+# Use load_senses(path) only if you explicitly need a single file.
+from src.diachronic.io import load_all_senses
+senses = load_all_senses()  # covers all 96 lemmas
 
 # Embed with best representation
 from src.wsd.embedder import Embedder
