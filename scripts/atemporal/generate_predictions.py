@@ -2,16 +2,22 @@
 """
 Generate per-instance predictions for error analysis.
 
-Runs the best configuration (E5-large + weighted def + examples) and saves
-detailed predictions including gold sense, predicted sense, rank, and top-k
-candidates for each instance.
+Supports three variants:
+  - weighted (default): E5-large + 0.5*definition + 0.5*mean(examples)
+  - text-only: E5-large + GermaNet hypernym text only (no LLM enrichment)
+  - random: analytical random-chance per instance (1/n_senses fine,
+    1/n_clusters coarse). No embedder needed.
+
+Optionally applies a coarse cluster mapping to also report coarse accuracy.
 
 Usage:
     python scripts/atemporal/generate_predictions.py
-    python scripts/atemporal/generate_predictions.py --output path/to/predictions.csv
+    python scripts/atemporal/generate_predictions.py --variant text-only --cluster-mapping data/processed/germanet/sense_clusters_reviewed.json
+    python scripts/atemporal/generate_predictions.py --variant random --cluster-mapping data/processed/germanet/sense_clusters_reviewed.json
 """
 
 import argparse
+import json
 import logging
 import sys
 from dataclasses import dataclass
@@ -105,6 +111,17 @@ def compute_weighted_embeddings(
     return sense_embeddings
 
 
+def compute_text_only_embeddings(
+    sense_df: pd.DataFrame,
+    embedder: Embedder,
+    use_e5_prefix: bool = True,
+) -> np.ndarray:
+    """Encode the baseline column (GermaNet hypernym text, no LLM enrichment)."""
+    raw_texts = sense_df["baseline"].fillna("").tolist()
+    texts = add_e5_prefix(raw_texts, "passage: ") if use_e5_prefix else raw_texts
+    return embedder.encode(texts, show_progress=False)
+
+
 @dataclass
 class InstancePrediction:
     """Prediction details for a single instance."""
@@ -118,14 +135,31 @@ class InstancePrediction:
     top5_scores: list[float]
 
 
+def build_flat_coarse_mapping(cluster_mapping_path: Path) -> dict[str, str]:
+    """Build a flat sense_id -> coarse_cluster_id lookup from the reviewed cluster JSON."""
+    with open(cluster_mapping_path) as f:
+        cm = json.load(f)
+    flat: dict[str, str] = {}
+    for lemma_data in cm.values():
+        flat.update(lemma_data["mapping"])
+    return flat
+
+
 def generate_predictions(
     sense_df: pd.DataFrame,
     gold_df: pd.DataFrame,
     embedder: Embedder,
+    variant: str = "weighted",
 ) -> list[InstancePrediction]:
-    """Generate per-instance predictions."""
-    logger.info("Computing weighted sense embeddings...")
-    sense_embeddings = compute_weighted_embeddings(sense_df, embedder, use_e5_prefix=True)
+    """Generate per-instance predictions for an embedding-based variant."""
+    if variant == "weighted":
+        logger.info("Computing weighted sense embeddings...")
+        sense_embeddings = compute_weighted_embeddings(sense_df, embedder, use_e5_prefix=True)
+    elif variant == "text-only":
+        logger.info("Computing text-only sense embeddings (GermaNet hypernym text)...")
+        sense_embeddings = compute_text_only_embeddings(sense_df, embedder, use_e5_prefix=True)
+    else:
+        raise ValueError(f"Unknown embedding variant: {variant!r}")
 
     # Build sense lookup
     sense_ids = sense_df["synset_id"].tolist()
@@ -183,23 +217,105 @@ def generate_predictions(
     return predictions
 
 
+def run_random_baseline(
+    sense_df: pd.DataFrame,
+    gold_df: pd.DataFrame,
+    output_path: Path,
+    cluster_mapping_path: Path | None,
+) -> None:
+    """Compute analytical random-chance accuracy per instance and write CSV."""
+    # Fine: n_senses per lemma
+    n_fine_per_lemma = sense_df.groupby("lemma")["synset_id"].nunique().to_dict()
+
+    flat_mapping: dict[str, str] | None = None
+    n_coarse_per_lemma: dict[str, int] = {}
+    if cluster_mapping_path is not None:
+        flat_mapping = build_flat_coarse_mapping(cluster_mapping_path)
+        for lemma, group in sense_df.groupby("lemma"):
+            clusters = {flat_mapping[sid] for sid in group["synset_id"] if sid in flat_mapping}
+            n_coarse_per_lemma[lemma] = len(clusters)
+
+    rows = []
+    for _, row in gold_df.iterrows():
+        lemma = row["lemma"]
+        n_fine = n_fine_per_lemma.get(lemma, 0)
+        p_fine = 1.0 / n_fine if n_fine else 0.0
+        entry = {
+            "lemma": lemma,
+            "sentence": row["sentence"],
+            "gold_sense": row["gold_sense_id"],
+            "n_senses_fine": n_fine,
+            "p_correct_fine": p_fine,
+        }
+        if flat_mapping is not None:
+            gold_coarse = flat_mapping.get(row["gold_sense_id"])
+            n_coarse = n_coarse_per_lemma.get(lemma, 0)
+            entry["gold_coarse"] = gold_coarse
+            entry["n_clusters_coarse"] = n_coarse
+            entry["p_correct_coarse"] = (1.0 / n_coarse) if (gold_coarse and n_coarse) else 0.0
+        rows.append(entry)
+
+    results_df = pd.DataFrame(rows)
+    results_df.to_csv(output_path, index=False)
+
+    fine_acc = results_df["p_correct_fine"].mean()
+    logger.info(f"Results saved to: {output_path}")
+    logger.info(f"Instances: {len(results_df)}")
+    logger.info(f"Expected fine accuracy (random): {fine_acc:.1%}")
+
+    if flat_mapping is not None:
+        unmapped = results_df["gold_coarse"].isna().sum()
+        if unmapped:
+            logger.warning(f"  {unmapped} gold senses have no coarse mapping — excluded from coarse eval")
+        coarse_df = results_df.dropna(subset=["gold_coarse"])
+        coarse_acc = coarse_df["p_correct_coarse"].mean()
+        logger.info(f"Expected coarse accuracy (random): {coarse_acc:.1%} (n={len(coarse_df)})")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate predictions for error analysis")
     parser.add_argument("--output", type=str, default=None, help="Output path for predictions CSV")
+    parser.add_argument(
+        "--variant",
+        choices=["weighted", "text-only", "random"],
+        default="weighted",
+        help="Sense representation variant (default: weighted). 'text-only' = E5 + GermaNet hypernym text. 'random' = analytical random chance.",
+    )
+    parser.add_argument(
+        "--cluster-mapping",
+        type=str,
+        default=None,
+        help="Path to sense_clusters_reviewed.json for coarse accuracy evaluation",
+    )
     args = parser.parse_args()
 
-    output_path = Path(args.output) if args.output else DEFAULT_OUTPUT_PATH
+    variant_output_names = {
+        "weighted": "predictions.csv",
+        "text-only": "predictions_text_only.csv",
+        "random": "predictions_random.csv",
+    }
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = ATEMPORAL_DIR / "results" / variant_output_names[args.variant]
 
     logger.info("Loading data...")
     sense_df = load_sense_representations(SENSE_REPRESENTATIONS_PATH)
     gold_df = pd.read_csv(GOLD_ANNOTATIONS_PATH)
     logger.info(f"  {len(sense_df)} senses, {len(gold_df)} test instances")
 
+    cluster_mapping_path = Path(args.cluster_mapping) if args.cluster_mapping else None
+
+    if args.variant == "random":
+        logger.info("Computing analytical random-chance baseline...")
+        run_random_baseline(sense_df, gold_df, output_path, cluster_mapping_path)
+        return
+
     logger.info(f"Loading model: {MODEL_NAME}")
     embedder = Embedder(model_name=MODEL_NAME, normalize=True)
 
-    logger.info("Generating predictions...")
-    predictions = generate_predictions(sense_df, gold_df, embedder)
+    logger.info(f"Generating predictions (variant: {args.variant})...")
+    predictions = generate_predictions(sense_df, gold_df, embedder, variant=args.variant)
 
     # Convert to DataFrame
     results = []
@@ -230,6 +346,24 @@ def main():
         pct = count / len(results_df) * 100
         label = "correct" if rank == 1 else f"rank {rank}"
         logger.info(f"  {label}: {count} ({pct:.1f}%)")
+
+    if cluster_mapping_path is not None:
+        logger.info("")
+        logger.info("Applying coarse cluster mapping...")
+        flat_mapping = build_flat_coarse_mapping(cluster_mapping_path)
+
+        results_df["gold_coarse"] = results_df["gold_sense"].map(flat_mapping)
+        results_df["pred_coarse"] = results_df["pred_sense"].map(flat_mapping)
+
+        unmapped = results_df["gold_coarse"].isna().sum()
+        if unmapped:
+            logger.warning(f"  {unmapped} gold senses have no coarse mapping — excluded from coarse eval")
+
+        coarse_df = results_df.dropna(subset=["gold_coarse", "pred_coarse"])
+        coarse_correct = (coarse_df["gold_coarse"] == coarse_df["pred_coarse"]).sum()
+        coarse_accuracy = coarse_correct / len(coarse_df)
+
+        logger.info(f"Coarse accuracy: {coarse_accuracy:.1%} ({coarse_correct}/{len(coarse_df)})")
 
 
 if __name__ == "__main__":

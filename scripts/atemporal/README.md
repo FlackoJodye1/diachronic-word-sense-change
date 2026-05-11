@@ -28,9 +28,16 @@ python scripts/atemporal/compare_embedding_methods.py
 ```
 
 ### generate_predictions.py
-Generate detailed predictions for error analysis (best model only).
+Generate detailed predictions for error analysis. Three variants:
+- `--variant weighted` (default): E5-large + 0.5·definition + 0.5·mean(examples) — best system
+- `--variant text-only`: E5-large + GermaNet hypernym text only (no LLM enrichment)
+- `--variant random`: analytical random chance (1/n_senses fine, 1/n_clusters coarse) — no embedder
+
+Add `--cluster-mapping` to also report coarse accuracy.
 ```bash
 python scripts/atemporal/generate_predictions.py
+python scripts/atemporal/generate_predictions.py --variant text-only --cluster-mapping data/processed/germanet/sense_clusters_reviewed.json
+python scripts/atemporal/generate_predictions.py --variant random    --cluster-mapping data/processed/germanet/sense_clusters_reviewed.json
 ```
 
 ### evaluate_embeddings.py
@@ -56,21 +63,20 @@ python scripts/atemporal/tune_representation_weights.py --fine-grid  # Fine-grai
 
 **Model**: `intfloat/multilingual-e5-large`
 **Representation**: Weighted (0.5×definition + 0.5×avg(5 examples))
-**Accuracy**: 54.8%
 
-### Weight Validation (2026-01-30)
+| Variant | Fine | Coarse |
+|---|---|---|
+| Random baseline | 24.5% | 50.5% |
+| Text-only ablation (E5 + GermaNet hypernyms) | 36.6% | 75.3% |
+| **Weighted (best, E5 + LLM def+examples)** | **43.0%** | **84.9%** |
 
-Tested α ∈ [0.0, 1.0] where `weighted_emb = α×definition + (1-α)×examples`:
+**Reading the deltas:**
+- Random → text-only: value of the encoder + GermaNet structure.
+- Text-only → weighted: value of LLM-generated sense enrichment on top.
 
-| α | Accuracy | Interpretation |
-|---|----------|----------------|
-| 0.0 | 51.6% | Pure examples |
-| 0.4 | 52.7% | Examples-leaning |
-| **0.5** | **54.8%** | **Equal weight** ✓ OPTIMAL |
-| 0.6 | 51.6% | Definition-leaning |
-| 1.0 | 41.9% | Pure definition |
+Random is analytical (1/n_senses fine, 1/n_clusters coarse — no embedder, no frequency data).
 
-**Result**: α=0.5 is empirically optimal. Performance degrades symmetrically when moving away from 0.5.
+**Note (2026-04-07):** The `sense_text_representations.jsonl` was re-generated when `core_gloss` was added. LLM outputs for `llm_definition` and `llm_examples` changed due to non-determinism, lowering the weighted fine accuracy from the originally reported 54.8% to 43.0%. The coarse accuracy improved from 81.7% → 84.9%. α=0.5 remains the chosen weight (originally validated; `weight_tuning.csv` contains the core_gloss tuning run, not the current llm_definition one).
 
 **Script**: `tune_representation_weights.py`
 **Results**: `data/evaluation/atemporal/results/weight_tuning.csv`
