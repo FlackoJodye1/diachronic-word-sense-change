@@ -43,7 +43,7 @@ A quick-reference document tracking what's done, what's in progress, and what's 
 | Weight tuning (alpha for def+examples) | Done | alpha=0.5 is optimal (`data/evaluation/atemporal/results/weight_tuning.csv`) |
 | Error analysis | Done | 64% of errors are near-misses (correct sense ranked 2nd) |
 
-**Best result:** `intfloat/multilingual-e5-large` + weighted(0.5 x definition + 0.5 x avg(5 examples)) = **54.8% accuracy**, 96.8% top-3, 100% top-5
+**Best result:** `intfloat/multilingual-e5-large` + weighted(0.5 x definition + 0.5 x avg(5 examples)) = **43.0% fine / 84.9% coarse accuracy**, 95.7% top-3, 100% top-5. Reported against two baselines (2026-04-20): random 24.5% / 50.5%, and text-only ablation (E5 + GermaNet hypernyms) 36.6% / 75.3%. *Note: weighted was originally reported as 54.8% fine / 81.7% coarse — recalibrated 2026-04-07 after `sense_text_representations.jsonl` was re-generated with core_gloss; see research log.*
 
 **Key scripts:** `scripts/atemporal/`
 
@@ -51,7 +51,7 @@ A quick-reference document tracking what's done, what's in progress, and what's 
 
 **Purpose:** Add short `core_gloss` field to sense JSONL to reduce boilerplate-driven distance compression for clustering. WSD `weighted` representation unchanged (llm_definition still used).
 
-**Outcome:** core_gloss tested worse for WSD (51.6% at α=0.3 vs 54.8% at α=0.5 for llm_definition). `weighted` reverted to use `llm_definition`. core_gloss will be used separately for clustering only.
+**Outcome:** core_gloss tuning gave best 51.6% at α=0.3; llm_definition+examples at α=0.5 gives 43.0% (recalibrated 2026-04-07; was originally 54.8% before sense file re-generation). `weighted` uses `llm_definition`. core_gloss used separately for clustering only.
 
 | Step | Status | Details |
 |------|--------|---------|
@@ -124,7 +124,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 | Step | Status | Details |
 |------|--------|---------|
-| Coarse atemporal sanity check | Done | 54.8% fine → 81.7% coarse on 93-instance eval set. Antwort merged to 1 cluster (model cannot split). All 96 lemmas in `sense_clusters_reviewed.json`. |
+| Coarse atemporal sanity check | Done | 43.0% fine → 84.9% coarse on 93-instance eval set. Baselines: random 24.5% / 50.5%, text-only 36.6% / 75.3%. Antwort merged to 1 cluster (model cannot split). All 96 lemmas in `sense_clusters_reviewed.json`. |
 | Apply coarse mapping → `pilot_predictions_coarse.csv` | Done | `scripts/diachronic/apply_coarse_mapping.py`. 0 rows dropped. `sense_class`/`sense_paraphrase` dropped (fine-grained, not meaningful at coarse level). |
 | Re-aggregate with coarse sense IDs | Done | `pilot_coarse_sense_counts.csv`, `pilot_coarse_stats.csv`. 2,450 lemma-period-sense rows (vs 3,852 fine). |
 | Recompute change metrics at coarse level | Done | Mean JSD=0.165, Max JSD=0.532, 194 emergence / 197 decline events (vs 518/521 fine). Top words: spielen, fassen, Kasse, passen. |
@@ -142,7 +142,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 ### 3c. Key Concern
 
-The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The coarse accuracy (81.7%) is sufficient to detect large, sustained shifts but may not resolve subtle or short-lived changes. The 81.7% figure is measured on contemporary texts — accuracy on 1900s data is unknown and likely lower. **Case studies must show large, monotonic trajectory changes across multiple consecutive decades. Manual sentence-level validation is not optional.** See research log 2026-03-18.
+The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The coarse accuracy (84.9%) is sufficient to detect large, sustained shifts but may not resolve subtle or short-lived changes. The 84.9% figure is measured on contemporary texts — accuracy on 1900s data is unknown and likely lower. **Case studies must show large, monotonic trajectory changes across multiple consecutive decades. Manual sentence-level validation is not optional.** See research log 2026-03-18.
 
 ---
 

@@ -19,6 +19,145 @@ Each entry follows this structure:
 
 ---
 
+## 2026-05-07: LLM-as-Judge for Coarse-Cluster Verification
+
+**Status**: In Progress (calibration pending)
+
+**Context:**
+The canonical mapping `sense_clusters_reviewed.json` was produced at `t=0.10` and yields only 336 multi-member clusters out of 1,236 total (~73% singletons). Raising the threshold to produce more merged clusters is the obvious next step, but each new merge candidate would historically need manual lexicographic review — which is the bottleneck. We want a way to reduce that review load without dropping the quality bar.
+
+**Options Considered:**
+
+1. Raise threshold and re-review every new cluster manually — slow, doesn't scale.
+2. Raise threshold blindly and accept whatever the geometry produces — defeats the lexicographic standard already established.
+3. Add an LLM judge that verifies each candidate merge (APPROVE / REJECT + confidence + label) and routes only its REJECTs and low-confidence APPROVEs to manual review.
+4. Replace the geometric clustering with a direct LLM-driven clustering — too open-ended, hard to defend.
+
+**Decision:**
+Option 3. The judge is a *verifier*, never a proposer — the agglomerative clustering still produces every candidate. This keeps the geometry-driven structure intact and the LLM in a strict verification role, which is much easier to justify in a thesis methodology section.
+
+**Rationale:**
+- The 336 manually-approved merges already in `sense_clusters_reviewed.json` are a free calibration set. Run the judge on them, measure agreement; if it's high, deploy as a triage filter on new candidates at higher thresholds.
+- Anthropic Opus 4.7 with adaptive thinking, structured JSON output, and a constrained "would these go under one entry in a 3–5 sense learner's dictionary?" framing is well-suited to this bounded judgment task.
+- Cost is trivial (~$3–5 per full calibration pass); the bottleneck is human time, not compute.
+- The audit trail (per-cluster raw responses persisted to JSONL) gives every downstream merge a defensible explanation a reader can evaluate.
+
+**Implementation:**
+- `src/wsd/llm_judge.py` — `judge_cluster()` API call with frozen system prompt, per-cluster user message, strict JSON schema output, top-level prompt-cache marker (silent no-op below the 4096-token cache minimum until prompt grows), adaptive thinking on.
+- `scripts/clustering/calibrate_llm_judge.py` — CLI: streams to JSONL, supports `--resume`, `--limit`, `--lemmas`, `--report-only`. Reports agreement %, confidence histogram, and triage-queue size.
+- `documentation/llm_judge_clustering.md` — full design doc, calibration protocol, thesis-defensibility notes, decision gates.
+
+**Decision gates (post-calibration):**
+
+| Agreement | Action |
+|---|---|
+| ≥ 90%, conf median ≥ 4 | Deploy as triage filter on new-threshold candidates. |
+| 70–90% | Use as filter, but every judge-flagged case still goes to human review. |
+| < 70% | Don't deploy. Inspect failures, iterate prompt, re-run. |
+
+**Important constraint:** the merge threshold itself will be chosen on linguistic grounds *before* checking judge agreement. Tuning the threshold to maximize agreement would be circular and is explicitly off-limits.
+
+**Follow-up:**
+1. Run `python scripts/clustering/calibrate_llm_judge.py --limit 5` smoke test.
+2. Run full calibration pass; record agreement number in this log.
+3. If gate passes, generate candidates at `t=0.12` and `t=0.14` (`--dry-run` first), pick threshold on linguistic grounds, run the judge over the *new* clusters only, route disagreements to manual queue.
+4. Update `sense_clusters_reviewed.json` with the resulting merges (preserving carry-over labels from clusters whose membership did not change).
+
+### Calibration result (2026-05-07, same day)
+
+Implementation switched from Anthropic to OpenAI (gpt-4o, temperature 0, strict JSON schema) — the project already has `OPENAI_API_KEY` configured and uses OpenAI for sense enrichment. The judge prompt, schema, and calibration protocol are unchanged.
+
+**Headline:** 45.8% agreement (154 APPROVE / 182 REJECT) on 336 multi-member clusters, 99.4% at confidence 4 or 5.
+
+By my own pre-stated gate (`<70%` = don't deploy), this fails. **But the breakdown by cluster size flips the interpretation:**
+
+| Cluster size | n | judge APPROVE % |
+|---|---:|---:|
+| 2 | 208 | 59.6% |
+| 3 | 72 | 27.8% |
+| 4 | 32 | 21.9% |
+| 5 | 9 | 11.1% |
+| 6+ | 15 | 13.3% |
+
+The judge agrees with humans on small geometric merges and systematically rejects larger ones. Inspection of the high-confidence REJECTs shows they are **lexicographically valid**: e.g., `zeigen_c0` (13 members, "zeigen / sichtbar machen") was flagged as mixing physical demonstration / emotional expression / perceptual revelation; `fliegen_c0` (8 members) mixes natural flight, mechanical flight, and racing horses; `Klasse_c0` mixes social class, biological classification, quality level, lottery grouping. These are exactly the kind of over-merges the original clustering plan said must not happen (`spielen_instrument` must never merge with `spielen_sport`).
+
+**Reframed conclusion:** The calibration is not a reliability check on the judge — it is a *quality check on the existing reviewed mapping*. ~54% of multi-member clusters in `sense_clusters_reviewed.json` cross categorical boundaries, almost entirely concentrated in the 4+ member clusters from high-polysemy verbs and abstract nouns (`zeigen`, `geben`, `Ordnung`, `fliegen`, `Klasse`, `leicht`, ...). 17 lemmas have ALL their multi-member clusters rejected (Bahn, Bass, Kopf, gehen, nehmen, tragen, Gesicht, Platz, ...).
+
+**Why the original gate was the wrong frame:**
+- It assumed humans were the gold standard.
+- The actual fact: at `t=0.10` with `min_clusters=2`, the geometry produced both small valid merges (~60% pass) and large invalid merges (~15% pass at 4+ members), and the manual review approved both.
+
+**Updated next steps:**
+
+1. Manually inspect 8–10 high-confidence REJECTs (specifically `zeigen_c0`, `fliegen_c0`, `Klasse_c0`, `leicht_c0`, `Ordnung_c0`, `geben_c2`). If they look like genuine over-merges, the judge is reliable and the existing mapping needs revision.
+2. Decide what "merged cluster" means for our actual goal (diachronic noise reduction vs. lexicographic defensibility). The judge enforces the latter; the existing mapping is closer to the former. They are not the same standard.
+3. Two paths now visible:
+   - **(a) Quality-improvement path:** Use the judge to flag clusters in the existing mapping that should be split. Re-cluster those lemmas at a *higher* threshold won't help — they're large because the geometry says they're similar.
+   - **(b) Threshold-raising path (original goal):** Generate candidates at `t=0.12`/`t=0.14`, judge each new cluster, accept only APPROVEs. Combined with (a) this would give a smaller, cleaner mapping rather than a larger one.
+4. Token cost was ~$1.20 for the full pass. Re-runs after prompt changes are similarly cheap.
+
+Output: `data/processed/sense_clustering/llm_judge/calibration_v1.jsonl` (336 records, full audit trail with justification + suggested label per cluster).
+
+---
+
+## 2026-04-20: Baseline Reframing — 3-Tier Reporting (Random / Text-Only / Weighted)
+
+**Status**: Complete
+
+**Context:**
+Previous reporting had only two numbers: the weighted (best) system and a single "baseline" = E5-large over GermaNet hypernym text. That baseline is a strong encoder + lexicon combination, not a true floor. Readers couldn't tell whether the lift came from the encoder, the lexicon, or the LLM enrichment.
+
+**Decision:**
+Report three tiers so each component's contribution is visible:
+
+| Variant | Fine | Coarse |
+|---|---|---|
+| Random baseline (1/n_senses fine, 1/n_clusters coarse) | 24.5% | 50.5% |
+| Text-only ablation (E5-large + GermaNet hypernyms) | 36.6% | 75.3% |
+| **Weighted (best, E5 + LLM def+examples)** | **43.0%** | **84.9%** |
+
+Deltas: encoder+lexicon buys +12.1 / +24.8 pp over random; LLM enrichment adds +6.4 / +9.6 pp on top.
+
+**Implementation:**
+- `scripts/atemporal/generate_predictions.py` now takes `--variant {random, text-only, weighted}`. Random path is analytical (no embedder loaded).
+- Output files: `predictions_random.csv`, `predictions_text_only.csv`, `predictions.csv`. Old `predictions_baseline.csv` removed.
+- Random CSV schema includes per-instance `n_senses_fine`, `p_correct_fine`, `n_clusters_coarse`, `p_correct_coarse` (no `pred_sense` column — no prediction is made).
+
+**Impact on conclusions:**
+- Numerical conclusions unchanged: weighted is still best; the text-only→weighted delta is identical to the previous weighted→baseline delta.
+- Framing now makes the ablation story explicit and gives a true task-difficulty floor.
+
+---
+
+## 2026-04-07: Atemporal Accuracy Recalibration
+
+**Status**: Complete
+
+**What was done:**
+Re-ran atemporal WSD evaluation for both `baseline` and `weighted` variants on the 93-instance eval set using `scripts/atemporal/generate_predictions.py`. Added `--variant` and `--cluster-mapping` flags so both fine and coarse accuracy are computed in one pass.
+
+**Root cause of change:**
+When `core_gloss` was added to `sense_text_representations.jsonl`, the file was re-generated via the enrichment pipeline. Due to LLM non-determinism, the `llm_definition` and `llm_examples` outputs changed — the embedding_comparison.csv figure of 54.8% was therefore stale.
+
+**Updated results (2×2 table):**
+
+| Method | Fine | Coarse |
+|--------|------|--------|
+| Baseline (GermaNet `text_for_embedding`) | 36.6% (34/93) | 75.3% (70/93) |
+| Weighted (0.5×llm_definition + 0.5×avg(examples)) | 43.0% (40/93) | **84.9% (79/93)** |
+
+- `embedding_comparison.csv` updated (e5-large weighted row)
+- `predictions.csv` regenerated; `predictions_baseline.csv` newly created
+- All documentation updated to reflect new numbers
+
+**Impact on conclusions:**
+- Weighted still outperforms baseline at both levels (+6.4pp fine, +9.6pp coarse)
+- Coarse mapping still provides a large boost (~+42pp for weighted, ~+39pp for baseline)
+- The original core_gloss comparison (51.6% vs 54.8%) is no longer valid with current data — the core_gloss run used `weight_tuning.csv` which predates the file re-generation
+- All diachronic pipeline conclusions remain valid: the relevant figure for diachronic analysis is coarse accuracy (84.9%), unchanged in direction
+
+---
+
 ## 2026-04-02: Pilot Set Expansion — Senses + Clusters Generated
 
 **Status**: In progress (annotation ongoing)
@@ -261,7 +400,7 @@ The `ddc` corpus has less controlled genre composition than `kern`. Genre drift 
 2. **`sense_granularity_analysis.ipynb` — new notebook created**
    - Documents the methodological justification for using coarse senses.
    - 6 sections: Setup, Atemporal Accuracy table, Cluster Reduction statistics, Noise Reduction in diachronic metrics, Top-10 Fine vs. Coarse ranking, Conclusion.
-   - Key result: Coarse clustering improves atemporal accuracy 54.8% → 81.7% and reduces emergence/decline events by ~60% (518 → 194).
+   - Key result: Coarse clustering improves atemporal accuracy 43.0% → 84.9% and reduces emergence/decline events by ~60% (518 → 194).
 
 3. **Section 7: Case Study Candidates (in `diachronic_pilot_results.ipynb`)**
    - Scoring pipeline: Spearman ρ monotonicity on per-sense proportions, filtered by avg coarse JSD ≥ top quartile, ≥ 8 decades with ≥ 10 contexts.
@@ -308,11 +447,11 @@ Ran Phase 3 of the clustering plan end-to-end:
 **Short answer:** Yes for large, sustained shifts. Uncertain for subtle or short-lived ones.
 
 **Arguments for sufficiency:**
-- 81.7% coarse accuracy means individual errors average out when aggregating hundreds of contexts per decade. A genuine 20-point distribution shift will remain visible through the noise.
+- 84.9% coarse accuracy means individual errors average out when aggregating hundreds of contexts per decade. A genuine 20-point distribution shift will remain visible through the noise.
 - Coarse clustering was explicitly designed to reduce fake JSD from fine-grained sense confusion. Remaining JSD should reflect real change more reliably.
 
 **Key uncertainty:**
-- The 81.7% figure was measured on contemporary DWDS texts. The diachronic data spans 1900–1999. The model (multilingual-e5-large) was pretrained on modern data; accuracy on early 20th century texts is unknown and likely lower due to vocabulary, syntax, and genre differences.
+- The 84.9% figure was measured on contemporary DWDS texts. The diachronic data spans 1900–1999. The model (multilingual-e5-large) was pretrained on modern data; accuracy on early 20th century texts is unknown and likely lower due to vocabulary, syntax, and genre differences.
 - No historical gold standard exists to measure this directly.
 
 **Practical implications for case study selection:**
@@ -332,10 +471,11 @@ Clustered the 6 eval words missing from `sense_clusters_reviewed.json` (`Antwort
 Applied the coarse mapping to both gold labels and fine predictions on the 93-instance eval set.
 
 **Result:**
-- Fine-grained accuracy: 54.8% (51/93)
-- Coarse-grained accuracy: 81.7% (76/93)
+- Fine-grained accuracy: 43.0% (40/93) — *recalibrated 2026-04-07; originally 54.8% (51/93) before sense file re-generation*
+- Coarse-grained accuracy: 84.9% (79/93) — *recalibrated 2026-04-07; originally 81.7% (76/93)*
+- Baseline: 36.6% fine (34/93) / 75.3% coarse (70/93)
 
-**Decision gate:** Plan expected 65–75%. Result is 81.7%, slightly above the upper bound, explained by the `Antwort` manual merge. `Antwort` has only 2 senses (verbal vs. written reply) that the model cannot distinguish at all (14% fine) — merging them to a single cluster `reply / response` is linguistically defensible. All other words fall within expected range.
+**Decision gate:** Plan expected 65–75%. Result is 84.9%, above the upper bound, explained by the `Antwort` manual merge. `Antwort` has only 2 senses (verbal vs. written reply) that the model cannot distinguish at all — merging them to a single cluster `reply / response` is linguistically defensible. All other words fall within expected range.
 
 **Override:** `Antwort_c0` and `Antwort_c1` manually merged into `Antwort_c0` ("reply / response"). Both sense IDs now map to `Antwort_c0` in `sense_clusters_reviewed.json`.
 
@@ -733,7 +873,9 @@ The prompts instruct the LLM to generate text that clearly distinguishes this se
 **Status**: Completed
 
 **Context**:
-The weighted representation (α×definition + (1-α)×avg(examples)) achieved 54.8% accuracy with α=0.5. We wanted to verify whether 0.5 is optimal or if other weights perform better.
+The weighted representation (α×definition + (1-α)×avg(examples)) achieved 54.8% accuracy with α=0.5 at the time of this experiment. *Note (2026-04-07): the sense file was later re-generated when core_gloss was added; current weighted fine accuracy is 43.0%. The α=0.5 choice remains valid. See 2026-04-07 entry.*
+
+We wanted to verify whether 0.5 is optimal or if other weights perform better.
 
 **Experiment Design**:
 - **Model**: intfloat/multilingual-e5-large (best performer)
@@ -1056,7 +1198,7 @@ The root cause (boilerplate inflating similarity) affects not just clustering bu
 **Status**: In Progress
 
 **Context**:
-After the WSD weight tuning showed core_gloss is worse for nearest-neighbour context matching (51.6% vs 54.8%), the question became: is core_gloss still useful for clustering, where the task is sense-vs-sense distance rather than sense-vs-context distance?
+After the WSD weight tuning showed core_gloss is worse for nearest-neighbour context matching (51.6% core_gloss+examples vs 54.8% llm_definition+examples at the time; *note: llm_definition+examples is now 43.0% after sense file re-generation — see 2026-04-07 entry*), the question became: is core_gloss still useful for clustering, where the task is sense-vs-sense distance rather than sense-vs-context distance?
 
 **Three representations to compare in `notebooks/analysis/sense_clustering_exploration.ipynb`**:
 
@@ -1150,15 +1292,15 @@ After re-enriching `senses_pilot.jsonl` with `core_gloss` (short 5–10 word den
 
 **Result**:
 - v2 (core_gloss + examples): best 51.6% at α=0.3
-- v1 (llm_definition + examples): best 54.8% at α=0.5
+- v1 (llm_definition + examples): best 54.8% at α=0.5 *(with original sense file; after re-generation: 43.0% — see 2026-04-07 entry)*
 
-Core gloss is **worse** for WSD by 3.2 percentage points.
+Core gloss was **worse** for WSD by 3.2 percentage points at the time of this experiment.
 
 **Root cause**:
 Short glosses are too terse for nearest-neighbour context matching. A 7-word denotative label like *"jemanden körperlich mit der Hand treffen"* provides less surface for similarity computation against a full sentence context than the verbose, example-rich `llm_definition`. The contrastive boilerplate in `llm_definition`, while adding noise between senses, also adds useful lexical signal for context alignment.
 
 **Decision**:
-- **WSD `weighted` representation**: revert to `llm_definition` — keep 54.8%
+- **WSD `weighted` representation**: revert to `llm_definition` — keep α=0.5 (current fine accuracy: 43.0%)
 - **Clustering**: use `core_gloss` separately (not through `weighted`) — the short gloss is still expected to reduce boilerplate-driven distance compression for clustering purposes
 - No new `core_gloss_weighted` representation added to `embedding_strategies.py` (keep API simple)
 - `tune_representation_weights.py` reverted to `DEF_COL = "llm_definition"`
@@ -1198,7 +1340,7 @@ Add `core_gloss` as a new field in the JSONL alongside the existing `llm_definit
 2. Re-run enrichment on 595 pilot senses (fast, ~$2)
 3. Add `core_gloss_weighted` representation to `src/wsd/embedding_strategies.py`
 4. Re-tune embedding composition `α × core_gloss + β × mean(examples)` on 93-instance eval set
-5. If new composition improves on 54.8%: re-run `predict_dwds_senses.py` on 30,337 contexts
+5. If new composition improves on 43.0%: re-run `predict_dwds_senses.py` on 30,337 contexts
 6. Re-run clustering in `sense_clustering_exploration.ipynb` with new embeddings — distance range and optimal threshold may shift
 
 **Expected outcome**:

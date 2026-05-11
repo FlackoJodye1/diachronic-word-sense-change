@@ -6,13 +6,21 @@ Loads sense_clusters_0.10.json, lets you:
   - Assign a human-readable label to each cluster
   - Move individual senses to a different cluster or a new cluster
 
-Saves the result to sense_clusters_reviewed.json.
+Saves the result to sense_clusters_reviewed.json (single-user mode), or to
+sense_clusters_reviewed_<annotator>.json when run with --annotator.
 
 Usage:
+    # single-user (legacy)
     python scripts/clustering/review_app.py
     → open http://127.0.0.1:8001
+
+    # multi-annotator (split work across people, each runs locally)
+    python scripts/clustering/review_app.py \\
+        --annotator paul \\
+        --lemmas-file data/processed/sense_clustering/assignments/paul.txt
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -23,12 +31,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.diachronic.io import load_all_senses
 
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+_ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+_ap.add_argument("--annotator", default=None,
+                 help="Annotator name. If set, writes to sense_clusters_reviewed_<name>.json.")
+_ap.add_argument("--lemmas-file", default=None,
+                 help="Path to a text file with one lemma per line. Only these lemmas are shown / editable.")
+_ap.add_argument("--port", type=int, default=8001, help="Port (default 8001).")
+_args = _ap.parse_args()
+
 app = Flask(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 SOURCE_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_0.10.json"
-REVIEWED_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_reviewed.json"
+if _args.annotator:
+    REVIEWED_FILE = BASE_DIR / "data" / "processed" / "germanet" / f"sense_clusters_reviewed_{_args.annotator}.json"
+    # Per-annotator file is seeded from the canonical reviewed file if it doesn't exist —
+    # this carries over the 96 lemmas already labelled by Paul, so colleagues can see them
+    # as context but only edit their own whitelist.
+    _CANONICAL_REVIEWED = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_reviewed.json"
+    _SEED_FILE = _CANONICAL_REVIEWED if _CANONICAL_REVIEWED.exists() else SOURCE_FILE
+else:
+    REVIEWED_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_reviewed.json"
+    _SEED_FILE = SOURCE_FILE
 SUMMARY_FILE = BASE_DIR / "data" / "processed" / "sense_clustering" / "t010" / "cluster_summary.csv"
+
+# Load the whitelist of editable lemmas (None = no restriction).
+allowed_lemmas: set[str] | None = None
+if _args.lemmas_file:
+    with open(_args.lemmas_file, encoding="utf-8") as _lf:
+        allowed_lemmas = {line.strip() for line in _lf if line.strip()}
+    print(f"[review_app] Restricting to {len(allowed_lemmas)} lemmas from {_args.lemmas_file}")
+print(f"[review_app] Annotator: {_args.annotator or '(single-user)'}")
+print(f"[review_app] Writing to: {REVIEWED_FILE.relative_to(BASE_DIR)}")
 
 # ---------------------------------------------------------------------------
 # Load data at startup
@@ -38,8 +76,10 @@ with open(SOURCE_FILE, "r", encoding="utf-8") as f:
     source_data = json.load(f)
 
 if not REVIEWED_FILE.exists():
+    with open(_SEED_FILE, "r", encoding="utf-8") as f:
+        _seed = json.load(f)
     with open(REVIEWED_FILE, "w", encoding="utf-8") as f:
-        json.dump(source_data, f, ensure_ascii=False, indent=2)
+        json.dump(_seed, f, ensure_ascii=False, indent=2)
 
 with open(REVIEWED_FILE, "r", encoding="utf-8") as f:
     reviewed_data = json.load(f)
@@ -158,7 +198,10 @@ CSS = """
 
 @app.route("/")
 def dashboard():
-    lemmas = sorted(reviewed_data.keys())
+    if allowed_lemmas is not None:
+        lemmas = sorted(l for l in reviewed_data.keys() if l in allowed_lemmas)
+    else:
+        lemmas = sorted(reviewed_data.keys())
     total_labeled = 0
     total_clusters = 0
     words_done = 0
@@ -221,12 +264,17 @@ def dashboard():
 def review(lemma, saved=False):
     if lemma not in reviewed_data:
         return "Lemma not found", 404
+    if allowed_lemmas is not None and lemma not in allowed_lemmas:
+        return f"Lemma '{lemma}' is not in your assignment list.", 403
 
     clusters = reviewed_data[lemma]["clusters"]
     cluster_ids = sorted(clusters.keys())
     labeled, n = count_labeled(lemma)
 
-    lemmas_sorted = sorted(reviewed_data.keys())
+    if allowed_lemmas is not None:
+        lemmas_sorted = sorted(l for l in reviewed_data.keys() if l in allowed_lemmas)
+    else:
+        lemmas_sorted = sorted(reviewed_data.keys())
     idx = lemmas_sorted.index(lemma)
     prev_lemma = lemmas_sorted[idx - 1] if idx > 0 else None
     next_lemma = lemmas_sorted[idx + 1] if idx < len(lemmas_sorted) - 1 else None
@@ -310,6 +358,8 @@ def review(lemma, saved=False):
 def save_review(lemma):
     if lemma not in reviewed_data:
         return "Lemma not found", 404
+    if allowed_lemmas is not None and lemma not in allowed_lemmas:
+        return f"Lemma '{lemma}' is not in your assignment list.", 403
 
     clusters = reviewed_data[lemma]["clusters"]
     cluster_ids = sorted(clusters.keys())
@@ -365,4 +415,4 @@ def save_review(lemma):
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8001, debug=True)
+    app.run(host="127.0.0.1", port=_args.port, debug=True)

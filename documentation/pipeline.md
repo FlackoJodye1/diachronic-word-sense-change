@@ -86,7 +86,8 @@ Optimize embedding method on the small gold eval set (93 instances, 10 words) be
 **Best configuration (final):**
 - Model: `intfloat/multilingual-e5-large`
 - Representation: `weighted` — 0.5 × `llm_definition` + 0.5 × avg(`llm_examples`)
-- Fine accuracy: **54.8%** | Coarse accuracy: **81.7%**
+- Fine accuracy: **43.0%** | Coarse accuracy: **84.9%**
+- Baselines (fine/coarse): random 24.5% / 50.5%; text-only ablation (E5 + GermaNet hypernyms) 36.6% / 75.3%
 
 ```bash
 # Compare embedding methods
@@ -128,7 +129,7 @@ PYTHONPATH=src python scripts/diachronic/apply_coarse_mapping.py \
 Maps fine `predicted_sense_id` → coarse cluster ID using `sense_clusters_reviewed.json`.
 0 rows dropped. Output: `pilot_predictions_coarse.csv` (same row count).
 
-**Why coarse?** Fine-grained WSD accuracy (54.8%) introduces noise that inflates JSD. Coarse clusters absorb intra-cluster errors → 81.7% effective accuracy, max JSD reduced from 0.835 → 0.532.
+**Why coarse?** Fine-grained WSD accuracy (43.0%) introduces noise that inflates JSD. Coarse clusters absorb intra-cluster errors → 84.9% effective accuracy, max JSD reduced from 0.835 → 0.532.
 
 ### Step 3.3 — Aggregate by decade
 
@@ -274,7 +275,7 @@ embeddings = embed_with_representation(senses, embedder, "weighted")
 
 - 26 pilot words have no GermaNet senses (fahren, sehen, halten, stehen, etc.) — deferred to Phase 4
 - DWDS kern corpus has genre drift (Belletristik ↓, Wissenschaft ↑) — structural, documented in research log
-- Coarse accuracy (81.7%) measured on contemporary texts; accuracy on 1900s data is unknown and likely lower
+- Coarse accuracy (84.9%) measured on contemporary texts; accuracy on 1900s data is unknown and likely lower
 - Words with <100 total contexts (e.g. `groß` ~47) are unreliable — exclude from case studies
 - 11 words were constrained to min=2 clusters (would have been 1 organically) — flag in analysis
 

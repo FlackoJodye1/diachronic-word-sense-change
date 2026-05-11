@@ -465,7 +465,7 @@ class RelationTextBuilder:
 | Senses with original paraphrase | ~5% |
 | Senses enriched via relations | ~95% |
 
-**Note:** This template-based enrichment is the first stage. The second stage uses an LLM to generate natural language definitions and example sentences, which further improves WSD accuracy from 36.6% → 54.8%. See **Section 6.5** for details.
+**Note:** This template-based enrichment is the first stage (the "text-only ablation" in Section 8). The second stage uses an LLM to generate natural language definitions and example sentences, which further improves WSD fine accuracy from 36.6% → 43.0% (coarse 75.3% → 84.9%). See **Section 6.5** for details.
 
 ### 5.2 Context Sampling
 
@@ -621,7 +621,7 @@ GermaNet Sense → Enriched Text → Embedding Model → Sense Vector
 | Normalization | L2 normalized |
 | Special handling | Requires `query:` / `passage:` prefixes |
 
-**Accuracy**: 54.8% on 93-instance gold eval set
+**Accuracy**: 43.0% fine / 84.9% coarse on 93-instance gold eval set
 
 **Implementation**: `src/wsd/embedder.py`, `src/wsd/embedding_strategies.py`
 
@@ -928,7 +928,7 @@ class WSDEvaluator:
 
 | Rank | Model | Text Variant | Accuracy | Top-3 | Top-5 | MRR |
 |------|-------|--------------|----------|-------|-------|-----|
-| 1 | multilingual-e5-large | weighted (def + avg examples) | **54.8%** | 96.8% | 100% | 0.725 |
+| 1 | multilingual-e5-large | weighted (def + avg examples) | **43.0%** | 95.7% | 100% | 0.664 |
 | 2 | bge-m3 | weighted (def + avg examples) | 51.6% | 96.8% | 100% | 0.717 |
 | 3 | multilingual-e5-large | llm_example_4 | 47.3% | 90.3% | 100% | 0.679 |
 | 4 | mpnet-base-v2 | weighted (def + avg examples) | 47.3% | 89.2% | 98.9% | 0.677 |
@@ -938,7 +938,7 @@ class WSDEvaluator:
 
 | Model | Best Accuracy | Best Variant |
 |-------|---------------|--------------|
-| `intfloat/multilingual-e5-large` | 54.8% | weighted def+examples |
+| `intfloat/multilingual-e5-large` | 43.0% | weighted def+examples |
 | `BAAI/bge-m3` | 51.6% | weighted def+examples |
 | `paraphrase-multilingual-mpnet-base-v2` | 47.3% | weighted def+examples |
 | `LaBSE` | 46.2% | weighted def+examples |
@@ -948,21 +948,24 @@ class WSDEvaluator:
 
 | Text Variant | Accuracy | Notes |
 |--------------|----------|-------|
-| weighted (def + avg examples) | 54.8% | Best overall |
+| weighted (def + avg examples) | 43.0% | Best overall |
 | llm_example_4 | 47.3% | Single example varies |
 | llm_example_3 | 46.2% | |
 | llm_definition | 41.9% | Definition alone |
-| baseline | 36.6% | GermaNet enriched text |
+| text-only (GermaNet hypernyms, no LLM) | 36.6% | Ablation: E5 + lexicon text |
+| random baseline | 24.5% | Analytical 1/n_senses (floor) |
+
+Coarse accuracies (93-instance set): random 50.5%, text-only 75.3%, weighted 84.9%.
 
 #### Key Findings
 
 1. **Weighted combination wins**: Combining definition embedding (0.5) with averaged example embeddings (0.5) consistently outperforms single-text approaches across all models.
 
-2. **E5-large is best**: The `multilingual-e5-large` model achieves the highest accuracy (54.8%), with proper query/passage prefix handling.
+2. **E5-large is best**: The `multilingual-e5-large` model achieves the highest accuracy (43.0%), with proper query/passage prefix handling.
 
-3. **LLM examples help**: LLM-generated example sentences improve over baseline GermaNet text (+18.2 percentage points for E5-large).
+3. **LLM examples help**: LLM-generated example sentences improve over the text-only ablation (+6.4 pp fine, +9.6 pp coarse for E5-large). Random → text-only captures the encoder+lexicon lift (+12.1 pp fine, +24.8 pp coarse).
 
-4. **High Top-k scores**: Top-3 accuracy of 96.8% and Top-5 of 100% indicate the correct sense is almost always in the top candidates—the challenge is ranking it first.
+4. **High Top-k scores**: Top-3 accuracy of 95.7% and Top-5 of 100% indicate the correct sense is almost always in the top candidates—the challenge is ranking it first.
 
 5. **Individual examples vary**: Single example sentences (llm_example_0 through llm_example_4) show high variance (34-47% for E5-large), supporting the value of averaging multiple examples.
 
@@ -982,7 +985,7 @@ class WSDEvaluator:
 - 0.3% truncation rate
 
 **WSD Method:** Unsupervised prediction using best atemporal model
-- Model: `intfloat/multilingual-e5-large` (54.8% atemporal accuracy)
+- Model: `intfloat/multilingual-e5-large` (43.0% fine / 84.9% coarse atemporal accuracy)
 - Text representation: weighted (0.5 × definition + 0.5 × avg(5 examples))
 - No manual annotation required for pilot phase
 
@@ -1210,14 +1213,14 @@ python scripts/atemporal/compare_embedding_methods.py --clear-cache  # Clear dis
 
 | Rank | Model | Text Variant | Accuracy | MRR |
 |------|-------|--------------|----------|-----|
-| 1 | multilingual-e5-large | Weighted (0.5×def + 0.5×avg examples) | **54.8%** | 0.725 |
+| 1 | multilingual-e5-large | Weighted (0.5×def + 0.5×avg examples) | **43.0%** | 0.664 |
 | 2 | bge-m3 | Weighted (0.5×def + 0.5×avg examples) | 51.6% | 0.717 |
 | 3 | mpnet-base-v2 | Weighted (0.5×def + 0.5×avg examples) | 47.3% | 0.677 |
 | 4 | LaBSE | Weighted (0.5×def + 0.5×avg examples) | 46.2% | 0.680 |
 
 **Key findings:**
 - Weighted combination (α=0.5, validated via grid search) consistently best across all models
-- LLM-generated examples outperform baseline GermaNet text by +18.2 pp
+- LLM-generated examples (weighted) outperform the text-only ablation (E5 + GermaNet hypernyms) by +6.4 pp fine / +9.6 pp coarse; both sit well above the random-chance floor (24.5% / 50.5%)
 - E5 models require proper query/passage prefixes for best performance
 - Top-3 accuracy: 96.8%, Top-5: 100% — correct sense almost always in top candidates
 

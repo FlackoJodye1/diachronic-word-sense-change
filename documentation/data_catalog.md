@@ -147,8 +147,10 @@ Used for method development only. Ground truth files are stable — re-running s
 | File | Produced by | Contents |
 |---|---|---|
 | `embedding_comparison.csv` | `scripts/atemporal/compare_embedding_methods.py` | Accuracy per representation method and embedding model |
-| `weight_tuning.csv` | `scripts/atemporal/tune_representation_weights.py` | Grid search over α. Best: α=0.5 → 54.8% fine, 81.7% coarse |
-| `predictions.csv` | `scripts/atemporal/generate_predictions.py` | Raw predictions for all eval contexts under best method |
+| `weight_tuning.csv` | `scripts/atemporal/tune_representation_weights.py` | Grid search over α (core_gloss run). Best: α=0.3 → 51.6% (core_gloss+examples). Original llm_definition+examples: α=0.5 → 43.0% fine, 84.9% coarse |
+| `predictions_random.csv` | `scripts/atemporal/generate_predictions.py --variant random` | Per-instance analytical random-chance baseline (no embedder). Expected fine: 24.5%, coarse: 50.5% |
+| `predictions_text_only.csv` | `scripts/atemporal/generate_predictions.py --variant text-only` | Per-instance predictions for text-only ablation (E5 + GermaNet hypernym text, no LLM enrichment). Fine: 36.6%, coarse: 75.3% |
+| `predictions.csv` | `scripts/atemporal/generate_predictions.py` | Raw predictions under best method (weighted). Fine: 43.0%, coarse: 84.9% |
 
 ---
 

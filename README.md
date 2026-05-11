@@ -15,7 +15,7 @@ The goal is to track how the meaning distribution of polysemous German words shi
 | Stage | Status | Key Result |
 |-------|--------|------------|
 | Data preparation | Complete | `senses_pilot.jsonl` — 90 words, 595 senses, `core_gloss` + `llm_definition` + `llm_examples` |
-| Atemporal WSD | Complete | 54.8% fine / **81.7% coarse** accuracy (E5-large, weighted representation) |
+| Atemporal WSD | Complete | 43.0% fine / **84.9% coarse** accuracy (E5-large, weighted representation) |
 | Diachronic pipeline (v3) | In progress | 90,130 contexts (+197% vs v2). Predictions running overnight (use `--resume`). |
 | Coarse clustering | Complete | 305 clusters (90 pilot lemmas), t=0.10, manual review done |
 | Coarse diachronic rerun (v2) | Complete | Max JSD 0.835→0.532, events 518→194 (~60% reduction) |
@@ -24,7 +24,7 @@ The goal is to track how the meaning distribution of polysemous German words shi
 ## Key Numbers
 
 - **Pilot corpus (v3)**: 90,130 sentences, 90 words, 1900–1999 (DWDS kern, `--limit 5000`)
-- **WSD accuracy**: 54.8% fine-grained → 81.7% coarse-grained (93-instance eval set)
+- **WSD accuracy** (93-instance eval set, fine/coarse): random 24.5% / 50.5% → text-only (E5 + GermaNet hypernyms) 36.6% / 75.3% → **weighted (best) 43.0% / 84.9%**
 - **Sense clustering**: 595 fine senses → 305 coarse clusters (39.5% reduction, t=0.10)
 - **Top change signal (v2)**: spielen, fassen, Kasse, passen (by JSD) — to be re-ranked on v3
 
@@ -98,5 +98,5 @@ DWDS_SESSION_COOKIE=
 
 - 26 pilot words have no GermaNet senses (fahren, sehen, halten, etc.) — deferred
 - DWDS kern corpus has genre drift (Belletristik ↓, Wissenschaft ↑) — structural, documented
-- Coarse accuracy (81.7%) measured on contemporary texts; accuracy on 1900s data is unknown
+- Coarse accuracy (84.9%) measured on contemporary texts; accuracy on 1900s data is unknown
 - Words with <100 total contexts are unreliable regardless of clustering
