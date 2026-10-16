@@ -91,6 +91,7 @@ data/dwds_contexts/
 
 # Ignore large generated files
 data/**/*.parquet
+data/**/*.npy
 data/**/*.npz
 data/**/*.pkl
 data/**/*.bak
@@ -124,6 +125,12 @@ data/**/*.jsonl
 results/logs/
 results/figures/
 results/reports/
+
+# Robustness analyses: track the scripts + RESULTS.md, not the derived tables
+# (regenerated in ~90 s by the two scripts in analysis/robustness/)
+analysis/**/*.csv
+analysis/**/*_log.txt
+analysis/robustness/run_log.txt
 
 notebooks/data/
 resources/

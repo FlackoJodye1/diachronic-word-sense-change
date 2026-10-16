@@ -1356,3 +1356,73 @@ Running `compute_sense_clusters.py` on all 90 words with the current representat
 - Add `core_gloss_weighted` to `src/wsd/embedding_strategies.py`
 - Re-tune on eval set, document result in new research log entry
 - Update `documentation/pipeline.md` Step 2 once format is finalised
+
+---
+
+## 2026-10-16: JSD Null Baseline and Temporal-Binning Sensitivity
+
+**Status**: Decision Made (two submitted claims affected)
+
+**Context:**
+Reviewer-driven robustness pass for the ARR resubmission. The submitted diachronic
+results rest on mean adjacent-decade JSD over 10 decades, at a median of ~50 sentences
+per lemma-decade. JSD between two multinomial samples is strictly positive even when
+the underlying distribution is identical, so the question was how much of the reported
+JSD is sampling noise rather than semantic change — and whether the Hamilton-style
+Conformity and Innovation correlations survive once that noise is subtracted.
+
+**Method:**
+Per lemma, pool all sentences into one bag of coarse-sense labels (preserving the
+lemma's overall sense distribution), reshuffle, re-split into bins of exactly the
+observed sizes, recompute mean adjacent-bin JSD. 1000 permutations, seed 42. This is a
+strict "no change over time" null: anything it produces is noise. Reported per lemma as
+excess (observed − null mean), z (excess / null SD), p_perm, and BH-FDR.
+Then repeated over four pre-specified temporal binnings: (a) 10 decades (reference),
+(b) 5 periods × 20 years, (c) 2 periods 1900–1949 vs. 1950–1999, (c′) same without the
+1940s. Restricted to lemmas with n_clusters_coarse > 1; min. 10 sentences per
+lemma-period; a transition counts only if both endpoints pass the filter.
+
+**Findings:**
+
+1. **The decade binning is noise-dominated.** The null accounts for 90% of the observed
+   mean JSD (0.099 of 0.110 on k>1 lemmas). The noise floor falls as ~1/√n with coarser
+   bins: 80% at 20-year periods, 51% at 2 periods.
+2. **Conformity does not hold in any binning.** Raw frequency × JSD is −.348 at decades
+   but shrinks exactly as a noise artefact must as bins coarsen (−.184 at 2 periods),
+   and the null-corrected excess is ≈ 0 (n.s.) in all four binnings. The positive
+   `jsd_z` correlation (+.12 to +.19) is *not* reverse Conformity: `jsd_null_sd`
+   correlates −.96 with context count and −.75 with log frequency, so frequent lemmas
+   get a mechanically larger z at equal excess. Excess is the clean statistic here.
+3. **Innovation holds, but was underpowered at decade resolution.** Null-corrected
+   polysemy × JSD is +.04 (n.s.) at decades and +.21 (p < .001) at 2 periods — same for
+   entropy (+.21) and the independent survey ratings (+.21). So the decade-level null
+   result was a power problem, not a null finding. Magnitude is roughly halved versus
+   the submitted number (+.37 raw vs. +.21 corrected).
+4. **FDR-significant change**: 9 lemmas at decades, 28 at 20-year periods, 92 of 378
+   (24%) at 2 periods. Coarsening is not free: 4 of the 9 decade hits (Druck, Feuer,
+   Preis, Stift) drop out, because change concentrated in one decade averages out inside
+   a 50-year bin.
+5. **Präsident** (case study) goes from p = .10 at decades to p_BH = .007 (z = 8.2) at
+   2 periods.
+6. Two code/paper mismatches found independently of the null baseline: §2.4 claims
+   single-cluster lemmas are excluded but 115 of 502 are in (JSD = entropy = 0 by
+   construction), and the Conformity numbers were computed on log(# retrieved DWDS
+   contexts), not dlexDB frequency as described. H2 (entropy ~ perceived polysemy)
+   is fully explained by cluster count: partial r = −.005.
+
+**Decision:**
+Move change detection and the Hamilton correlations to (b) or (c) and report the noise
+share explicitly. Drop the Conformity claim. Keep Innovation with the corrected
+magnitude. Decade trajectories stay for visualisation and case studies.
+
+**Deviation from pre-specification:**
+The pre-registered 2-period cut was 1900–1944 vs. 1945–1999. The aggregated counts only
+exist at decade resolution, so the 1940s decade cannot be split at 1945. (c) assigns it
+to the early period, (c′) drops it; they agree on 84 of 92 FDR hits, so the choice is
+immaterial. Both reported.
+
+**Follow-up:**
+- Full numbers and tables: `analysis/robustness/RESULTS.md`
+- Re-run the Hamilton extension on period-level rather than decade-level bins
+- Decide with co-authors which binning becomes primary in the paper
+- Derived CSVs are gitignored; both scripts regenerate them in ~90 s

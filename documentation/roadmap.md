@@ -179,9 +179,12 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Coarse metrics (v2, superseded) | `data/processed/diachronic/metrics/pilot_coarse_*.csv` |
 | Diachronic plots | `data/processed/diachronic/plots/` |
 | Sense granularity analysis | `notebooks/analysis/sense_granularity_analysis.ipynb` |
+| **Robustness analyses (ARR resubmission)** | **`analysis/robustness/RESULTS.md`** — JSD null baseline, H2 partial correlation, survey reliability, temporal-binning sensitivity. Read this before quoting any JSD-based number. |
+| Robustness scripts | `analysis/robustness/robustness_analyses.py` (§1–4), `analysis/robustness/binning_sensitivity.py` (§5) |
 | Atemporal scripts | `scripts/atemporal/` |
 | Diachronic scripts | `scripts/diachronic/` |
 | Data prep scripts | `scripts/data/` |
+| Analysis scripts | `scripts/analysis/` |
 | Full methodology docs | `documentation/documentation.md` |
 | Pipeline guide | `documentation/pipeline.md` |
 | Research log | `documentation/research_log.md` |

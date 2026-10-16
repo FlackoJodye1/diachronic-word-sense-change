@@ -1,6 +1,15 @@
 # LLM-as-Judge for Coarse Sense Clustering
 
-**Status:** Calibration phase (as of 2026-05-07)
+> **STATUS: PARKED (as of 2026-05-07 meeting, confirmed 2026-05-15)**
+>
+> This design was prototyped but is **not used in the v1 EMNLP paper**. The motivation — manual review being a bottleneck for raising the merge threshold — was absorbed by the multi-annotator setup (Paul + Amandine + Nadja split the 407 unlabelled lemmas across three reviewers; see `scripts/clustering/ANNOTATION.md`). Manual review is now scalable, so the LLM judge's verifier role is redundant for this paper.
+>
+> **Code retained, calibration not run:**
+> - `src/wsd/llm_judge.py` — module
+> - `scripts/clustering/calibrate_llm_judge.py` — calibration CLI
+>
+> Kept as a defensible *future-work* paragraph and as a fallback if one of the annotators flakes. The rest of this document is preserved verbatim as the original design rationale.
+
 **Motivation:** Manual review is the bottleneck for raising the agglomerative-clustering threshold and producing more merged clusters. An LLM judge automates the *verification* step while leaving the geometric clustering and the final human sign-off intact.
 
 ---
