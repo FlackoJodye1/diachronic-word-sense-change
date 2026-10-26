@@ -14,6 +14,8 @@ Binning schemes (pre-specified before running):
   (b) 5 periods x 20 years: 1900-19, 1920-39, 1940-59, 1960-79, 1980-99
   (c) 2 periods: 1900-1949 vs 1950-1999
   (c') 2 periods with the 1940s dropped: 1900-1939 vs 1950-1999  — tie-break check
+  (d) 4 periods: 1900-1929, 1930-1949, 1950-1969, 1970-1999
+  (e) 3 periods: 1900-1929, 1930-1959, 1960-1999
 
 NOTE on (c): the pre-specified cut was 1900-1944 vs 1945-1999, but the aggregated
 counts exist only at decade resolution, so the 1940s decade cannot be split at
@@ -28,6 +30,16 @@ Restricted to lemmas with n_clusters_coarse > 1 (a single cluster forces JSD = 0
 used here as a fixed lemma-level polysemy predictor, not as an outcome, so it is
 deliberately not recomputed per binning.
 
+Each binning also gets partial Spearman correlations of the three polysemy
+predictors with jsd_excess, controlling for frequency (dlexDB) and for the
+lemma's sample size. Dubossarsky et al. (2017) argue the Innovation effect is a
+frequency artefact; these ask whether it survives that control.
+
+Finally (§6, exploratory): WSD accuracy on the 93-instance gold set split at
+1950, i.e. is sense assignment worse on older German? This is an aside, not part
+of the binning analysis — it reads the atemporal evaluation outputs and is
+skipped with a warning if they are absent.
+
 Read-only on all existing data. Writes only to analysis/robustness/.
 
 Inputs (read-only):
@@ -35,10 +47,14 @@ Inputs (read-only):
   data/processed/analysis/per_lemma_summary.csv
   data/processed/analysis/dlexdb_kern_freq.csv
   data/processed/survey/survey_polysemy_per_lemma.csv
+  data/evaluation/atemporal/results/predictions.csv        — §6 only
+  data/evaluation/atemporal/input/contexts.csv             — §6 only
+  data/processed/germanet/sense_clusters_reviewed.json     — §6 only
 
 Outputs:
   analysis/robustness/binning_sensitivity.csv              — per lemma x binning
   analysis/robustness/binning_sensitivity_correlations.csv — per binning x test
+  analysis/robustness/binning_sensitivity_wsd_era.csv      — §6 era split
 
 Usage:  python analysis/robustness/binning_sensitivity.py [--perms 1000] [--seed 42]
 """
@@ -46,16 +62,18 @@ Usage:  python analysis/robustness/binning_sensitivity.py [--perms 1000] [--seed
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
+from scipy.stats import fisher_exact, spearmanr
 
 # Same directory; reuses the exact JSD + permutation primitives of the submitted
 # null baseline, so binning (a) reproduces the published mean_jsd by construction.
-from robustness_analyses import MIN_CONTEXTS, jsd_null_baseline
+# `partial_spearman` is the same rank-residual implementation used for H2 in §3.
+from robustness_analyses import MIN_CONTEXTS, jsd_null_baseline, partial_spearman
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 OUT_DIR = BASE_DIR / "analysis/robustness"
@@ -65,8 +83,16 @@ SUMMARY_FILE = BASE_DIR / "data/processed/analysis/per_lemma_summary.csv"
 DLEXDB_FILE  = BASE_DIR / "data/processed/analysis/dlexdb_kern_freq.csv"
 SURVEY_FILE  = BASE_DIR / "data/processed/survey/survey_polysemy_per_lemma.csv"
 
+# §6 only (exploratory WSD era check)
+PREDICTIONS_FILE   = BASE_DIR / "data/evaluation/atemporal/results/predictions.csv"
+EVAL_CONTEXTS_FILE = BASE_DIR / "data/evaluation/atemporal/input/contexts.csv"
+CLUSTERS_FILE      = BASE_DIR / "data/processed/germanet/sense_clusters_reviewed.json"
+
 OUT_CSV          = OUT_DIR / "binning_sensitivity.csv"
 OUT_CORRELATIONS = OUT_DIR / "binning_sensitivity_correlations.csv"
+OUT_WSD_ERA      = OUT_DIR / "binning_sensitivity_wsd_era.csv"
+
+ERA_CUT = 1950  # §6: sentences before this year vs. from this year on
 
 # binning label -> {decade: period label}. Decades absent from the map are dropped.
 DECADES = list(range(1900, 2000, 10))
@@ -81,6 +107,26 @@ BINNINGS: dict[str, dict[int, str]] = {
     "c2_2_periods_no1940s": {
         d: "1900-1939" if d < 1940 else "1950-1999" for d in DECADES if d != 1940
     },
+    # Period labels are sortable as strings (all start with the 4-digit start year),
+    # which is what fixes the adjacency order in jsd_null_baseline.
+    "d_4_periods": {
+        d: next(
+            label for lo, hi, label in [
+                (1900, 1929, "1900-1929"), (1930, 1949, "1930-1949"),
+                (1950, 1969, "1950-1969"), (1970, 1999, "1970-1999"),
+            ] if lo <= d <= hi
+        )
+        for d in DECADES
+    },
+    "e_3_periods": {
+        d: next(
+            label for lo, hi, label in [
+                (1900, 1929, "1900-1929"), (1930, 1959, "1930-1959"),
+                (1960, 1999, "1960-1999"),
+            ] if lo <= d <= hi
+        )
+        for d in DECADES
+    },
 }
 
 BINNING_LABELS = {
@@ -88,6 +134,8 @@ BINNING_LABELS = {
     "b_5_periods_20y":      "(b) 5 periods x 20y",
     "c_2_periods":          "(c) 2 periods, 1940s early",
     "c2_2_periods_no1940s": "(c') 2 periods, 1940s dropped",
+    "d_4_periods":          "(d) 4 periods",
+    "e_3_periods":          "(e) 3 periods",
 }
 
 # (test label, predictor) — each is correlated against jsd_obs, jsd_excess and jsd_z.
@@ -98,6 +146,15 @@ PREDICTORS = [
     ("Innovation", "subjective_polysemy_mean"),
 ]
 OUTCOMES = ["jsd_obs", "jsd_excess", "jsd_z"]
+
+# Partial correlations: predictor ~ jsd_excess | control, per binning.
+# jsd_excess is the null-corrected outcome, so the only remaining worry is that
+# the predictor stands in for frequency (Dubossarsky et al. 2017). Two controls:
+# dlexDB corpus frequency (external) and the lemma's own sample size in this
+# binning (what actually drives the noise floor).
+PARTIAL_PREDICTORS = ["n_clusters_coarse", "mean_entropy", "subjective_polysemy_mean"]
+PARTIAL_CONTROLS = ["log_freq_dlexdb", "log_n_contexts"]
+PARTIAL_OUTCOME = "jsd_excess"
 
 
 def _require(path: Path) -> Path:
@@ -159,6 +216,18 @@ def run_binning(
     out["n_transitions_used"] = out["lemma"].map(transitions)
     out["binning"] = binning
     out["p_bh"] = benjamini_hochberg(out["p_perm"])
+    # Sample-size control for the partial correlations. Over all decades this is
+    # the submitted `log_frequency` of baumann_predictors.csv (= log of the number
+    # of retrieved DWDS contexts); recomputed here so it tracks each binning's
+    # own sentence pool (binning (c') drops the 1940s).
+    out["log_n_contexts"] = np.log(out["n_contexts_total"])
+    # Median sentences per supported lemma-period cell, over the lemmas that
+    # actually contribute a JSD — the quantity that sets the noise floor.
+    # Attached per binning, so it is identical on every row.
+    usable_lemmas = set(out.loc[out["jsd_obs"].notna(), "lemma"])
+    out["median_n_contexts_supported"] = support.loc[
+        support["supported"] & support["lemma"].isin(usable_lemmas), "n_contexts"
+    ].median()
     return out
 
 
@@ -169,11 +238,13 @@ def summarise(df: pd.DataFrame) -> dict:
     return {
         "n_lemmas": len(usable),
         "n_lemmas_scored": len(scored),
+        "median_n_contexts_supported": usable["median_n_contexts_supported"].iloc[0],
         "mean_n_contexts_per_period": (
             usable["n_contexts_total"] / usable["n_periods"]
         ).mean(),
         "mean_jsd_obs": usable["jsd_obs"].mean(),
         "mean_jsd_null": usable["jsd_null_mean"].mean(),
+        "mean_jsd_excess": usable["jsd_excess"].mean(),
         "null_share_of_observed": usable["jsd_null_mean"].mean() / usable["jsd_obs"].mean(),
         "n_p_perm_lt_05": int((scored["p_perm"] < .05).sum()),
         "n_bh_lt_05": int((scored["p_bh"] < .05).sum()),
@@ -187,13 +258,129 @@ def correlations(df: pd.DataFrame, binning: str) -> list[dict]:
         for y in OUTCOMES:
             sub = df[[x, y]].dropna()
             if len(sub) < 3:
-                rows.append(dict(binning=binning, test=test, x=x, y=y, n=len(sub),
+                rows.append(dict(binning=binning, test=test, method="spearman",
+                                 x=x, y=y, control="", n=len(sub),
                                  spearman_r=np.nan, p=np.nan))
                 continue
             result = spearmanr(sub[x], sub[y])
-            rows.append(dict(binning=binning, test=test, x=x, y=y, n=len(sub),
+            rows.append(dict(binning=binning, test=test, method="spearman",
+                             x=x, y=y, control="", n=len(sub),
                              spearman_r=float(result.statistic), p=float(result.pvalue)))
     return rows
+
+
+def partial_correlations(df: pd.DataFrame, binning: str) -> list[dict]:
+    """Polysemy ~ jsd_excess with frequency / sample size partialled out.
+
+    Ranks everything, residualises predictor and outcome on the control, then
+    correlates the residuals; p from t with df = n - 3 (`partial_spearman`).
+    """
+    rows = []
+    for x in PARTIAL_PREDICTORS:
+        for control in PARTIAL_CONTROLS:
+            sub = df[[x, PARTIAL_OUTCOME, control]].dropna()
+            if len(sub) < 4:
+                rows.append(dict(binning=binning, test="Innovation partial",
+                                 method="partial_spearman", x=x, y=PARTIAL_OUTCOME,
+                                 control=control, n=len(sub),
+                                 spearman_r=np.nan, p=np.nan))
+                continue
+            n, r, p = partial_spearman(sub, x, PARTIAL_OUTCOME, control)
+            rows.append(dict(binning=binning, test="Innovation partial",
+                             method="partial_spearman", x=x, y=PARTIAL_OUTCOME,
+                             control=control, n=n, spearman_r=r, p=p))
+    return rows
+
+
+# ----------------------------------------------------------------------
+# §6 (exploratory): is WSD accuracy worse on older German?
+# ----------------------------------------------------------------------
+
+def flat_coarse_mapping() -> dict[str, str]:
+    """sense_id -> coarse cluster id, mirroring generate_predictions.py."""
+    with open(CLUSTERS_FILE) as f:
+        clusters = json.load(f)
+    flat: dict[str, str] = {}
+    for lemma_data in clusters.values():
+        flat.update(lemma_data["mapping"])
+    return flat
+
+
+def wsd_era_check() -> pd.DataFrame | None:
+    """Fine and coarse accuracy on the 93-instance gold set, split at ERA_CUT.
+
+    The submitted accuracies (43.0% fine / 84.9% coarse) were measured on this
+    set as a whole; the set spans 1901-1999 (median 1932). Splitting it asks
+    whether the embedder does worse on early-century German. n is tiny, so this
+    is a direction check, not an estimate — hence Fisher's exact test rather
+    than a reported effect size.
+
+    Returns None (with a warning) if the evaluation outputs are not present.
+    """
+    missing = [p for p in (PREDICTIONS_FILE, EVAL_CONTEXTS_FILE, CLUSTERS_FILE) if not p.exists()]
+    if missing:
+        print("  skipped: missing " + ", ".join(str(p.relative_to(BASE_DIR)) for p in missing))
+        return None
+
+    predictions = pd.read_csv(PREDICTIONS_FILE)
+    contexts = pd.read_csv(EVAL_CONTEXTS_FILE)[["lemma", "Hit", "Date"]]
+
+    # contexts.csv holds the sentence under `Hit` and is the only source of dates.
+    merged = predictions.merge(
+        contexts, left_on=["lemma", "sentence"], right_on=["lemma", "Hit"], how="left"
+    )
+    assert len(merged) == len(predictions), "eval date join is not 1:1"
+    assert merged["Date"].notna().all(), "some eval instances have no date"
+
+    flat = flat_coarse_mapping()
+    merged["gold_coarse"] = merged["gold_sense"].map(flat)
+    merged["pred_coarse"] = merged["pred_sense"].map(flat)
+    assert merged[["gold_coarse", "pred_coarse"]].notna().all().all(), "unmapped sense in eval set"
+
+    merged["year"] = merged["Date"].str.slice(0, 4).astype(int)
+    merged["era"] = np.where(merged["year"] < ERA_CUT, f"<{ERA_CUT}", f">={ERA_CUT}")
+    merged["correct_fine"] = merged["correct"].astype(bool)
+    merged["correct_coarse"] = merged["gold_coarse"] == merged["pred_coarse"]
+
+    # The gold set covers only 10 lemmas, and `hoeren` has no post-1950 instance,
+    # so an era gap could be lemma composition rather than anything about the
+    # language. The second subset holds coverage roughly constant by keeping only
+    # the lemmas attested in both eras.
+    eras_per_lemma = merged.groupby("lemma")["era"].nunique()
+    both_eras = set(eras_per_lemma[eras_per_lemma == 2].index)
+    subsets = [
+        ("all", merged),
+        ("lemmas_in_both_eras", merged[merged["lemma"].isin(both_eras)]),
+    ]
+
+    rows = []
+    for subset, frame in subsets:
+        for granularity in ("fine", "coarse"):
+            hits = frame.groupby("era")[f"correct_{granularity}"].agg(["sum", "size"])
+            early, late = hits.loc[f"<{ERA_CUT}"], hits.loc[f">={ERA_CUT}"]
+            # 2x2 of correct/incorrect by era; exact test because the cells are small.
+            _, p = fisher_exact([
+                [int(early["sum"]), int(early["size"] - early["sum"])],
+                [int(late["sum"]), int(late["size"] - late["sum"])],
+            ])
+            rows.append({
+                "subset": subset,
+                "granularity": granularity,
+                "n_lemmas": int(frame["lemma"].nunique()),
+                "n_early": int(early["size"]),
+                "n_correct_early": int(early["sum"]),
+                "accuracy_early": early["sum"] / early["size"],
+                "n_late": int(late["size"]),
+                "n_correct_late": int(late["sum"]),
+                "accuracy_late": late["sum"] / late["size"],
+                "accuracy_diff_late_minus_early": (
+                    late["sum"] / late["size"] - early["sum"] / early["size"]
+                ),
+                "fisher_p": float(p),
+                "n_total": int(hits["size"].sum()),
+                "accuracy_total": hits["sum"].sum() / hits["size"].sum(),
+            })
+    return pd.DataFrame(rows)
 
 
 def main() -> int:
@@ -239,6 +426,7 @@ def main() -> int:
 
         summaries[binning] = summarise(result)
         corr_rows += correlations(result, binning)
+        corr_rows += partial_correlations(result, binning)
         per_lemma.append(result)
         print(f"{summaries[binning]['n_lemmas']} lemmas")
 
@@ -246,7 +434,7 @@ def main() -> int:
         "binning", "lemma", "n_clusters_coarse", "n_periods", "n_periods_supported",
         "n_transitions_used", "n_contexts_total", "jsd_obs", "jsd_null_mean",
         "jsd_null_sd", "jsd_excess", "jsd_z", "p_perm", "p_bh",
-        "mean_entropy", "log_freq_dlexdb", "subjective_polysemy_mean",
+        "mean_entropy", "log_freq_dlexdb", "log_n_contexts", "subjective_polysemy_mean",
     ]
     out = pd.concat(per_lemma, ignore_index=True)[columns]
     out.to_csv(OUT_CSV, index=False)
@@ -262,15 +450,33 @@ def main() -> int:
     print(f"\n=== Noise share and significance per binning ({args.perms} perms, seed {args.seed}) ===")
     print(summary_tbl.to_string(float_format=lambda v: f"{v:.3f}"))
 
-    print("\n=== Spearman correlations per binning ===")
-    pivot = corr_df.assign(
+    cells = corr_df.assign(
         cell=corr_df.apply(lambda r: f"{r['spearman_r']:+.3f} (p={r['p']:.3f})", axis=1)
-    ).pivot_table(index=["test", "x", "y"], columns="binning", values="cell", aggfunc="first")
-    print(pivot.to_string())
+    )
+
+    def pivot(sub: pd.DataFrame, index: list[str]) -> str:
+        # pivot_table sorts columns alphabetically (c2_ before c_); restore the
+        # declared binning order so the printed table matches RESULTS.md.
+        table = sub.pivot_table(index=index, columns="binning", values="cell", aggfunc="first")
+        return table.reindex(columns=[b for b in BINNINGS if b in table.columns]).to_string()
+
+    print("\n=== Spearman correlations per binning ===")
+    print(pivot(cells[cells["method"] == "spearman"], ["test", "x", "y"]))
+
+    print("\n=== Partial Spearman correlations per binning (y = jsd_excess) ===")
+    print(pivot(cells[cells["method"] == "partial_spearman"], ["x", "control"]))
+
+    print(f"\n=== 6. WSD accuracy on the 93-instance gold set, split at {ERA_CUT} (exploratory) ===")
+    wsd_era = wsd_era_check()
+    if wsd_era is not None:
+        wsd_era.to_csv(OUT_WSD_ERA, index=False)
+        print(wsd_era.to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
     print(f"\nOutputs:")
     print(f"  {OUT_CSV.relative_to(BASE_DIR)}")
     print(f"  {OUT_CORRELATIONS.relative_to(BASE_DIR)}")
+    if wsd_era is not None:
+        print(f"  {OUT_WSD_ERA.relative_to(BASE_DIR)}")
     return 0
 
 
