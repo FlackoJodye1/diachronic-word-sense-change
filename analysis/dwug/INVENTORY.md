@@ -245,11 +245,16 @@ Rohdaten: `analysis/dwug/filter_check.csv` (gitignored).
 
 ## Entscheidungen (27.10.2026)
 
-1. **Wortmenge.** Die Hauptzahl gilt über alle 50 Wörter. Die 24 Wörter mit nur einer
-   GermaNet-Bedeutung gehen mit JSD = 0 und einer einzigen Klasse ein. Zusätzlich wird nur
-   über die 26 Wörter mit ≥ 2 Bedeutungen ausgewertet.
+1. **Wortmenge und Gold** (präzisiert am 27.10.2026, nachdem feststand, dass SemEval nur 48
+   der 50 DWUG-Wörter enthält; siehe unten). Wörter mit nur einer GermaNet-Bedeutung gehen
+   jeweils mit JSD = 0 und einer einzigen Klasse ein.
+   - **Hauptzahl:** alle 48 SemEval-Wörter gegen das SemEval-2020-Gold (Task 1, Deutsch),
+     inklusive der 24 Wörter mit nur einer Bedeutung.
+   - **Zusatz 1:** alle 50 Wörter gegen DWUG DE 3.0.0 (`change_graded`).
+   - **Zusatz 2:** jeweils nur die Wörter mit ≥ 2 Bedeutungen, also 24 gegen SemEval
+     (ohne Behandlung und Mut) und 26 gegen DWUG DE 3.0.0.
 2. **Gold.** Hauptreferenz ist SemEval-2020 Task 1 (Deutsch), zusätzlich DWUG DE 3.0.0
-   (`change_graded`). Herkunft und Abdeckung des SemEval-Golds: siehe unten.
+   (`change_graded`), wie in Punkt 1. Herkunft und Abdeckung des SemEval-Golds: siehe unten.
 3. **ARI** wird gegen zwei Ziele berechnet: die DWUG-Graph-Cluster (`clusters/opt`, Usages mit
    −1 ausgeschlossen) und die DWUG-DE-Sense-Labels.
 4. **Periode 1.** Hauptanalyse auf dem Originaltext (`context`), `context_normalized` als
@@ -259,11 +264,32 @@ Rohdaten: `analysis/dwug/filter_check.csv` (gitignored).
 
 ### SemEval-2020-Gold: Herkunft und Abdeckung
 
-*Noch offen.* Die offizielle Quelle ist das Archiv `semeval2020_ulscd_ger.zip` der Organisatoren
-(IMS Stuttgart, `www2.ims.uni-stuttgart.de/data/sem-eval-ulscd/`), das Korpora, `targets.txt`
-und `truth/{binary,graded}.txt` enthält. Der Download (~ 400+ MB, die Gold-Dateien stehen am
-Ende des Archivs) brach am 27.10. zweimal ab und läuft mit Fortsetzung weiter. Der Abgleich
-der Zielwörter mit DWUG DE 3.0.0 wird hier nachgetragen.
+**Quelle.** Offizielles Archiv der Organisatoren, `semeval2020_ulscd_ger.zip` (IMS Stuttgart,
+`https://www2.ims.uni-stuttgart.de/data/sem-eval-ulscd/semeval2020_ulscd_ger.zip`, 825 MB,
+README vom 16.06.2021). Autoren: Schlechtweg, McGillivray, Hengchen, Dubossarsky, Tahmasebi
+(SemEval@COLING 2020). Lizenz: frei für Lehre, Forschung und nicht-kommerzielle Zwecke.
+Lokal unter `data/external/semeval2020_ulscd_ger/` (gitignored); entpackt sind nur
+`targets.txt`, `truth/{binary,graded}.txt` und `README.md` (`extracted/`), die Korpora nicht.
+
+**Inhalt.** 48 Zielwörter; `truth/graded.txt` (Subtask 2) und `truth/binary.txt` (Subtask 1)
+decken genau diese 48 ab. Korpora wie DWUG DE: C1 = DTA 1800–1899, C2 = BZ + ND 1946–1990.
+
+**Abdeckung gegenüber DWUG DE 3.0.0.** Alle 48 SemEval-Wörter sind DWUG-Targets; DWUG hat
+zusätzlich **Behandlung** und **Mut**. Folgen für unsere Gruppen:
+
+| Gruppe (`lemma_map.csv`) | Wörter | davon in SemEval |
+|---|---|---|
+| prepare (23 neue) | 23 | 22 (ohne Behandlung) |
+| existing_502 (Fuß, Mut, packen) | 3 | 2 (ohne Mut) |
+| single_sense | 24 | 24 |
+
+Die Hauptzahl läuft also über **48** Wörter, Zusatz 1 über 50 (siehe Entscheidung 1).
+
+**Verhältnis der Gold-Werte.** Die gradierten Werte sind *nicht* mit `change_graded` aus
+DWUG DE 3.0.0 identisch (nur 6 von 48 stimmen überein). Das passt dazu, dass SemEval den
+Annotationsstand von 2020 festschreibt und DWUG DE seitdem weitere Annotationsrunden und neu
+berechnete Cluster bekommen hat. Beide Gold-Varianten sind deshalb getrennt zu berichten.
+Werte wurden für diesen Abgleich nur maschinell verglichen, nicht angesehen.
 
 ### Vorbereitung der 23 neuen Wörter (Stand 27.10.2026)
 
