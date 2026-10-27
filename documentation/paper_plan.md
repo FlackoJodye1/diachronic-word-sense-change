@@ -37,8 +37,9 @@ Empirical status flagged inline. C1 and C4 are still working hypotheses; C2 and 
   *Status: **supported, first-pass** (2026-05-14). `mean_entropy` × Grieshaber-Rubinskii subjective polysemy: Spearman r = +0.345 (p = 0.0028), n = 73. See `documentation/survey_correlations_2026-05-15.md`.*
   *Caveat (2026-10-16): the entropy variant carries no information beyond cluster count — partial r = −.005 once `n_clusters_coarse` is controlled. Phrase C2 in terms of cluster count, or drop the entropy framing.*
 - **C3 (Hamilton replication):** German word frequency negatively correlates with rate of semantic change (operationalised as mean inter-decade JSD).
-  *Status: **not supported** (2026-10-16). Against a JSD null baseline the effect is sampling noise in every temporal binning tested — raw r = −.348 at decade resolution, null-corrected excess ≈ 0 (n.s.) at 10 decades, 5 periods and 2 periods. Recommendation: drop C3 as a positive claim and report it as a null result with the noise analysis as the explanation. See `analysis/robustness/RESULTS.md` §5.*
+  *Status: **not supported** (2026-10-16). Against a JSD null baseline the effect is sampling noise in every temporal binning tested — raw r = −.348 at decade resolution, null-corrected excess ≈ 0 (n.s.) in all six binnings tested (10 decades; 5, 4, 3, 2 periods; 2 periods without the 1940s). Recommendation: drop C3 as a positive claim and report it as a null result with the noise analysis as the explanation. See `analysis/robustness/RESULTS.md` §5.*
 - **C5 (Innovation, added 2026-10-16):** More polysemous words change faster. *Status: **supported at period resolution**. Null-corrected polysemy × JSD is +.21 (p < .001) at 2 periods — for cluster count, entropy and the independent survey ratings alike — but only +.04 (n.s.) at decade resolution, where 90% of the observed JSD is sampling noise. Report at period resolution with the noise share stated; the magnitude is about half the uncorrected +.37.*
+  *Update (2026-10-27): the effect grows monotonically with coarser bins and is significant from 4 periods on. It **survives frequency control** (Dubossarsky et al. 2017): with log dlexDB frequency partialled out +.21, with log context count +.19 at 2 periods; the survey measure holds from 3 periods on. RESULTS.md §5.2–5.3.*
 - **C4 (cross-lingual):** Hu et al.'s English-data conclusions hold (or fail to hold) when re-evaluated against the English survey. *Status: Hu et al. per-word metrics extracted (2026-05-14, 3,220 lemmas); awaiting Amandine's English survey for the join.*
 
 ---
@@ -129,6 +130,12 @@ Empirical status flagged inline. C1 and C4 are still working hypotheses; C2 and 
 - Frequency × change-rate Spearman correlation: tested, does not survive the JSD null baseline (C3). Not worth building the extension around.
 - Open decision: rebuild the extension around polysemy × change-rate (C5, holds at +.21 at period resolution), or report the frequency result as an explicit null with the noise analysis as the contribution. The second option is defensible on its own — "decade-resolution JSD is 90% sampling noise" is a methodological finding other replications need.
 - Either way the analysis must run on 20-year or 50-year periods, not decades. Binning decision needed from co-authors.
+- **Recommendation (2026-10-27):** 3 periods (1900–29 / 1930–59 / 1960–99) as primary. It keeps a direction of change, gives 50 FDR-significant lemmas, and shows an Innovation effect that survives both frequency controls. Decades are kept for trajectories, and 2 periods serve as the strongest-power check. RESULTS.md §5.5.
+
+### 5.6 DWUG DE evaluation (reviewer request, added 2026-10-27)
+- Reviewers want ARI vs. DWUG human clusters and Spearman of 2-period JSD vs. `change_graded`; XL-LEXEME / XL-DURel as baselines later.
+- Inventory done: `analysis/dwug/INVENTORY.md`. 50 targets, only 3 already in our set; 24 have a single GermaNet synset, so our method gives JSD = 0 by construction.
+- Open: single-synset handling, DWUG 3.0.0 vs. SemEval gold, ARI target, P1 input. Estimated 1.5–2 days to first numbers once decided.
 
 ---
 
@@ -146,7 +153,10 @@ Empirical status flagged inline. C1 and C4 are still working hypotheses; C2 and 
 | Pending | Merge → re-run downstream pipeline → updated metrics + correlations | ⏳ blocked on annotation |
 | Pending | Manual sentence-level validation of `springen` / `Welle` (hook figure) | ⏳ |
 | 2026-10-16 | Robustness pass: JSD null baseline, H2 partial correlation, survey split-half (.86), temporal-binning sensitivity. C3 falls, C5 added. `analysis/robustness/RESULTS.md` | ✅ |
-| Pending | Hamilton-extension analysis script + first plot — rescope first (§5.5), must run on periods not decades | ⏳ blocked on binning decision |
+| 2026-10-27 | Binning sensitivity extended: 3/4 periods, frequency partials (Innovation survives), WSD accuracy by era (no deficit on older text) | ✅ |
+| 2026-10-27 | DWUG DE inventory for reviewer-requested evaluation (`analysis/dwug/INVENTORY.md`) | ✅ |
+| Pending | DWUG DE evaluation (ARI + Spearman vs. `change_graded`) | ⏳ blocked on plan decisions (§5.6) |
+| Pending | Hamilton-extension analysis script + first plot — rescope first (§5.5), must run on periods not decades | ⏳ blocked on binning decision (recommendation: 3 periods) |
 | Pending | Amandine's English subjective-polysemy survey | ⏳ |
 | Pending | First full paper draft (Methods → Evaluation → Application → Intro) | ⏳ |
 

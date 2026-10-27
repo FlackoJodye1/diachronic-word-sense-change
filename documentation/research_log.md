@@ -1426,3 +1426,62 @@ immaterial. Both reported.
 - Re-run the Hamilton extension on period-level rather than decade-level bins
 - Decide with co-authors which binning becomes primary in the paper
 - Derived CSVs are gitignored; both scripts regenerate them in ~90 s
+
+---
+
+## 2026-10-16/27: Binning Sensitivity Extended — 3/4 Periods, Frequency Partials, WSD by Era
+
+**Status**: Analysis done; binning recommendation for co-authors
+
+**What was added** (`analysis/robustness/binning_sensitivity.py`, RESULTS.md §5–6):
+two further binnings fixed before computation, (d) 4 periods 1900–29 / 1930–49 /
+1950–69 / 1970–99 and (e) 3 periods 1900–29 / 1930–59 / 1960–99, to see where between
+(b) and (c) the Innovation effect appears; partial Spearman correlations controlling
+for frequency (Dubossarsky et al. 2017); and an exploratory check of WSD accuracy on
+pre- vs. post-1950 eval instances. Reference binning (a) reproduces the first run exactly.
+
+**Findings:**
+
+1. **The noise share falls gradually, with no threshold:** 90 → 80 → 78 → 71 → 51 %
+   for (a) → (b) → (d) → (e) → (c). FDR-significant lemmas: 9 / 28 / 26 / 50 / 92.
+2. **Innovation** (null-corrected excess) rises monotonically, from +.04 → +.08 → +.14 → +.17 → +.21,
+   and becomes significant from (d) on. Survey ratings become significant only from (e) on.
+3. **Innovation is not a frequency artefact.** Partialling out log dlexDB frequency
+   barely moves it (+.213 → +.211 at (c)), as expected, because the permutation null already
+   absorbs the sample-size path. Partialling out log context count shrinks it by
+   ~10 % but it stays significant (+.19 at (c) for cluster count, entropy and survey).
+4. **Conformity fails in all six binnings**. At (e) the excess even has the wrong sign (+.124*).
+5. **WSD accuracy is not worse on older text:** fine 48.4 % before 1950 vs. 32.3 % from
+   1950 (coarse 88.7 % vs. 77.4 %), n.s. (Fisher p = .18 / .22), and the same direction
+   on the 9 lemmas present in both halves. Only 31 late instances, so this rules
+   out only large gaps. It does not support the documented worry that 1900s accuracy
+   is "likely lower".
+
+**Recommendation:** (e) 3 periods as the primary change-detection binning, because it keeps a
+direction of change rather than just before/after, gives 50 FDR-significant lemmas, and shows an
+Innovation effect that survives both frequency controls. Report (a) for trajectories and
+(c) as the strongest-power check.
+
+---
+
+## 2026-10-27: DWUG DE Inventory (reviewer request)
+
+**Status**: Inventory done; plan decisions pending
+
+Reviewers ask for evaluation on DWUG DE / SemEval-2020 Task 1 (German): ARI against human
+clusters and Spearman of 2-period JSD vs. `change_graded`. Step 0 only, nothing computed.
+Full write-up: `analysis/dwug/INVENTORY.md`.
+
+- Downloaded DWUG DE 3.0.0 and DWUG DE Sense 1.0.1 (both 2024-11-01, CC BY-ND 4.0) to
+  `data/external/dwug_de/` (gitignored).
+- 50 targets, 9,125 uses; P1 = 1800–1899 (DTA), P2 = 1946–1990.
+- All 50 are in GermaNet, 2 only via `oldOrthForm` (Engpaß, Mißklang), which our
+  `XMLParser` does not read. **24 of 50 have a single synset**, so our method gives JSD = 0
+  by construction, including high-change words (abgebrüht .83, Armenhaus .72).
+- Only 3 overlap with our 502 lemmas (Fuß, Mut, packen). Estimate: 1.5–2 days to first numbers.
+- **Side finding:** `target_matches_token` keeps only sentences containing the bare lemma form,
+  so inflected forms are dropped. On DWUG that would discard 47–65 % of uses. Our DWDS
+  contexts are therefore systematically restricted to base forms, which should be mentioned as a limitation.
+
+**Open decisions:** handling of single-synset words, DWUG 3.0.0 vs. SemEval gold, ARI target
+(graph clusters vs. sense labels), P1 input (`context` vs. `context_normalized`).

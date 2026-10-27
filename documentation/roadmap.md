@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-04-02
+**Last updated:** 2026-10-27. Paper-level status and claims live in `documentation/paper_plan.md`; robustness numbers live in `analysis/robustness/RESULTS.md`.
 
 ---
 
@@ -142,7 +142,7 @@ See research log entries 2026-03-11 and 2026-03-12 for full rationale.
 
 ### 3c. Key Concern
 
-The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The coarse accuracy (84.9%) is sufficient to detect large, sustained shifts but may not resolve subtle or short-lived changes. The 84.9% figure is measured on contemporary texts — accuracy on 1900s data is unknown and likely lower. **Case studies must show large, monotonic trajectory changes across multiple consecutive decades. Manual sentence-level validation is not optional.** See research log 2026-03-18.
+The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 30,337 sentences). The coarse accuracy (84.9%) is sufficient to detect large, sustained shifts but may not resolve subtle or short-lived changes. The 84.9% figure is measured on contemporary texts — accuracy on 1900s data is unknown and likely lower. *(2026-10-27: an exploratory split of the eval set finds no deficit on older text, with coarse accuracy at 88.7% before 1950 vs. 77.4% from 1950, n.s. and only 31 late instances. See `analysis/robustness/RESULTS.md` §6. Separately, decade-level JSD turned out to be ~90% sampling noise, so change detection moves to period bins (§5).)* **Case studies must show large, monotonic trajectory changes across multiple consecutive decades. Manual sentence-level validation is not optional.** See research log 2026-03-18.
 
 ---
 
@@ -154,9 +154,13 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Add 2nd annotator, compute inter-annotator agreement (kappa > 0.7) | Not started |
 | Generate `core_gloss` for expanded word set | Done (2026-04-02) | `generate_expanded_senses.py` run on 413 polysemous non-pilot lemmas → `senses_expanded.jsonl` (1229 senses). Workers reduced to 1 to avoid memory pressure on Mac. |
 | Cluster expanded words + merge into reviewed mapping | Done (2026-04-02) | `compute_sense_clusters.py --merge-into sense_clusters_reviewed.json` → 407 new lemmas added (6 eval lemmas already present). 160/413 constrained. `sense_clusters_reviewed.json` now covers 503 lemmas total. |
-| Annotate cluster labels for expanded words | In progress | Review app updated with progress bar + stats. Annotate on-demand via dashboard as words are selected for diachronic study. |
-| Fetch DWDS contexts for expanded words | Not started | Select subset of annotated words, run `fetch_dwds_contexts.py`. Same settings as v3: `--corpus kern --limit 5000 --min-tokens 6 --max-tokens 60 --sort random`. |
-| Run predictions + aggregate for expanded words | Not started | Same pipeline as v3: predict → coarse mapping → aggregate → metrics. |
+| Annotate cluster labels for expanded words | Done (2026-05-16) | Three annotators (Paul, Amandine, Nadia), merged via `scripts/clustering/merge_reviews.py` → `sense_clusters_reviewed.json` (503 lemmas, fully reviewed). |
+| Fetch DWDS contexts for expanded words | Done | `data/processed/dwds/expanded_contexts_v3.jsonl`, combined with pilot in `combined_contexts_v3.jsonl`. Same v3 settings. |
+| Run predictions + aggregate for expanded words | Done (2026-05-18) | `combined_predictions_v3.csv` (318,611 rows, 502 lemmas) → `pilot_v3_coarse_*` metrics, `per_lemma_summary.csv`. |
+| Survey correlations (G&R 2024, German + English) | Done (2026-05-14/15) | `documentation/survey_correlations_2026-05-15.md`, `…_english_2026-05-15.md`. |
+| Robustness pass (ARR resubmission) | Done (2026-10-16, extended 2026-10-27) | JSD null baseline, 6 binnings, frequency partials, WSD by era. Recommendation: 3-period binning. `analysis/robustness/RESULTS.md`. |
+| DWUG DE evaluation (reviewer request) | Inventory done (2026-10-27) | `analysis/dwug/INVENTORY.md`. Plan decisions pending before any computation. |
+| Hamilton extension on period bins | Not started | Blocked on binning decision; see `paper_plan.md` §5.5. |
 | Add ZEIT corpus (Die Zeit 1946–present) | **Pending institutional access** (applied 2026-03-23). Would significantly increase 1950s–1990s density with consistent Zeitung register. Decide on kern+ZEIT merge strategy once access confirmed. |
 | Draft paper (methods, results, discussion) | Not started |
 | Release benchmark dataset | Not started |
@@ -180,7 +184,8 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Diachronic plots | `data/processed/diachronic/plots/` |
 | Sense granularity analysis | `notebooks/analysis/sense_granularity_analysis.ipynb` |
 | **Robustness analyses (ARR resubmission)** | **`analysis/robustness/RESULTS.md`** — JSD null baseline, H2 partial correlation, survey reliability, temporal-binning sensitivity. Read this before quoting any JSD-based number. |
-| Robustness scripts | `analysis/robustness/robustness_analyses.py` (§1–4), `analysis/robustness/binning_sensitivity.py` (§5) |
+| Robustness scripts | `analysis/robustness/robustness_analyses.py` (§1–4), `analysis/robustness/binning_sensitivity.py` (§5–6) |
+| DWUG DE evaluation | `analysis/dwug/INVENTORY.md`; data in `data/external/dwug_de/` (gitignored, CC BY-ND 4.0) |
 | Atemporal scripts | `scripts/atemporal/` |
 | Diachronic scripts | `scripts/diachronic/` |
 | Data prep scripts | `scripts/data/` |
