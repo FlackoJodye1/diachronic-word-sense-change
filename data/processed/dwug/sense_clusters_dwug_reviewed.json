@@ -1,0 +1,555 @@
+{
+  "Abgesang": {
+    "mapping": {
+      "s72929": "Abgesang_c1",
+      "s96267": "Abgesang_c0"
+    },
+    "clusters": {
+      "Abgesang_c1": {
+        "label": null,
+        "members": [
+          "s72929"
+        ]
+      },
+      "Abgesang_c0": {
+        "label": null,
+        "members": [
+          "s96267"
+        ]
+      }
+    }
+  },
+  "Behandlung": {
+    "mapping": {
+      "s19401": "Behandlung_c0",
+      "s20478": "Behandlung_c0",
+      "s107037": "Behandlung_c0",
+      "s73156": "Behandlung_c1"
+    },
+    "clusters": {
+      "Behandlung_c0": {
+        "label": null,
+        "members": [
+          "s19401",
+          "s20478",
+          "s107037"
+        ]
+      },
+      "Behandlung_c1": {
+        "label": null,
+        "members": [
+          "s73156"
+        ]
+      }
+    }
+  },
+  "Dynamik": {
+    "mapping": {
+      "s14106": "Dynamik_c0",
+      "s38956": "Dynamik_c0",
+      "s28075": "Dynamik_c1",
+      "s40984": "Dynamik_c1",
+      "s11849": "Dynamik_c1"
+    },
+    "clusters": {
+      "Dynamik_c0": {
+        "label": null,
+        "members": [
+          "s14106",
+          "s38956"
+        ]
+      },
+      "Dynamik_c1": {
+        "label": null,
+        "members": [
+          "s28075",
+          "s40984",
+          "s11849"
+        ]
+      }
+    }
+  },
+  "Eintagsfliege": {
+    "mapping": {
+      "s49592": "Eintagsfliege_c1",
+      "s108210": "Eintagsfliege_c0"
+    },
+    "clusters": {
+      "Eintagsfliege_c1": {
+        "label": null,
+        "members": [
+          "s49592"
+        ]
+      },
+      "Eintagsfliege_c0": {
+        "label": null,
+        "members": [
+          "s108210"
+        ]
+      }
+    }
+  },
+  "Engpass": {
+    "mapping": {
+      "s16674": "Engpass_c1",
+      "s9271": "Engpass_c0"
+    },
+    "clusters": {
+      "Engpass_c1": {
+        "label": null,
+        "members": [
+          "s16674"
+        ]
+      },
+      "Engpass_c0": {
+        "label": null,
+        "members": [
+          "s9271"
+        ]
+      }
+    }
+  },
+  "Entscheidung": {
+    "mapping": {
+      "s18388": "Entscheidung_c0",
+      "s28698": "Entscheidung_c0",
+      "s73308": "Entscheidung_c1"
+    },
+    "clusters": {
+      "Entscheidung_c0": {
+        "label": null,
+        "members": [
+          "s18388",
+          "s28698"
+        ]
+      },
+      "Entscheidung_c1": {
+        "label": null,
+        "members": [
+          "s73308"
+        ]
+      }
+    }
+  },
+  "Frechheit": {
+    "mapping": {
+      "s13627": "Frechheit_c1",
+      "s14083": "Frechheit_c0"
+    },
+    "clusters": {
+      "Frechheit_c1": {
+        "label": null,
+        "members": [
+          "s13627"
+        ]
+      },
+      "Frechheit_c0": {
+        "label": null,
+        "members": [
+          "s14083"
+        ]
+      }
+    }
+  },
+  "Manschette": {
+    "mapping": {
+      "s71454": "Manschette_c0",
+      "s71455": "Manschette_c0",
+      "s106683": "Manschette_c1"
+    },
+    "clusters": {
+      "Manschette_c0": {
+        "label": null,
+        "members": [
+          "s71454",
+          "s71455"
+        ]
+      },
+      "Manschette_c1": {
+        "label": null,
+        "members": [
+          "s106683"
+        ]
+      }
+    }
+  },
+  "Ohrwurm": {
+    "mapping": {
+      "s49596": "Ohrwurm_c1",
+      "s75355": "Ohrwurm_c0"
+    },
+    "clusters": {
+      "Ohrwurm_c1": {
+        "label": null,
+        "members": [
+          "s49596"
+        ]
+      },
+      "Ohrwurm_c0": {
+        "label": null,
+        "members": [
+          "s75355"
+        ]
+      }
+    }
+  },
+  "Rezeption": {
+    "mapping": {
+      "s22808": "Rezeption_c1",
+      "s75703": "Rezeption_c0"
+    },
+    "clusters": {
+      "Rezeption_c1": {
+        "label": null,
+        "members": [
+          "s22808"
+        ]
+      },
+      "Rezeption_c0": {
+        "label": null,
+        "members": [
+          "s75703"
+        ]
+      }
+    }
+  },
+  "Schmiere": {
+    "mapping": {
+      "s19840": "Schmiere_c3",
+      "s109795": "Schmiere_c1",
+      "s47565": "Schmiere_c2",
+      "s48505": "Schmiere_c0"
+    },
+    "clusters": {
+      "Schmiere_c3": {
+        "label": null,
+        "members": [
+          "s19840"
+        ]
+      },
+      "Schmiere_c1": {
+        "label": null,
+        "members": [
+          "s109795"
+        ]
+      },
+      "Schmiere_c2": {
+        "label": null,
+        "members": [
+          "s47565"
+        ]
+      },
+      "Schmiere_c0": {
+        "label": null,
+        "members": [
+          "s48505"
+        ]
+      }
+    }
+  },
+  "Seminar": {
+    "mapping": {
+      "s18118": "Seminar_c0",
+      "s75925": "Seminar_c0",
+      "s109889": "Seminar_c1"
+    },
+    "clusters": {
+      "Seminar_c0": {
+        "label": null,
+        "members": [
+          "s18118",
+          "s75925"
+        ]
+      },
+      "Seminar_c1": {
+        "label": null,
+        "members": [
+          "s109889"
+        ]
+      }
+    }
+  },
+  "Spielball": {
+    "mapping": {
+      "s33157": "Spielball_c2",
+      "s38557": "Spielball_c3",
+      "s7942": "Spielball_c1",
+      "s11162": "Spielball_c0"
+    },
+    "clusters": {
+      "Spielball_c2": {
+        "label": null,
+        "members": [
+          "s33157"
+        ]
+      },
+      "Spielball_c3": {
+        "label": null,
+        "members": [
+          "s38557"
+        ]
+      },
+      "Spielball_c1": {
+        "label": null,
+        "members": [
+          "s7942"
+        ]
+      },
+      "Spielball_c0": {
+        "label": null,
+        "members": [
+          "s11162"
+        ]
+      }
+    }
+  },
+  "Titel": {
+    "mapping": {
+      "s76068": "Titel_c1",
+      "s29695": "Titel_c0",
+      "s32215": "Titel_c0"
+    },
+    "clusters": {
+      "Titel_c1": {
+        "label": null,
+        "members": [
+          "s76068"
+        ]
+      },
+      "Titel_c0": {
+        "label": null,
+        "members": [
+          "s29695",
+          "s32215"
+        ]
+      }
+    }
+  },
+  "abbauen": {
+    "mapping": {
+      "s57372": "abbauen_c0",
+      "s58795": "abbauen_c0",
+      "s59673": "abbauen_c0",
+      "s53403": "abbauen_c0",
+      "s54200": "abbauen_c1"
+    },
+    "clusters": {
+      "abbauen_c0": {
+        "label": null,
+        "members": [
+          "s57372",
+          "s58795",
+          "s59673",
+          "s53403"
+        ]
+      },
+      "abbauen_c1": {
+        "label": null,
+        "members": [
+          "s54200"
+        ]
+      }
+    }
+  },
+  "abdecken": {
+    "mapping": {
+      "s56879": "abdecken_c0",
+      "s57055": "abdecken_c0",
+      "s54178": "abdecken_c2",
+      "s108653": "abdecken_c1"
+    },
+    "clusters": {
+      "abdecken_c0": {
+        "label": null,
+        "members": [
+          "s56879",
+          "s57055"
+        ]
+      },
+      "abdecken_c2": {
+        "label": null,
+        "members": [
+          "s54178"
+        ]
+      },
+      "abdecken_c1": {
+        "label": null,
+        "members": [
+          "s108653"
+        ]
+      }
+    }
+  },
+  "ausspannen": {
+    "mapping": {
+      "s109411": "ausspannen_c3",
+      "s109412": "ausspannen_c1",
+      "s52513": "ausspannen_c2",
+      "s54617": "ausspannen_c0"
+    },
+    "clusters": {
+      "ausspannen_c3": {
+        "label": null,
+        "members": [
+          "s109411"
+        ]
+      },
+      "ausspannen_c1": {
+        "label": null,
+        "members": [
+          "s109412"
+        ]
+      },
+      "ausspannen_c2": {
+        "label": null,
+        "members": [
+          "s52513"
+        ]
+      },
+      "ausspannen_c0": {
+        "label": null,
+        "members": [
+          "s54617"
+        ]
+      }
+    }
+  },
+  "verbauen": {
+    "mapping": {
+      "s58902": "verbauen_c2",
+      "s97885": "verbauen_c1",
+      "s59921": "verbauen_c0",
+      "s66179": "verbauen_c0",
+      "s100861": "verbauen_c0"
+    },
+    "clusters": {
+      "verbauen_c2": {
+        "label": null,
+        "members": [
+          "s58902"
+        ]
+      },
+      "verbauen_c1": {
+        "label": null,
+        "members": [
+          "s97885"
+        ]
+      },
+      "verbauen_c0": {
+        "label": null,
+        "members": [
+          "s59921",
+          "s66179",
+          "s100861"
+        ]
+      }
+    }
+  },
+  "vergönnen": {
+    "mapping": {
+      "s55493": "vergönnen_c1",
+      "s52881": "vergönnen_c0"
+    },
+    "clusters": {
+      "vergönnen_c1": {
+        "label": null,
+        "members": [
+          "s55493"
+        ]
+      },
+      "vergönnen_c0": {
+        "label": null,
+        "members": [
+          "s52881"
+        ]
+      }
+    }
+  },
+  "vorliegen": {
+    "mapping": {
+      "s54223": "vorliegen_c1",
+      "s54222": "vorliegen_c0"
+    },
+    "clusters": {
+      "vorliegen_c1": {
+        "label": null,
+        "members": [
+          "s54223"
+        ]
+      },
+      "vorliegen_c0": {
+        "label": null,
+        "members": [
+          "s54222"
+        ]
+      }
+    }
+  },
+  "vorweisen": {
+    "mapping": {
+      "s52373": "vorweisen_c1",
+      "s58755": "vorweisen_c0"
+    },
+    "clusters": {
+      "vorweisen_c1": {
+        "label": null,
+        "members": [
+          "s52373"
+        ]
+      },
+      "vorweisen_c0": {
+        "label": null,
+        "members": [
+          "s58755"
+        ]
+      }
+    }
+  },
+  "zersetzen": {
+    "mapping": {
+      "s59522": "zersetzen_c1",
+      "s100595": "zersetzen_c0"
+    },
+    "clusters": {
+      "zersetzen_c1": {
+        "label": null,
+        "members": [
+          "s59522"
+        ]
+      },
+      "zersetzen_c0": {
+        "label": null,
+        "members": [
+          "s100595"
+        ]
+      }
+    }
+  },
+  "überspannen": {
+    "mapping": {
+      "s65292": "überspannen_c2",
+      "s65293": "überspannen_c1",
+      "s65294": "überspannen_c0"
+    },
+    "clusters": {
+      "überspannen_c2": {
+        "label": null,
+        "members": [
+          "s65292"
+        ]
+      },
+      "überspannen_c1": {
+        "label": null,
+        "members": [
+          "s65293"
+        ]
+      },
+      "überspannen_c0": {
+        "label": null,
+        "members": [
+          "s65294"
+        ]
+      }
+    }
+  }
+}

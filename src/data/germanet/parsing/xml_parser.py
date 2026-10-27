@@ -139,7 +139,10 @@ class XMLParser:
         for orth_var in lexunit.xpath('orthVar'):
             if orth_var.text:
                 variants.append(orth_var.text)
-        
+
+        # Pre-1996 spellings (e.g. "Engpaß" for "Engpass"), needed for historical corpora
+        old_orth_forms = [e.text for e in lexunit.xpath('oldOrthForm|oldOrthVar') if e.text]
+
         # Extract ALL examples as list
         examples = []
         for example in lexunit.xpath('example/text'):
@@ -151,6 +154,7 @@ class XMLParser:
             'synset_id': synset_id,
             'lemma': lemma,
             'variants': variants,
+            'old_orth_forms': old_orth_forms,
             'named_entity': named_entity,
             'artificial': artificial,
             'style_marking': style_marking,

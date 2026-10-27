@@ -243,7 +243,102 @@ Rohdaten: `analysis/dwug/filter_check.csv` (gitignored).
    Für den Methodentest ist das in Ordnung, die Werte sind aber nicht direkt mit unseren
    Kern-JSDs vergleichbar.
 
-## Offene Entscheidungen
+## Entscheidungen (27.10.2026)
+
+1. **Wortmenge.** Die Hauptzahl gilt über alle 50 Wörter. Die 24 Wörter mit nur einer
+   GermaNet-Bedeutung gehen mit JSD = 0 und einer einzigen Klasse ein. Zusätzlich wird nur
+   über die 26 Wörter mit ≥ 2 Bedeutungen ausgewertet.
+2. **Gold.** Hauptreferenz ist SemEval-2020 Task 1 (Deutsch), zusätzlich DWUG DE 3.0.0
+   (`change_graded`). Herkunft und Abdeckung des SemEval-Golds: siehe unten.
+3. **ARI** wird gegen zwei Ziele berechnet: die DWUG-Graph-Cluster (`clusters/opt`, Usages mit
+   −1 ausgeschlossen) und die DWUG-DE-Sense-Labels.
+4. **Periode 1.** Hauptanalyse auf dem Originaltext (`context`), `context_normalized` als
+   Robustheitscheck.
+5. **Satzvorverarbeitung.** Kein Grundform-Filter. Die Zielwort-Position wird aus DWUG
+   übernommen (`indexes_target_token`), lange Sätze werden um das Zielwort herum gekürzt.
+
+### SemEval-2020-Gold: Herkunft und Abdeckung
+
+*Noch offen.* Die offizielle Quelle ist das Archiv `semeval2020_ulscd_ger.zip` der Organisatoren
+(IMS Stuttgart, `www2.ims.uni-stuttgart.de/data/sem-eval-ulscd/`), das Korpora, `targets.txt`
+und `truth/{binary,graded}.txt` enthält. Der Download (~ 400+ MB, die Gold-Dateien stehen am
+Ende des Archivs) brach am 27.10. zweimal ab und läuft mit Fortsetzung weiter. Der Abgleich
+der Zielwörter mit DWUG DE 3.0.0 wird hier nachgetragen.
+
+### Vorbereitung der 23 neuen Wörter (Stand 27.10.2026)
+
+Die automatischen Cluster liegen bereit; die **manuelle Prüfung steht noch aus** (Paul).
+
+**Wörter.** 23 DWUG-Wörter mit ≥ 2 GermaNet-Bedeutungen, die nicht unter den 502 sind, mit
+70 Synsets: Abgesang, Behandlung, Dynamik, Eintagsfliege, Engpass (DWUG: *Engpaß*),
+Entscheidung, Frechheit, Manschette, Ohrwurm, Rezeption, Schmiere, Seminar, Spielball, Titel,
+abbauen, abdecken, ausspannen, verbauen, vergönnen, vorliegen, vorweisen, zersetzen,
+überspannen. Fuß, Mut und packen haben schon geprüfte Cluster aus den 502.
+
+**Alte Schreibungen.** `XMLParser` liest jetzt zusätzlich `oldOrthForm`/`oldOrthVar` (neues
+Feld `old_orth_forms`). Darüber wird *Engpaß* → *Engpass* und *Mißklang* → *Missklang*
+aufgelöst. Missklang hat nur eine Bedeutung und gehört damit zur JSD-=-0-Gruppe.
+
+**Gleiche Einstellungen wie im Paper:**
+- **Basistexte:** Das Skript, das `senses_base.csv` erzeugt hat, war nie im Git. Das Template
+  ist in `src/data/germanet/transforms/baseline_text_builder.py` rekonstruiert und
+  reproduziert alle 2.022 Zeilen von `senses_base.csv` exakt (Text, Reihenfolge,
+  `sense_frequency`, `has_examples`). Prüfbar mit `--verify-baseline`; die Prüfung läuft
+  auch bei jedem normalen Aufruf vorab.
+- **Definition und 5 Beispiele:** dieselben Prompts (`config/prompts/definition.txt`,
+  `examples_multiple.txt`) und derselbe Parser wie in `enrich_senses_with_llm.py`. Prompts und
+  Code sind seit der Generierung von `senses_full.jsonl` (08.02.2026) unverändert.
+- **Core-Gloss:** derselbe Prompt mit den anderen Bedeutungen desselben Worts als Kontext wie in
+  `generate_expanded_senses.py` (`build_sibling_map`, `clean_gloss` werden direkt importiert).
+- **Modell:** gpt-4o-mini, Temperatur 0,7. Die Texte sind wegen der Temperatur nicht
+  bit-identisch reproduzierbar; das gilt für die Paper-Texte genauso.
+- **Clustering:** `compute_sense_clusters.py` mit τ = 0,10, `min_clusters` = 2, E5-large
+  auf `core_gloss`. Ergebnis: im Mittel 3,0 → 2,4 Cluster, bei 8 von 23 Wörtern hat die
+  Mindestaufteilung gegriffen (in der App mit „C“ markiert).
+
+**Unabhängigkeit der Prüfung.** Aus DWUG wird für die Vorbereitung nur die Liste der Zielwörter
+(Ordnernamen) gelesen. Die Review-App zeigt nur GermaNet-Klasse, Core-Gloss und
+LLM-Definition, keine DWUG-Sätze, -Cluster oder Gold-Werte.
+
+**Dateien** (alle neu, unter `data/processed/dwug/`, gitignored; bestehende Dateien sind
+unverändert):
+
+| Datei | Inhalt |
+|---|---|
+| `lemma_map.csv` | DWUG-Lemma → GermaNet-Lemma, Anzahl Bedeutungen, Status (`prepare` / `existing_502` / `single_sense`) |
+| `senses_base_dwug.csv` | Basistexte im Format von `senses_base.csv` |
+| `senses_dwug.jsonl` | angereicherte Bedeutungen im Format von `senses_expanded.jsonl` |
+| `sense_clusters_dwug_0.10.json`, `t010/cluster_summary.csv` | automatische Cluster |
+| `sense_clusters_dwug_reviewed.json` | Arbeitsdatei der manuellen Prüfung (aus den automatischen Clustern angelegt) |
+| `review_lemmas.txt` | die 23 Lemmas für die App |
+
+**Reproduzieren:**
+
+```bash
+python scripts/dwug/prepare_dwug_senses.py --yes      # Basistexte + LLM-Anreicherung
+python scripts/clustering/compute_sense_clusters.py --threshold 0.10 \
+    --senses-file data/processed/dwug/senses_dwug.jsonl \
+    --output data/processed/dwug/sense_clusters_dwug_0.10.json \
+    --summary-dir data/processed/dwug/t010
+```
+
+**Manuelle Prüfung starten:**
+
+```bash
+python scripts/clustering/review_app.py \
+    --source-file data/processed/dwug/sense_clusters_dwug_0.10.json \
+    --reviewed-file data/processed/dwug/sense_clusters_dwug_reviewed.json \
+    --senses-file data/processed/dwug/senses_dwug.jsonl \
+    --summary-file data/processed/dwug/t010/cluster_summary.csv \
+    --lemmas-file data/processed/dwug/review_lemmas.txt
+# → http://127.0.0.1:8001
+```
+
+Gleiche Aufgabe wie bei den 502 (siehe `scripts/clustering/ANNOTATION.md`): Zuordnung prüfen,
+Bedeutungen verschieben oder abspalten, jedes Cluster mit einem kurzen deutschen Label
+versehen, speichern.
+
+## Offene Entscheidungen (Stand vor dem 27.10.2026, siehe oben)
 
 1. Umgang mit den 24 Ein-Synset-Wörtern: (a), (b), (c) oder eine Kombination.
 2. Gold-Version: nur DWUG DE 3.0.0, oder zusätzlich das SemEval-2020-Gold für die

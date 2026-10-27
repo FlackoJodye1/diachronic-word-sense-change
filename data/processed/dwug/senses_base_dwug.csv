@@ -1,0 +1,71 @@
+lemma,pos,synset_id,class,paraphrase,text_for_embedding,text_source,sense_frequency,embedding_word_count,has_examples
+Abgesang,NOUN,s72929,Kommunikation,letzte Strophe im Minnesang,Abgesang: letzte Strophe im Minnesang. Abgesang ist eine Art von Gesang. Abgesang ist ein Begriff aus Kommunikation,direct_relations,1,17,False
+Abgesang,NOUN,s96267,Kommunikation,,Abgesang ist eine Art von Schlusswort. Abgesang ist ein Begriff aus Kommunikation,direct_relations,2,12,False
+Behandlung,NOUN,s19401,Geschehen,,Behandlung ist eine Art von Operation. Behandlung ist ein Begriff aus Geschehen,direct_relations,1,12,False
+Behandlung,NOUN,s20478,Geschehen,,Behandlung ist eine Art von medizinische Versorgung. Behandlung hat Behandlungsform. Behandlung ist ein Begriff aus Geschehen,direct_relations,2,16,False
+Behandlung,NOUN,s107037,Geschehen,,Behandlung ist eine Art von Bearbeitung. Behandlung ist ein Begriff aus Geschehen,direct_relations,3,12,False
+Behandlung,NOUN,s73156,Kognition,,Behandlung ist eine Art von Studie. Behandlung ist ein Begriff aus Kognition,direct_relations,4,12,False
+Dynamik,NOUN,s14106,Attribut,"innerer Elan, etwas, ein Ziel beharrlich und zielstrebig zu verfolgen","Dynamik: innerer Elan, etwas, ein Ziel beharrlich und zielstrebig zu verfolgen. Dynamik ist eine Art von Beflissenheit. Dynamik ist ein Begriff aus Attribut",direct_relations,1,23,False
+Dynamik,NOUN,s38956,Motiv,,Dynamik ist eine Art von Anlass. Dynamik ist ein Begriff aus Motiv,direct_relations,2,12,False
+Dynamik,NOUN,s28075,Kognition,,Dynamik ist eine Art von Physik. Dynamik ist ein Begriff aus Kognition,direct_relations,3,12,False
+Dynamik,NOUN,s40984,natPhaenomen,,Dynamik ist eine Art von Kraft. Dynamik ist verwandt mit Antriebsart. Dynamik ist ein Begriff aus natPhaenomen,direct_relations,4,17,False
+Dynamik,NOUN,s11849,Artefakt,,Dynamik ist eine Art von Schwankung. Dynamik ist ein Begriff aus Artefakt,direct_relations,5,12,False
+Eintagsfliege,NOUN,s49592,Tier,,Eintagsfliege ist eine Art von beißendes Fluginsekt. Eintagsfliege ist ein Begriff aus Tier,direct_relations,1,13,False
+Eintagsfliege,NOUN,s108210,Geschehen,,Eintagsfliege ist eine Art von Ereignis. Eintagsfliege ist ein Begriff aus Geschehen,direct_relations,2,12,False
+Engpass,NOUN,s16674,Geschehen,,Engpass ist eine Art von Mangel. Engpass ist ein Begriff aus Geschehen,direct_relations,1,12,False
+Engpass,NOUN,s9271,Artefakt,,Engpass ist eine Art von Durchfahrt. Engpass ist verwandt mit Beengtheit. Engpass ist ein Begriff aus Artefakt,direct_relations,2,17,False
+Entscheidung,NOUN,s18388,Geschehen,,Entscheidung ist eine Art von Match. Entscheidung ist ein Begriff aus Geschehen,direct_relations,1,12,False
+Entscheidung,NOUN,s28698,Kognition,,Entscheidung ist eine Art von Denken. Entscheidung hat Entscheidungsgrundlage. Entscheidung ist ein Begriff aus Kognition,direct_relations,2,15,False
+Entscheidung,NOUN,s73308,Kognition,,Entscheidung ist eine Art von Sache. Entscheidung ist ein Begriff aus Kognition,direct_relations,3,12,False
+Frechheit,NOUN,s13627,Attribut,,Frechheit ist eine Art von Qualität einer Sache. Frechheit ist ein Begriff aus Attribut,direct_relations,1,14,False
+Frechheit,NOUN,s14083,Attribut,,Frechheit ist eine Art von Charaktereigenschaft. Frechheit ist ein Begriff aus Attribut,direct_relations,2,12,False
+Manschette,NOUN,s71454,Artefakt,,Manschette ist eine Art von Mantel. Manschette ist ein Begriff aus Artefakt,direct_relations,1,12,False
+Manschette,NOUN,s71455,Artefakt,,Manschette ist eine Art von Bekleidungsteil. Manschette ist ein Begriff aus Artefakt,direct_relations,2,12,False
+Manschette,NOUN,s106683,Artefakt,,Manschette ist eine Art von Dichtung. Manschette ist ein Begriff aus Artefakt,direct_relations,3,12,False
+Ohrwurm,NOUN,s49596,Tier,,Ohrwurm ist eine Art von beißendes Fluginsekt. Ohrwurm ist eine Art von Wurm. Ohrwurm ist ein Begriff aus Tier,direct_relations,1,19,False
+Ohrwurm,NOUN,s75355,Artefakt,,Ohrwurm ist eine Art von Melodie. Ohrwurm ist ein Begriff aus Artefakt,direct_relations,2,12,False
+Rezeption,NOUN,s22808,Ort,,Rezeption ist eine Art von Abfertigungsschalter. Rezeption ist ein Begriff aus Ort,direct_relations,1,12,False
+Rezeption,NOUN,s75703,Kognition,,Rezeption ist eine Art von Aufnahme. Rezeption ist ein Begriff aus Kognition,direct_relations,2,12,False
+Schmiere,NOUN,s19840,Geschehen,Schmiere stehen,Schmiere: Schmiere stehen. Schmiere ist eine Art von Wachdienst. Schmiere ist ein Begriff aus Geschehen,direct_relations,1,15,False
+Schmiere,NOUN,s109795,Gruppe,,Schmiere ist eine Art von Wanderbühne. Schmiere ist ein Begriff aus Gruppe,direct_relations,2,12,False
+Schmiere,NOUN,s47565,Substanz,,Schmiere ist eine Art von Dreck. Schmiere ist ein Begriff aus Substanz,direct_relations,3,12,False
+Schmiere,NOUN,s48505,Substanz,,Schmiere ist eine Art von Schmiermittel. Schmiere ist verwandt mit Schmierung. Schmiere ist ein Begriff aus Substanz,direct_relations,4,17,False
+Seminar,NOUN,s18118,Geschehen,,Seminar ist eine Art von wissenschaftliche Veranstaltung. Seminar ist ein Begriff aus Geschehen,direct_relations,1,13,False
+Seminar,NOUN,s75925,Gruppe,,Seminar ist eine Art von Einrichtung. Seminar ist ein Begriff aus Gruppe,direct_relations,2,12,False
+Seminar,NOUN,s109889,Gruppe,,Seminar ist eine Art von Hochschulinstitut. Seminar ist ein Begriff aus Gruppe,direct_relations,3,12,False
+Spielball,NOUN,s33157,Geschehen,,Spielball ist eine Art von Spielzug. Spielball ist ein Begriff aus Geschehen,direct_relations,1,12,False
+Spielball,NOUN,s38557,Mensch,,Spielball ist eine Art von hierarchisch ausgerichteter Mensch. Spielball ist ein Begriff aus Mensch,direct_relations,2,14,False
+Spielball,NOUN,s7942,Artefakt,,Spielball ist eine Art von Sportgerät. Spielball ist verwandt mit Topspin. Spielball ist ein Begriff aus Artefakt,direct_relations,3,17,False
+Spielball,NOUN,s11162,Artefakt,,Spielball ist eine Art von Kinderspielsachen. Spielball ist ein Begriff aus Artefakt,direct_relations,4,12,False
+Titel,NOUN,s76068,Attribut,,Titel ist eine Art von Anrecht. Titel ist ein Begriff aus Attribut,direct_relations,1,12,False
+Titel,NOUN,s29695,Kommunikation,,Titel ist eine Art von Stoff. Titel ist ein Begriff aus Kommunikation,direct_relations,2,12,False
+Titel,NOUN,s32215,Kommunikation,,Titel ist eine Art von Benennung. Titel ist ein Begriff aus Kommunikation,direct_relations,3,12,False
+abbauen,VERB,s57372,Lokation,,Sie haben das Gerüst schon wieder abgebaut. ; abbauen,example,1,9,True
+abbauen,VERB,s58795,Schoepfung,,Hier beutet das Unternehmen ein Erzvorkommen aus. ; Hier wird Kohle abgebaut. ; abbauen ; ausbeuten,example,2,16,True
+abbauen,VERB,s59673,Veraenderung,allmählich beseitigen,allmählich beseitigen ; Der Betrieb wird 2000 Stellen abbauen. ; Die Ärzte konnten das Fieber senken.|Die Firma hat in diesem Jahr unsere Vertriebsausgaben gesenkt. ; abbauen ; senken,example,3,28,True
+abbauen,VERB,s53403,Gesellschaft,in der Personenzahl verringern,in der Personenzahl verringern ; Der Konzern baut 1.000 Arbeitsplätze ab. ; abbauen,example,4,13,True
+abbauen,VERB,s54200,Gesellschaft,,Der alte Mann baut immer mehr ab. ; Er ist tief gesunken. ; Er ist ziemlich heruntergekommen. ; Meine Kräfte haben nachgelassen. ; Seine Moralvorstellungen sind runtergekommen. ; abbauen ; herunterkommen ; nachlassen ; runterkommen ; sinken,example,5,37,True
+abdecken,VERB,s56879,Kontakt,,Der Sturm hat die Dächer abgedeckt. ; abdecken,example,1,8,True
+abdecken,VERB,s57055,Kontakt,,Die Kellnerin bedeckte den Tisch mit einem Tuch. ; Die Mutter deckte das Kind gut zu.|Er deckte das Kind mit einer Wolldecke zu. ; Er deckt sein Auto im Winter ab. ; Er hat die Flecken mit einem Teppich überdeckt. ; abdecken ; bedecken ; zudecken ; überdecken,example,2,48,True
+abdecken,VERB,s54178,Gesellschaft,,Das Brot deckte den Wochenbedarf. ; Mit dieser Summe konnte man alle anfallenden Kosten abdecken. ; abdecken ; decken,example,3,19,True
+abdecken,VERB,s108653,Konkurrenz,,Der Verteidiger konnte durch seine Schnelligkeit den Gegenspieler abdecken. ; abdecken,example,4,11,True
+ausspannen,VERB,s109411,Kontakt,,Die Fischer spannten ihre Netze aus. ; ausspannen,example,1,8,True
+ausspannen,VERB,s109412,Kontakt,,Er spannte den Anhänger aus. ; ausspannen,example,2,7,True
+ausspannen,VERB,s52513,Besitz,den Partner wegnehmen,"den Partner wegnehmen ; Was soll ich tun, wenn er mir meine Frau ausspannt? ; ausspannen",example,3,16,True
+ausspannen,VERB,s54617,Koerperfunktion,,Er ruht sich von der langen Reise aus.|Ich ruhe mich aus. ; Heute spanne ich aus. ; Sie kann gut abschalten. ; abschalten ; ausruhen ; ausspannen,example,4,27,True
+verbauen,VERB,s58902,Schoepfung,,Das ganze Gebiet wurde vollgebaut. ; Die Stadt hat das Gebiet verbaut. ; Hier bauen sie die ganze Gegend zu. ; Sie haben die gesamte Fläche bebaut. ; bebauen ; verbauen ; vollbauen ; zubauen,example,1,35,True
+verbauen,VERB,s97885,Schoepfung,,Die Architekten haben die Stadt völlig verbaut. ; verbauen,example,2,9,True
+verbauen,VERB,s59921,Veraenderung,,Du verbaust dir alle Zukunftsperspektiven. ; verbauen,example,3,7,True
+verbauen,VERB,s66179,Verbrauch,,Der Bauarbeiter hat alle Ziegelsteine verbaut. ; verbauen,example,4,8,True
+verbauen,VERB,s100861,Konkurrenz,,Das Kind hat mit seinen Bauklötzen den Eingang verbaut. ; verbauen,example,5,11,True
+vergönnen,VERB,s55493,Kognition,,Die Teilnahme an diesem Megaevent ist mir wohl nicht vergönnt.|Man vergönnte ihm nicht zu triumphieren. ; vergönnen,example,1,17,True
+vergönnen,VERB,s52881,Gefuehl,sich neidlos für jemand Anderen freuen,sich neidlos für jemand Anderen freuen ; Ich gönne dir diesen großen Erfolg. ; Sein Bruder vergönnt ihm den Sieg. ; gönnen ; vergönnen,example,2,24,True
+vorliegen,VERB,s54223,Gesellschaft,als Faktum für eine entsprechende Beurteilung zu erkennen sein,als Faktum für eine entsprechende Beurteilung zu erkennen sein ; Ein Verschulden des Fahrers liegt in diesem Fall vor. ; vorliegen,example,1,21,True
+vorliegen,VERB,s54222,Gesellschaft,zur genaueren Prüfung/Untersuchung o. Ä. (vor jmdm.) liegen,zur genaueren Prüfung/Untersuchung o. Ä. (vor jmdm.) liegen ; Der Antrag liegt dem Anwalt bereits vor. ; vorliegen,example,2,18,True
+vorweisen,VERB,s52373,Besitz,etwas präsentieren/jemandem zeigen,etwas präsentieren/jemandem zeigen ; Einreisende müssen an der Grenze ihren Pass vorweisen.|Sie weisen hervorragende Sprachkenntnisse in Deutsch vor. ; vorweisen,example,1,20,True
+vorweisen,VERB,s58755,Perzeption,,Sie musste ihr Zeugnis vorweisen. ; vorweisen,example,2,7,True
+zersetzen,VERB,s59522,Veraenderung,seine feste Beschaffenheit verlieren,seine feste Beschaffenheit verlieren ; Der Kakao löst sich in heißer Milch auf.|Das Salz löst sich im Wasser auf. ; Der Kompost zersetzt sich. ; auflösen ; zersetzen,example,1,28,True
+zersetzen,VERB,s100595,Veraenderung,,Seine Unehrlichkeit zersetzt seine Autorität. ; zersetzen,example,2,7,True
+überspannen,VERB,s65292,Kontakt,,Die neue Brücke überspannt die Meerenge. ; überspannen,example,1,8,True
+überspannen,VERB,s65293,Kontakt,,Das Zimmermädchen überspannt das Bett mit einem neuen Tuch. ; überspannen,example,2,11,True
+überspannen,VERB,s65294,Veraenderung,,"Der Schütze hat den Bogen überspannt, sodass die Sehne riss. ; überspannen",example,3,12,True

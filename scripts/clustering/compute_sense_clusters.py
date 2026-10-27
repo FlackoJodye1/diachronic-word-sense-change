@@ -65,6 +65,8 @@ def main():
                         help="Only cluster these lemmas (default: all lemmas in senses file)")
     parser.add_argument("--output", type=Path, default=None,
                         help="Output path for cluster mapping JSON (default: sense_clusters_{threshold}.json)")
+    parser.add_argument("--summary-dir", type=Path, default=None,
+                        help="Directory for cluster_summary.csv (default: sense_clustering/t{threshold})")
     parser.add_argument("--dry-run", action="store_true",
                         help="Load and embed senses but do not write output files")
     parser.add_argument("--merge-into", type=Path, default=None,
@@ -74,7 +76,7 @@ def main():
     t = args.threshold
     t_str = f"{t:.2f}".replace(".", "")  # e.g. "010"
     clusters_out = args.output if args.output else CLUSTERS_DIR / f"sense_clusters_{t:.2f}.json"
-    summary_dir = SUMMARY_BASE_DIR / f"t{t_str}"
+    summary_dir = args.summary_dir or SUMMARY_BASE_DIR / f"t{t_str}"
 
     logger.info(f"Loading senses from {args.senses_file}")
     senses_df = load_senses(args.senses_file)

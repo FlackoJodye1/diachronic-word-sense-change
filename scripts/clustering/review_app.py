@@ -25,11 +25,12 @@ import json
 import sys
 from pathlib import Path
 
+import pandas as pd
 from flask import Flask, request
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.diachronic.io import load_all_senses
+from src.diachronic.io import load_all_senses, load_senses
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -41,13 +42,24 @@ _ap.add_argument("--annotator", default=None,
 _ap.add_argument("--lemmas-file", default=None,
                  help="Path to a text file with one lemma per line. Only these lemmas are shown / editable.")
 _ap.add_argument("--port", type=int, default=8001, help="Port (default 8001).")
+_ap.add_argument("--source-file", default=None,
+                 help="Automatic cluster JSON to review (default: sense_clusters_0.10.json).")
+_ap.add_argument("--reviewed-file", default=None,
+                 help="Where edits are saved; seeded from --source-file if missing. Overrides --annotator naming.")
+_ap.add_argument("--senses-file", default=None,
+                 help="Extra senses JSONL to show glosses/definitions from, in addition to the standard sense files.")
+_ap.add_argument("--summary-file", default=None,
+                 help="cluster_summary.csv used for the 'constrained' badges (default: sense_clustering/t010).")
 _args = _ap.parse_args()
 
 app = Flask(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-SOURCE_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_0.10.json"
-if _args.annotator:
+SOURCE_FILE = Path(_args.source_file).resolve() if _args.source_file else BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_0.10.json"
+if _args.reviewed_file:
+    REVIEWED_FILE = Path(_args.reviewed_file).resolve()
+    _SEED_FILE = SOURCE_FILE
+elif _args.annotator:
     REVIEWED_FILE = BASE_DIR / "data" / "processed" / "germanet" / f"sense_clusters_reviewed_{_args.annotator}.json"
     # Per-annotator file is seeded from the canonical reviewed file if it doesn't exist —
     # this carries over the 96 lemmas already labelled by Paul, so colleagues can see them
@@ -57,7 +69,7 @@ if _args.annotator:
 else:
     REVIEWED_FILE = BASE_DIR / "data" / "processed" / "germanet" / "sense_clusters_reviewed.json"
     _SEED_FILE = SOURCE_FILE
-SUMMARY_FILE = BASE_DIR / "data" / "processed" / "sense_clustering" / "t010" / "cluster_summary.csv"
+SUMMARY_FILE = Path(_args.summary_file).resolve() if _args.summary_file else BASE_DIR / "data" / "processed" / "sense_clustering" / "t010" / "cluster_summary.csv"
 
 # Load the whitelist of editable lemmas (None = no restriction).
 allowed_lemmas: set[str] | None = None
@@ -85,6 +97,8 @@ with open(REVIEWED_FILE, "r", encoding="utf-8") as f:
     reviewed_data = json.load(f)
 
 senses_df = load_all_senses(BASE_DIR)
+if _args.senses_file:
+    senses_df = pd.concat([senses_df, load_senses(Path(_args.senses_file))], ignore_index=True)
 senses_lookup = {row["synset_id"]: row.to_dict() for _, row in senses_df.iterrows()}
 
 pilot_lemmas: set[str] = set()
@@ -234,6 +248,7 @@ def dashboard():
         else:
             expanded_cards += card
 
+    n_pilot_shown = sum(1 for l in lemmas if l in pilot_lemmas)
     pct = round(100 * total_labeled / total_clusters) if total_clusters else 0
     bar = f'<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{pct}%"></div></div>'
 
@@ -253,9 +268,9 @@ def dashboard():
 <h1>Sense Cluster Review</h1>
 {stats}
 <p style="font-size:12px;color:#666;"><span class="badge">C</span> = constrained (forced split)</p>
-<div class="section-header">Pilot words ({len(pilot_lemmas)} lemmas)</div>
+<div class="section-header">Pilot words ({n_pilot_shown} lemmas)</div>
 <div class="lemma-grid">{pilot_cards}</div>
-<div class="section-header">Expanded words ({len(lemmas) - len(pilot_lemmas)} lemmas)</div>
+<div class="section-header">Expanded words ({len(lemmas) - n_pilot_shown} lemmas)</div>
 <div class="lemma-grid">{expanded_cards}</div>
 </div></body></html>"""
 
