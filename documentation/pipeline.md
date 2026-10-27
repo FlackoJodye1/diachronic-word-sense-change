@@ -77,6 +77,10 @@ Output: `pilot_contexts_v3.jsonl` — **90,130 sentences** for 90 words.
 
 **API limits:** max `--limit` is 5,000 (API silently reverts to 100 above ~7,500). `kern` corpus ceiling is ~3,500 unique documents per word.
 
+**Filter note:** `target_matches_token` keeps only sentences where the exact base form occurs exactly once, so inflected forms are dropped. See `analysis/fetch_check/RESULTS.md`.
+
+**Access status (2026-10-27):** DWDS has agreed in writing to export and reuse of kern results (`documentation/DATA_SOURCES.md`). But `/r/` blocks automated access (robots.txt `Disallow: /r`, HTTP 403 for an honest user agent). `DWDSClient` currently gets through only because it sends a browser user agent. **Don't re-run this step until the technical access is cleared with DWDS.** Proposed client changes: `analysis/fetch_check/RESULTS.md`.
+
 ---
 
 ## Phase 2: WSD Optimization (Atemporal)

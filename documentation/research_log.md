@@ -267,7 +267,7 @@ The DWDS export API supports page-by-page fetching via the `p` parameter. Each p
 For kern this matters less (most words have <5,000 unique documents, confirmed for Krone at ~3,514). But for ZEIT and other larger corpora, pagination is essential.
 
 **Finding 2 — ZEIT requires session-cookie authentication**:
-The DWDS API does not use API keys. Access to licensed corpora (ZEIT, FAZ, Spiegel) requires a valid browser session cookie — i.e., the user must be logged in to DWDS. Confirmed by DWDS admin response (2026-03-23): export is allowed at large scale once authenticated. The `DWDSClient` currently sends no authentication headers, which is why `corpus=zeit` returns 404.
+The DWDS API does not use API keys. Access to licensed corpora (ZEIT, FAZ, Spiegel) requires a valid browser session cookie — i.e., the user must be logged in to DWDS. Confirmed by DWDS admin response (2026-03-23): export is allowed at large scale once authenticated. *(Correction 2026-10-27: the mail does not tie export to a login. Kern results may be exported and reused; ZEIT/FAZ/Spiegel are quotes-only. See `documentation/DATA_SOURCES.md` and the 2026-10-27 fetch-check entry.)* The `DWDSClient` currently sends no authentication headers, which is why `corpus=zeit` returns 404.
 
 **Implemented (2026-03-23)** in `src/data/dwds/client.py`, `src/data/dwds/fetcher.py`, `scripts/data/fetch_dwds_contexts.py`:
 
@@ -349,7 +349,7 @@ Pilot study results look promising but context density is insufficient for relia
 **Key concern — genre composition**:
 The `ddc` corpus has less controlled genre composition than `kern`. Genre drift (Belletristik ↓, Wissenschaft ↑ over time) is already a documented confound in the kern data; it will be more pronounced in `ddc`. Any apparent sense shift that correlates with a genre composition shift should be treated with caution. **At minimum**, genre distribution must be reported alongside diachronic results. At best, genre-stratified sampling should be implemented in `aggregate_temporal.py` before the full-study scale-up.
 
-**Result (2026-03-23)**: Fetch complete. 30,337 → 90,130 contexts (+197%). All 116 words fetched. Most words +150–350%. Genuinely sparse words unchanged (Bass 23→25, Frosch 106→109, Knoten 266→270) — kern corpus ceiling confirmed for those. Case study words: Krone 287→682, ziehen 212→778, Blatt 224→752. Output: `data/processed/dwds/pilot_contexts_v3.jsonl`.
+**Result (2026-03-23)**: Fetch complete. 30,337 → 90,130 contexts (+197%). All 116 words fetched. Most words +150–350%. Genuinely sparse words unchanged (Bass 23→25, Frosch 106→109, Knoten 266→270) — kern corpus ceiling confirmed for those. *(Correction 2026-10-27: Bass is not genuinely sparse. kern spells it *Baß* (758 vs. 159 tokens), and the same holds for Schloss/Schloß and Schluss/Schluß. See `analysis/fetch_check/RESULTS.md` §4b.)* Case study words: Krone 287→682, ziehen 212→778, Blatt 224→752. Output: `data/processed/dwds/pilot_contexts_v3.jsonl`.
 
 **Follow-up**:
 - Run predictions on v3 contexts → `pilot_predictions_v3.csv`
@@ -1482,6 +1482,49 @@ Full write-up: `analysis/dwug/INVENTORY.md`.
 - **Side finding:** `target_matches_token` keeps only sentences containing the bare lemma form,
   so inflected forms are dropped. On DWUG that would discard 47–65 % of uses. Our DWDS
   contexts are therefore systematically restricted to base forms, which should be mentioned as a limitation.
+  Follow-up: see the 2026-10-27 fetch-check entry below.
 
 **Open decisions:** handling of single-synset words, DWUG 3.0.0 vs. SemEval gold, ARI target
 (graph clusters vs. sense labels), P1 input (`context` vs. `context_normalized`).
+
+---
+
+## 2026-10-27: DWDS Fetch Check — Base-Form Filter, Data Access
+
+**Status**: Partly done; blocked on DWDS technical access
+**Full write-up:** `analysis/fetch_check/RESULTS.md`; sources and terms: `documentation/DATA_SOURCES.md`.
+
+**Context:** Follow-up to the DWUG side finding above. How many sentences would we have
+without the base-form filter (`target_matches_token`: target exactly once, exact base form)?
+
+**Done:**
+- v3 fetch settings confirmed: `kern`, limit 5000 (one page), `sort=random`, 6–60 tokens,
+  `max_per_doc=1`, near-dup 0.7, keep all. Expanded lemmas used the same settings.
+- Stratified sample of 20 lemmas (15 NOUN / 3 VERB / 2 ADJ, seed 20261027).
+- `pilot_v3_coarse_stats.csv` matches the stored contexts exactly for all 20.
+- Embedding benchmark: e5-large, M1/MPS, ~44 s per 1,000 sentences. Re-running the current
+  318,611 sentences takes ~3.9 h, ~7.8 h at factor 2.
+
+**Not done (blocked):** the factor b/c. Indirect hint: on DWUG, only 41–54 % of uses pass
+the filter. Whether the limit binds was later measured offline (see addendum: yes, for 245/502).
+
+**Data access:** DWDS (F. Nojack, BBAW) confirmed in writing that corpus results may be
+exported and reused (mails 2025-11-21 and 2026-03-23). `/wb/` dictionary data may not be
+reused; we don't use it. Only the newspaper corpora are restricted. **Technically**,
+automated export is blocked: `robots.txt` disallows `/r` (and all of `ddc.dwds.de`), there
+is no `#export` section on `/d/api` any more, and `/r/?…&view=csv` returns HTTP 403 with an
+honest user agent. All earlier fetches only worked because `DWDSClient` sends
+`User-Agent: Mozilla/5.0`. This was not circumvented; the follow-up with DWDS is pending.
+
+**Correction to the 2026-03-23 entry (Finding 2):** the DWDS reply does not tie large-scale
+export to being logged in. It allows export via the export button or the API page; the only
+restriction is quotes-only for ZEIT/FAZ/Spiegel.
+
+**Follow-up:** Ask DWDS which automated export route is intended and whether a named research
+user agent can be allowed. Then run `analysis/fetch_check/fetch_check.py` and decide on
+dropping the base-form filter. Proposed `DWDSClient` changes are in RESULTS.md (not implemented).
+
+**Addendum (same day):**
+- **Limit check, done offline** with the kern lemma frequencies in `data/raw/dlexdb/kern.sqlite`: 245/502 lemmas (49 %) have more than 5,000 kern tokens. For them the fetch is a 5,000-row random sample (NOUN 43 %, VERB 68 %, ADJ 62 %). For the 256 lemmas below the limit we keep 17 % of all kern tokens (NOUN 19 %, VERB 11 %, ADJ 13 %). This is an upper bound on what dropping *all* filters could gain, not the base-form factor alone.
+- **Spelling:** kern uses pre-1996 orthography. Our queries for *Schloss* (41 sentences vs. 6,073 *Schloß*), *Schluss* (87 vs. 10,025 *Schluß*) and *Bass* (25 vs. 758 *Baß*) miss almost everything. A re-fetch should query both spellings.
+- **Licences:** dlexDB on Zenodo is CC BY-SA 4.0. The provenance of our `kern.sqlite` (SQLite, dstar-lexdb style) is undocumented and needs confirming. See `documentation/DATA_SOURCES.md`. SemEval-2020 German (README in the archive): no named licence, "freely available for education, research and other non-commercial purposes". Non-commercial only; link to the original, don't redistribute.

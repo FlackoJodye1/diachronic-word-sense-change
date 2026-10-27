@@ -79,6 +79,9 @@ Empirical status flagged inline. C1 and C4 are still working hypotheses; C2 and 
 - 26 pilot words have no GermaNet senses (deferred to Phase 4 of the project).
 - Coarse-cluster boundary subjectivity (mitigated by LLM judge + manual review, but not eliminated).
 - Atemporal accuracy ceiling (43.0% fine) — discuss what this means for downstream diachronic interpretation.
+- *(added 2026-10-27)* DWDS contexts are restricted to sentences with the exact base form, exactly once (`target_matches_token`), so inflected forms are dropped (on DWUG: 46–59 % of uses lost). Size of the effect on our data not yet measured: `analysis/fetch_check/RESULTS.md`.
+- *(added 2026-10-27)* For lemmas with more than 5,000 kern hits, the fetch is a random 5,000-row sample (245 of 502 lemmas by kern frequency). In addition, kern uses pre-1996 spelling, so *Schloss/Schluss/Bass* are under-sampled.
+- **Data statement:** sources and terms in `documentation/DATA_SOURCES.md` (DWDS consent for kern export, GermaNet licence, DWUG CC BY-ND 4.0). Raw data is not redistributed.
 
 ---
 

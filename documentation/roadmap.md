@@ -160,6 +160,7 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Survey correlations (G&R 2024, German + English) | Done (2026-05-14/15) | `documentation/survey_correlations_2026-05-15.md`, `…_english_2026-05-15.md`. |
 | Robustness pass (ARR resubmission) | Done (2026-10-16, extended 2026-10-27) | JSD null baseline, 6 binnings, frequency partials, WSD by era. Recommendation: 3-period binning. `analysis/robustness/RESULTS.md`. |
 | DWUG DE evaluation (reviewer request) | Inventory done (2026-10-27) | `analysis/dwug/INVENTORY.md`. Plan decisions pending before any computation. |
+| DWDS fetch check (base-form filter) | Partly done (2026-10-27) | `analysis/fetch_check/RESULTS.md`. Sample and embedding benchmark (~44 s/1k sentences) done. Limit check done offline (binds for 245/502 lemmas). Old spelling found (*Schloß/Schluß/Baß* missed). Factor b/c **blocked**: DWDS blocks automated export with an honest user agent (403, robots.txt). DWDS has agreed to reuse of the content (`documentation/DATA_SOURCES.md`); follow-up on technical access pending. |
 | Hamilton extension on period bins | Not started | Blocked on binning decision; see `paper_plan.md` §5.5. |
 | Add ZEIT corpus (Die Zeit 1946–present) | **Pending institutional access** (applied 2026-03-23). Would significantly increase 1950s–1990s density with consistent Zeitung register. Decide on kern+ZEIT merge strategy once access confirmed. |
 | Draft paper (methods, results, discussion) | Not started |
@@ -193,6 +194,8 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Full methodology docs | `documentation/documentation.md` |
 | Pipeline guide | `documentation/pipeline.md` |
 | Research log | `documentation/research_log.md` |
+| Data sources & terms of use (incl. DWDS consent) | `documentation/DATA_SOURCES.md` |
+| DWDS fetch check (base-form filter, access) | `analysis/fetch_check/RESULTS.md` |
 
 ---
 
