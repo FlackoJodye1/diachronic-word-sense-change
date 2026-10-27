@@ -241,7 +241,7 @@ Normalized JSD (avg_jsd / n_coarse_senses) is the primary ranking metric. Raw JS
 
 2. **API limit investigation** — discovered the `--limit` parameter was the bottleneck, not a hard corpus ceiling. Tested 1000 → 2000 → 5000: API silently reverts to 100 rows above ~7,500. Optimal setting confirmed as `--limit 5000`. Also discovered `--min-tokens 8` introduced genre/decade bias (Zeitung headlines dropped disproportionately) — lowered to 6.
 
-3. **v3 re-fetch** — ran full 116-word fetch with `--limit 5000 --min-tokens 6 --max-tokens 60`. Result: 30,337 → 90,130 contexts (+197%). Most words +150–350%. Genuinely kern-sparse words unchanged (Bass 23→25, Frosch 106→109).
+3. **v3 re-fetch** — ran full 116-word fetch with `--limit 5000 --min-tokens 6 --max-tokens 60`. Result: 30,337 → 90,130 contexts (+197%). Most words +150–350%. Genuinely kern-sparse words unchanged (Bass 23→25, Frosch 106→109). *(Correction 2026-10-27: Bass is not sparse. kern spells it *Baß*. See `analysis/fetch_check/RESULTS.md` §4b.)*
 
 4. **Prediction pipeline memory refactor** — original script encoded all 90k contexts at once (~370MB embedding matrix), exhausting swap. Refactored to process one lemma at a time: model + sense embeddings loaded once, context embeddings computed and deleted per lemma. Added `--resume` flag for crash recovery. Peak RAM per step now ~7MB (down from 370MB).
 

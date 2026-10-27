@@ -75,7 +75,7 @@ Output: `pilot_contexts_v3.jsonl` — **90,130 sentences** for 90 words.
 
 **For licensed corpora (ZEIT, FAZ, Spiegel):** set `DWDS_SESSION_COOKIE` in `.env` or pass `--session-cookie`. Use `--paginate` with a deterministic sort (not `--sort random`) to fetch all pages.
 
-**API limits:** max `--limit` is 5,000 (API silently reverts to 100 above ~7,500). `kern` corpus ceiling is ~3,500 unique documents per word.
+**API limits:** max `--limit` is 5,000 (API silently reverts to 100 above ~7,500). `kern` corpus ceiling is ~3,500 unique documents per word. *(Correction 2026-10-27: this was measured for Krone only. By kern frequency, 245 of 502 lemmas have more than 5,000 hits, so a single page with limit 5,000 is a sample for them. See `analysis/fetch_check/RESULTS.md` §4.)*
 
 **Filter note:** `target_matches_token` keeps only sentences where the exact base form occurs exactly once, so inflected forms are dropped. See `analysis/fetch_check/RESULTS.md`.
 
