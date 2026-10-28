@@ -1,11 +1,11 @@
 # Datenquellen und Nutzungsbedingungen
 
-Stand: 2026-10-27. Rohdaten aller Quellen liegen gitignored unter `data/raw/` bzw.
+Stand: 2026-10-28. Rohdaten aller Quellen liegen gitignored unter `data/raw/` bzw.
 `data/external/`. Sie werden **nicht** ins Repo oder in Releases weitergegeben.
 
 | Quelle | Wofür | Bedingungen | Beleg |
 |---|---|---|---|
-| **DWDS-Kernkorpus** (`kern`, 1900–1999, BBAW) | Diachrone Kontexte (`data/processed/dwds/*_contexts_v3.jsonl`) | Korpustreffer dürfen exportiert und nachgenutzt werden (siehe Mails unten). Wörterbuchdaten der `/wb/`-Seiten dürfen **nicht** nachgenutzt werden. Unser Code nutzt keine `/wb/`-Daten. Sinninventar kommt aus GermaNet. | Mails 21.11.2025 und 23.03.2026 |
+| **DWDS-Kernkorpus** (`kern`, 1900–1999, BBAW) | Diachrone Kontexte (`data/processed/dwds/*_contexts_v3.jsonl`) | Korpustreffer dürfen exportiert und nachgenutzt werden (siehe Mails unten). Wörterbuchdaten der `/wb/`-Seiten dürfen **nicht** nachgenutzt werden. Unser Code nutzt keine `/wb/`-Daten. Sinninventar kommt aus GermaNet. | Mails 21.11.2025, 23.03.2026 und 28.10.2026 |
 | DWDS-Zeitungskorpora (ZEIT, FAZ, Spiegel) | Derzeit **nicht** genutzt | Nur Zitate in wissenschaftlichen Arbeiten, kein Massenexport | Mail 23.03.2026 |
 | **GermaNet 19.0** (Univ. Tübingen, Nov 2024) | Sinninventar (Synsets), Basis für `senses_*.jsonl` und Cluster | Nutzung über die Lizenz von **Prof. Andreas Baumann (Universität Wien)** als Lizenznehmer. Für spätere Releases ist laut GermaNet-Team keine neue Lizenz nötig. Rohdaten nicht weitergeben. **Offen: bei Andreas angefragt**, ob wir abgeleitete Daten veröffentlichen dürfen (Cluster-Zuordnungen mit Synset-IDs, LLM-Texte, Core Glosses). | Mail des GermaNet-Teams (Univ. Tübingen), 24.11.2025; `data/raw/GN_V190/GN_V190-README.txt` |
 | **DWUG DE 3.0.0 / DWUG DE Sense 1.0.1** (Zenodo, 2024-11-01) | Evaluation (Reviewer-Anforderung) | **CC BY-ND 4.0**: zitieren (Schlechtweg et al. 2021, 2024; LRE 2024), keine veränderten Fassungen weitergeben. Eigene Vorhersagen und Scores getrennt veröffentlichen ist erlaubt. | `analysis/dwug/INVENTORY.md` §1 |
@@ -50,10 +50,30 @@ bewusst nicht aufgeführt.
   Anweisungen auf unserer API-Seite: https://www.dwds.de/d/api#export“. Einschränkungen
   gelten nur für die Zeitungskorpora (ZEIT, FAZ, Spiegel): dort nur Zitate in
   wissenschaftlichen Arbeiten.
+- **28.10.2026** (Antwort auf die Nachfrage zum technischen Zugang): Automatisierte Abfragen
+  wurden im **Juni 2026** eingeschränkt. Für automatisierte Abfragen gibt es jetzt einen
+  **persönlichen API-Key** aus dem DWDS-Profil (`https://www.dwds.de/profile/apikey`). Damit
+  soll der Export im beschriebenen Umfang (~500 Lemmas, Kernkorpus) funktionieren. Eine
+  offizielle Beschreibung des Vorgehens soll demnächst erscheinen.
 
-### Offener Punkt: technischer Zugang (Stand 2026-10-27)
+**Zeitliche Einordnung:** Unsere bisherigen Abrufe (v2/v3 und Erweiterung, **Feb.–Mai 2026**)
+lagen **vor** der Einschränkung im Juni 2026. Sie liefen ohne Key, mit dem Browser-User-Agent
+von `DWDSClient`. Die Sperre mit HTTP 403, die wir am 27.10.2026 sahen, gehört zur neuen Regel.
 
-Die Erlaubnis ist inhaltlich da. Der automatisierte Abruf ist aber technisch noch nicht
+### Technischer Zugang mit API-Key (Stand 2026-10-28)
+
+- Pauls Key steht lokal in `.env` als `DWDS_API_KEY`. `.env` ist gitignored und wurde nie mit
+  einem echten Key committet (geprüft: die alten Commits mit `.env` enthalten nur Platzhalter).
+- Eine offizielle Doku zur Übergabe fehlt noch. Getestet am 28.10.2026 mit **einer**
+  Abfrage: Key als Header `Authorization: Bearer <key>` **und** `X-API-Key: <key>`, dazu ein
+  ehrlicher User-Agent → HTTP 200 mit CSV statt der Bot-Sperre. Welcher der beiden Header
+  entscheidet, ist nicht getrennt geprüft. Den Key **nie** als URL-Parameter senden.
+- Der Fetch-Check (`analysis/fetch_check/`) lief damit, siehe `RESULTS.md`. Sobald DWDS die
+  offizielle Beschreibung veröffentlicht, die Übergabe daran anpassen.
+
+### Früherer Stand: technischer Zugang (2026-10-27, überholt)
+
+Die Erlaubnis war inhaltlich da. Der automatisierte Abruf war aber technisch nicht
 geklärt, Details in `analysis/fetch_check/RESULTS.md`:
 
 - `https://www.dwds.de/d/api` hat derzeit **keinen** Abschnitt `#export`. Für Korpusabfragen
@@ -63,5 +83,4 @@ geklärt, Details in `analysis/fetch_check/RESULTS.md`:
 - Mit ehrlichem User-Agent antwortet `/r/?…&view=csv` mit HTTP 403 („als Bot identifiziert“).
   Die bisherigen v2/v3-Abrufe liefen nur, weil `DWDSClient` sich als Browser ausgibt.
 
-Nachfrage beim DWDS steht aus: Welcher automatisierte Exportweg ist gemeint, und kann ein
-benannter Research-User-Agent freigeschaltet werden?
+Die Nachfrage beim DWDS dazu wurde am 28.10.2026 beantwortet (API-Key, siehe oben).

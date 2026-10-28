@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-28T15:51:49.261633+00:00",
+  "user_agent": "WSD-Research-TUWien/1.0 (Kontakt: Paul Schmitt; Zweck: Diachrone WSD, Kernkorpus)",
+  "pause_s": 3.5,
+  "n_requests": 56,
+  "runtime_s": 1078.4,
+  "options": {
+    "corpus": "kern",
+    "limit": 5000,
+    "sort": "random",
+    "min_tokens": 6,
+    "max_tokens": 60,
+    "max_per_doc": 1,
+    "near_dup_threshold": 0.7,
+    "target_n": 0,
+    "auto_select": false,
+    "per_decade_n": 0,
+    "min_year": null,
+    "max_year": null,
+    "seed": 42,
+    "paginate": false
+  },
+  "auth": "DWDS API key as headers Authorization: Bearer + X-API-Key"
+}
