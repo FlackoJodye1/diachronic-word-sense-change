@@ -31,6 +31,10 @@ Stand: 2026-10-28. Rohdaten aller Quellen liegen gitignored unter `data/raw/` bz
   den Tabellen `lex/w/p/l` (Spalten `w`, `p`, `l`, `f`; Kommentare wie „transliterated text
   (==unicruft(u))“). Das sieht nach einer dstar-Lexikondatenbank aus, nicht nach dem
   Zenodo-Archiv. Summe `f`: 121,5 Mio. Tokens.
+- **Hinweis (2026-10-28):** Die Lemma-Frequenzen in `kern.sqlite` sind bei 19 von 20 geprüften
+  Lemmas **exakt** gleich der Zahl „insgesamt“, die die DWDS-Trefferseite für `corpus=kern`
+  zeigt (`analysis/fetch_check/RESULTS.md`). Die Datei passt also zum DWDS-Kernkorpus. Woher
+  genau sie kommt (Zenodo-Archiv oder dstar), ist damit aber noch nicht belegt.
 - **Offen, noch nicht geklärt:** Woher stammt die Datei? Kommt sie aus dem Zenodo-Archiv, gilt CC BY-SA 4.0.
   Ist sie von dstar/DWDS, deckt das vermutlich die DWDS-Zustimmung zu „Korpusergebnissen“
   ab, das sollte aber in der Nachfrage beim DWDS mit erwähnt werden.

@@ -270,11 +270,10 @@ Der Rest fällt durch *alle* Filter zusammen: Länge, 1 Satz pro Dokument, Dupli
 Grundform. Wie viel davon auf den Grundform-Filter entfällt, misst erst `fetch_check.py`.
 Dass Verben und Adjektive am wenigsten behalten, passt zur stärkeren Flexion.
 
-Vorbehalte: (1) `f` zählt Tokens. Ein Satz mit zwei Vorkommen zählt doppelt. (2) Ob die
-DWDS-Suche nach `Tag` alle Formen des Lemmas liefert (*Tage*, *Tages*) oder nur die
-Oberflächenform, ist weiter offen. Davon hängt ab, ob die 5.000 Zeilen aus allen
-76.697 Treffern gezogen werden. (3) Die Herkunft von `kern.sqlite` ist nicht dokumentiert,
-siehe `documentation/DATA_SOURCES.md`.
+Vorbehalte: (1) `f` zählt Tokens. Ein Satz mit zwei Vorkommen zählt doppelt. (2) ~~Ob die DWDS-Suche alle Formen des Lemmas liefert, ist offen.~~ Geklärt am
+2026-10-28: Ja. Bei *Tag* sind 64 % der Rohtreffer flektiert, die 5.000 Zeilen stammen aus
+allen 63.083 Treffern (§3). (3) Herkunft von `kern.sqlite`: Die Frequenzen entsprechen exakt
+den DWDS-Zahlen „insgesamt“ (Zugang, oben), siehe `documentation/DATA_SOURCES.md`.
 
 Folge für einen Neulauf: Bei der Hälfte der Lemmas hilft der Wegfall des Grundform-Filters
 nur innerhalb der 5.000er-Stichprobe. Mehr Daten gibt es dort erst mit Pagination

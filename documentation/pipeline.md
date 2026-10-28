@@ -75,11 +75,11 @@ Output: `pilot_contexts_v3.jsonl` — **90,130 sentences** for 90 words.
 
 **For licensed corpora (ZEIT, FAZ, Spiegel):** set `DWDS_SESSION_COOKIE` in `.env` or pass `--session-cookie`. Use `--paginate` with a deterministic sort (not `--sort random`) to fetch all pages.
 
-**API limits:** max `--limit` is 5,000 (API silently reverts to 100 above ~7,500). `kern` corpus ceiling is ~3,500 unique documents per word. *(Correction 2026-10-27: this was measured for Krone only. By kern frequency, 245 of 502 lemmas have more than 5,000 hits, so a single page with limit 5,000 is a sample for them. See `analysis/fetch_check/RESULTS.md` §4.)*
+**API limits:** max `--limit` is 5,000 (API silently reverts to 100 above ~7,500). `kern` corpus ceiling is ~3,500 unique documents per word. *(Correction 2026-10-27: this was measured for Krone only. By kern frequency, 245 of 502 lemmas have more than 5,000 tokens (~216 have more than 5,000 hits, 2026-10-28), so a single page with limit 5,000 is a sample for them. See `analysis/fetch_check/RESULTS.md` §4.)*
 
-**Filter note:** `target_matches_token` keeps only sentences where the exact base form occurs exactly once, so inflected forms are dropped. See `analysis/fetch_check/RESULTS.md`.
+**Filter note:** `target_matches_token` keeps only sentences where the exact base form occurs exactly once, so inflected forms are dropped. The DWDS search itself returns all forms (incl. old spellings like *Schloß*). Dropping the filter would give 1.67× the sentences (measured 2026-10-28). See `analysis/fetch_check/RESULTS.md`.
 
-**Access status (2026-10-27):** DWDS has agreed in writing to export and reuse of kern results (`documentation/DATA_SOURCES.md`). But `/r/` blocks automated access (robots.txt `Disallow: /r`, HTTP 403 for an honest user agent). `DWDSClient` currently gets through only because it sends a browser user agent. **Don't re-run this step until the technical access is cleared with DWDS.** Proposed client changes: `analysis/fetch_check/RESULTS.md`.
+**Access status (2026-10-28):** DWDS has agreed in writing to export and reuse of kern results (`documentation/DATA_SOURCES.md`). Since June 2026, automated access needs a personal API key (in `.env` as `DWDS_API_KEY`, sent as a header only). `DWDSClient` does not support the key yet and still sends a browser user agent. **Don't re-run this step with `DWDSClient` until it sends the key and an honest UA.** Working reference: `Fetcher` in `analysis/fetch_check/fetch_check.py`; proposed client changes: `analysis/fetch_check/RESULTS.md`.
 
 ---
 

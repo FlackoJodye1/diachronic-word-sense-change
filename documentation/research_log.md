@@ -267,7 +267,7 @@ The DWDS export API supports page-by-page fetching via the `p` parameter. Each p
 For kern this matters less (most words have <5,000 unique documents, confirmed for Krone at ~3,514). But for ZEIT and other larger corpora, pagination is essential.
 
 **Finding 2 — ZEIT requires session-cookie authentication**:
-The DWDS API does not use API keys. Access to licensed corpora (ZEIT, FAZ, Spiegel) requires a valid browser session cookie — i.e., the user must be logged in to DWDS. Confirmed by DWDS admin response (2026-03-23): export is allowed at large scale once authenticated. *(Correction 2026-10-27: the mail does not tie export to a login. Kern results may be exported and reused; ZEIT/FAZ/Spiegel are quotes-only. See `documentation/DATA_SOURCES.md` and the 2026-10-27 fetch-check entry.)* The `DWDSClient` currently sends no authentication headers, which is why `corpus=zeit` returns 404.
+The DWDS API does not use API keys. *(Correction 2026-10-28: since June 2026 it does. Automated access needs a personal API key, see the 2026-10-28 entry.)* Access to licensed corpora (ZEIT, FAZ, Spiegel) requires a valid browser session cookie — i.e., the user must be logged in to DWDS. Confirmed by DWDS admin response (2026-03-23): export is allowed at large scale once authenticated. *(Correction 2026-10-27: the mail does not tie export to a login. Kern results may be exported and reused; ZEIT/FAZ/Spiegel are quotes-only. See `documentation/DATA_SOURCES.md` and the 2026-10-27 fetch-check entry.)* The `DWDSClient` currently sends no authentication headers, which is why `corpus=zeit` returns 404.
 
 **Implemented (2026-03-23)** in `src/data/dwds/client.py`, `src/data/dwds/fetcher.py`, `scripts/data/fetch_dwds_contexts.py`:
 
@@ -1526,5 +1526,35 @@ dropping the base-form filter. Proposed `DWDSClient` changes are in RESULTS.md (
 
 **Addendum (same day):**
 - **Limit check, done offline** with the kern lemma frequencies in `data/raw/dlexdb/kern.sqlite`: 245/502 lemmas (49 %) have more than 5,000 kern tokens. For them the fetch is a 5,000-row random sample (NOUN 43 %, VERB 68 %, ADJ 62 %). For the 256 lemmas below the limit we keep 17 % of all kern tokens (NOUN 19 %, VERB 11 %, ADJ 13 %). This is an upper bound on what dropping *all* filters could gain, not the base-form factor alone.
-- **Spelling:** kern uses pre-1996 orthography. Our queries for *Schloss* (41 sentences vs. 6,073 *Schloß*), *Schluss* (87 vs. 10,025 *Schluß*) and *Bass* (25 vs. 758 *Baß*) miss almost everything. A re-fetch should query both spellings.
+- **Spelling:** kern uses pre-1996 orthography. Our queries for *Schloss* (41 sentences vs. 6,073 *Schloß*), *Schluss* (87 vs. 10,025 *Schluß*) and *Bass* (25 vs. 758 *Baß*) miss almost everything. A re-fetch should query both spellings. *(Correction 2026-10-28: not needed. DWDS already finds *Schloß* under *Schloss*. The base-form filter drops them. See the 2026-10-28 entry.)*
 - **Licences:** dlexDB on Zenodo is CC BY-SA 4.0. The provenance of our `kern.sqlite` (SQLite, dstar-lexdb style) is undocumented and needs confirming. See `documentation/DATA_SOURCES.md`. SemEval-2020 German (README in the archive): no named licence, "freely available for education, research and other non-commercial purposes". Non-commercial only; link to the original, don't redistribute.
+
+## 2026-10-28: DWDS Fetch Check — Run with API Key
+
+**Status**: Done
+**Full write-up:** `analysis/fetch_check/RESULTS.md`; sources and terms: `documentation/DATA_SOURCES.md`.
+
+**Access:** DWDS (F. Nojack) replied on 2026-10-28. Automated queries were restricted in June
+2026, and automated access now uses a personal API key from the DWDS profile. Our fetches
+(Feb–May 2026) predate the restriction. There are no official docs on passing the key yet.
+One test query with the key as `Authorization: Bearer` + `X-API-Key` headers and an honest UA
+returned CSV (HTTP 200). The run made 58 requests at 3.5 s spacing, all 200, with one read
+timeout on retry. The key is never in URLs, logs or files.
+
+**Results (20-lemma sample, same settings as v3):**
+- b/c (base-form filter off) = **1.67** pooled (median 1.52): NOUN 1.47, VERB 2.06, ADJ 2.55.
+- The DWDS search is lemmatised. 43 % of raw rows lack the exact base form (NOUN 35 %, VERB 60 %,
+  ADJ 74 %).
+- d (old spellings): none of the sample lemmas has a GermaNet `oldOrthForm`, so d = b. Only 4 of the
+  502 have one. For *Bass/Schluss/Schloss*, DWDS returns the same hits for the old spelling;
+  the filter is the problem (Schloss: c = 41 → 835 if the filter accepts *Schloß*). Only
+  *Foto/Photo* are separate lemmas (d/b = 1.9).
+- e (all hits, no limit): 17.8× raw, ≈ 5.8× after filters (upper bound). The result page shows
+  "N Treffer (M insgesamt)". M equals the `kern.sqlite` token frequency for 19/20 lemmas.
+- Limit binds for 7/20 in the sample, ~216/502 projected.
+- c reproduces `pilot_v3_coarse_stats.csv` within 3.4 sentences on average.
+- Re-run embedding: 3.9 h today → ~6.5 h without the filter → ≤ ~22 h with all hits. Full
+  pagination would also need a faster near-duplicate filter.
+
+**Next:** Decide whether to drop the base-form filter (or make it accept inflected and old
+forms). Before any re-fetch, `DWDSClient` needs the API key header and an honest UA.
