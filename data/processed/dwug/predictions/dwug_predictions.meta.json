@@ -1,0 +1,12 @@
+{
+  "created": "2026-10-31T16:52:22+00:00",
+  "model": "intfloat/multilingual-e5-large",
+  "representation": "weighted",
+  "max_tokens": 60,
+  "n_rows": 13250,
+  "n_usages": 9125,
+  "n_lemmas": 50,
+  "n_unique_contexts_encoded": 6895,
+  "device": "mps:0",
+  "dwug_version": "DWUG DE 3.0.0"
+}
