@@ -90,9 +90,10 @@ Lemmas: Cluster 0 = 6.898, 1 = 1.295, 2 = 344, danach ein langer Schwanz bis üb
   prüfen, ob wir die einzelnen Verteilungen treffen, nicht nur den Change-Score.
 
 **DWUG DE Sense 1.0.1**: 24 der 50 Wörter, je 50 Usages (25 pro Periode, 1.200 insgesamt).
-`senses.csv` enthält kurze Definitionen (3–8 pro Wort, `sense0` = „andere“). Die
-`labels_senses.csv` mit maj_2 enthalten 184 Usages mit „andere“ und 83 mit `-1`, wo keine
-Mehrheit zustande kam. Die Change-Scores dort sind aus den Sense-Labels abgeleitet, nicht
+`senses.csv` enthält kurze Definitionen (3–8 pro Wort, darunter je eine „andere“; deren ID
+ist je nach Wort verschieden, oft, aber nicht immer `sense0`). Die `labels_senses.csv` mit maj_2
+enthalten 83 Usages mit `-1`, wo keine Mehrheit zustande kam, und **keine** Usage mit
+Mehrheit „andere“ (korrigiert am 31.10.2026; vorher stand hier 184, gezählt wurden alle `sense0`). Die Change-Scores dort sind aus den Sense-Labels abgeleitet, nicht
 direkt annotiert. Das kommt unserem Aufbau (Sinn-Inventar → Zuordnung) **näher** als die
 Graph-Cluster und wäre ein naheliegendes zweites ARI-Ziel.
 
@@ -242,6 +243,8 @@ Rohdaten: `analysis/dwug/filter_check.csv` (gitignored).
    gegen 1946–1990. Wir messen also auf einem anderen Zeitfenster als in der Haupt-Analyse.
    Für den Methodentest ist das in Ordnung, die Werte sind aber nicht direkt mit unseren
    Kern-JSDs vergleichbar.
+
+**Ergebnisse der Evaluation (Schritt 2 und 3): `RESULTS.md`.**
 
 ## Entscheidungen (27.10.2026)
 
