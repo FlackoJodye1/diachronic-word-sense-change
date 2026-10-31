@@ -253,6 +253,18 @@ Rohdaten: `analysis/dwug/filter_check.csv` (gitignored).
    - **Zusatz 1:** alle 50 Wörter gegen DWUG DE 3.0.0 (`change_graded`).
    - **Zusatz 2:** jeweils nur die Wörter mit ≥ 2 Bedeutungen, also 24 gegen SemEval
      (ohne Behandlung und Mut) und 26 gegen DWUG DE 3.0.0.
+
+   **Präzisierung (31.10.2026, nach der manuellen Cluster-Prüfung):** Maßgeblich ist die Zahl
+   der Coarse-Cluster nach der Prüfung, nicht die Zahl der GermaNet-Bedeutungen (wie im Paper).
+   - Wörter, die nach der Prüfung nur ein Cluster haben (Entscheidung, Frechheit, Seminar,
+     vergönnen, vorweisen), gehen wie die Ein-Bedeutungs-Wörter mit JSD = 0 in die
+     Hauptzahl und in Zusatz 1 ein. Damit haben 29 der 48 SemEval-Wörter und 29 der 50
+     DWUG-Wörter JSD = 0.
+   - **Zusatz 2** heißt: nur Wörter mit ≥ 2 Clustern nach der Prüfung. Das sind **19 gegen
+     SemEval** (17 der 23 neuen ohne Behandlung, dazu Fuß und packen) und **21 gegen DWUG DE
+     3.0.0** (18 neue, dazu Fuß, Mut und packen).
+   - Hauptzahl (48) und Zusatz 1 (50) bleiben in der Wortzahl unverändert.
+   - Details zur Prüfung und zu Textfehlern in den LLM-Texten: `review_notes.md`.
 2. **Gold.** Hauptreferenz ist SemEval-2020 Task 1 (Deutsch), zusätzlich DWUG DE 3.0.0
    (`change_graded`), wie in Punkt 1. Herkunft und Abdeckung des SemEval-Golds: siehe unten.
 3. **ARI** wird gegen zwei Ziele berechnet: die DWUG-Graph-Cluster (`clusters/opt`, Usages mit
@@ -293,7 +305,11 @@ Werte wurden für diesen Abgleich nur maschinell verglichen, nicht angesehen.
 
 ### Vorbereitung der 23 neuen Wörter (Stand 27.10.2026)
 
-Die automatischen Cluster liegen bereit; die **manuelle Prüfung steht noch aus** (Paul).
+Die automatischen Cluster liegen bereit. **Manuelle Prüfung abgeschlossen am 31.10.2026**
+(Paul, extern gegengelesen) → `sense_clusters_dwug_reviewed.json`. Ergebnis: 55 → 54 Cluster,
+10 der 23 Wörter geändert. Nach der Prüfung haben 5 Wörter nur ein Coarse-Cluster
+(Entscheidung, Frechheit, Seminar, vergönnen, vorweisen) und damit Coarse-JSD = 0.
+Änderungen je Wort und gefundene Textfehler: `review_notes.md`.
 
 **Wörter.** 23 DWUG-Wörter mit ≥ 2 GermaNet-Bedeutungen, die nicht unter den 502 sind, mit
 70 Synsets: Abgesang, Behandlung, Dynamik, Eintagsfliege, Engpass (DWUG: *Engpaß*),
@@ -326,8 +342,8 @@ aufgelöst. Missklang hat nur eine Bedeutung und gehört damit zur JSD-=-0-Grupp
 (Ordnernamen) gelesen. Die Review-App zeigt nur GermaNet-Klasse, Core-Gloss und
 LLM-Definition, keine DWUG-Sätze, -Cluster oder Gold-Werte.
 
-**Dateien** (alle neu, unter `data/processed/dwug/`, gitignored; bestehende Dateien sind
-unverändert):
+**Dateien** (alle neu, unter `data/processed/dwug/`, alle im Git, auch die geprüfte
+Cluster-Datei; bestehende Dateien sind unverändert):
 
 | Datei | Inhalt |
 |---|---|

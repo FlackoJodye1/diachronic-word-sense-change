@@ -6,13 +6,13 @@
     },
     "clusters": {
       "Abgesang_c1": {
-        "label": null,
+        "label": "Liedstrophenteil",
         "members": [
           "s72929"
         ]
       },
       "Abgesang_c0": {
-        "label": null,
+        "label": "Schlussbemerkung",
         "members": [
           "s96267"
         ]
@@ -23,20 +23,25 @@
     "mapping": {
       "s19401": "Behandlung_c0",
       "s20478": "Behandlung_c0",
-      "s107037": "Behandlung_c0",
+      "s107037": "Behandlung_c2",
       "s73156": "Behandlung_c1"
     },
     "clusters": {
       "Behandlung_c0": {
-        "label": null,
+        "label": "Medizinische Behandlung",
         "members": [
           "s19401",
-          "s20478",
+          "s20478"
+        ]
+      },
+      "Behandlung_c2": {
+        "label": "Fallbearbeitung",
+        "members": [
           "s107037"
         ]
       },
       "Behandlung_c1": {
-        "label": null,
+        "label": "Experimentelle Intervention",
         "members": [
           "s73156"
         ]
@@ -53,14 +58,14 @@
     },
     "clusters": {
       "Dynamik_c0": {
-        "label": null,
+        "label": "Innerer Antrieb",
         "members": [
           "s14106",
           "s38956"
         ]
       },
       "Dynamik_c1": {
-        "label": null,
+        "label": "Physikalische Dynamik",
         "members": [
           "s28075",
           "s40984",
@@ -76,13 +81,13 @@
     },
     "clusters": {
       "Eintagsfliege_c1": {
-        "label": null,
+        "label": "Insekt",
         "members": [
           "s49592"
         ]
       },
       "Eintagsfliege_c0": {
-        "label": null,
+        "label": "Kurzlebige Erscheinung",
         "members": [
           "s108210"
         ]
@@ -96,13 +101,13 @@
     },
     "clusters": {
       "Engpass_c1": {
-        "label": null,
+        "label": "Ressourcenknappheit",
         "members": [
           "s16674"
         ]
       },
       "Engpass_c0": {
-        "label": null,
+        "label": "Räumliche Verengung",
         "members": [
           "s9271"
         ]
@@ -113,19 +118,14 @@
     "mapping": {
       "s18388": "Entscheidung_c0",
       "s28698": "Entscheidung_c0",
-      "s73308": "Entscheidung_c1"
+      "s73308": "Entscheidung_c0"
     },
     "clusters": {
       "Entscheidung_c0": {
-        "label": null,
+        "label": "Entscheidungsfindung",
         "members": [
           "s18388",
-          "s28698"
-        ]
-      },
-      "Entscheidung_c1": {
-        "label": null,
-        "members": [
+          "s28698",
           "s73308"
         ]
       }
@@ -133,19 +133,14 @@
   },
   "Frechheit": {
     "mapping": {
-      "s13627": "Frechheit_c1",
+      "s13627": "Frechheit_c0",
       "s14083": "Frechheit_c0"
     },
     "clusters": {
-      "Frechheit_c1": {
-        "label": null,
-        "members": [
-          "s13627"
-        ]
-      },
       "Frechheit_c0": {
-        "label": null,
+        "label": "Unverschämtheit",
         "members": [
+          "s13627",
           "s14083"
         ]
       }
@@ -159,14 +154,14 @@
     },
     "clusters": {
       "Manschette_c0": {
-        "label": null,
+        "label": "Kleidungsabschluss",
         "members": [
           "s71454",
           "s71455"
         ]
       },
       "Manschette_c1": {
-        "label": null,
+        "label": "Technische Dichtung",
         "members": [
           "s106683"
         ]
@@ -180,13 +175,13 @@
     },
     "clusters": {
       "Ohrwurm_c1": {
-        "label": null,
+        "label": "Insekt",
         "members": [
           "s49596"
         ]
       },
       "Ohrwurm_c0": {
-        "label": null,
+        "label": "Eingängige Melodie",
         "members": [
           "s75355"
         ]
@@ -200,13 +195,13 @@
     },
     "clusters": {
       "Rezeption_c1": {
-        "label": null,
+        "label": "Empfangsbereich",
         "members": [
           "s22808"
         ]
       },
       "Rezeption_c0": {
-        "label": null,
+        "label": "Informationsaufnahme",
         "members": [
           "s75703"
         ]
@@ -222,25 +217,25 @@
     },
     "clusters": {
       "Schmiere_c3": {
-        "label": null,
+        "label": "Wachposten",
         "members": [
           "s19840"
         ]
       },
       "Schmiere_c1": {
-        "label": null,
+        "label": "Wanderbühne",
         "members": [
           "s109795"
         ]
       },
       "Schmiere_c2": {
-        "label": null,
+        "label": "Fettiger Schmutz",
         "members": [
           "s47565"
         ]
       },
       "Schmiere_c0": {
-        "label": null,
+        "label": "Schmiermittel",
         "members": [
           "s48505"
         ]
@@ -251,19 +246,14 @@
     "mapping": {
       "s18118": "Seminar_c0",
       "s75925": "Seminar_c0",
-      "s109889": "Seminar_c1"
+      "s109889": "Seminar_c0"
     },
     "clusters": {
       "Seminar_c0": {
-        "label": null,
+        "label": "Lehrveranstaltung",
         "members": [
           "s18118",
-          "s75925"
-        ]
-      },
-      "Seminar_c1": {
-        "label": null,
-        "members": [
+          "s75925",
           "s109889"
         ]
       }
@@ -273,31 +263,26 @@
     "mapping": {
       "s33157": "Spielball_c2",
       "s38557": "Spielball_c3",
-      "s7942": "Spielball_c1",
+      "s7942": "Spielball_c0",
       "s11162": "Spielball_c0"
     },
     "clusters": {
       "Spielball_c2": {
-        "label": null,
+        "label": "Strategischer Spielzug",
         "members": [
           "s33157"
         ]
       },
       "Spielball_c3": {
-        "label": null,
+        "label": "Manipulierbare Person",
         "members": [
           "s38557"
         ]
       },
-      "Spielball_c1": {
-        "label": null,
-        "members": [
-          "s7942"
-        ]
-      },
       "Spielball_c0": {
-        "label": null,
+        "label": "Spielgerät",
         "members": [
+          "s7942",
           "s11162"
         ]
       }
@@ -311,13 +296,13 @@
     },
     "clusters": {
       "Titel_c1": {
-        "label": null,
+        "label": "Rechtlicher Anspruch",
         "members": [
           "s76068"
         ]
       },
       "Titel_c0": {
-        "label": null,
+        "label": "Bezeichnung oder Ehrentitel",
         "members": [
           "s29695",
           "s32215"
@@ -327,24 +312,34 @@
   },
   "abbauen": {
     "mapping": {
-      "s57372": "abbauen_c0",
-      "s58795": "abbauen_c0",
+      "s57372": "abbauen_c2",
+      "s58795": "abbauen_c3",
       "s59673": "abbauen_c0",
       "s53403": "abbauen_c0",
       "s54200": "abbauen_c1"
     },
     "clusters": {
-      "abbauen_c0": {
-        "label": null,
+      "abbauen_c2": {
+        "label": "Demontage",
         "members": [
-          "s57372",
-          "s58795",
+          "s57372"
+        ]
+      },
+      "abbauen_c3": {
+        "label": "Rohstoffgewinnung",
+        "members": [
+          "s58795"
+        ]
+      },
+      "abbauen_c0": {
+        "label": "Reduzierung",
+        "members": [
           "s59673",
           "s53403"
         ]
       },
       "abbauen_c1": {
-        "label": null,
+        "label": "Kräfteverlust",
         "members": [
           "s54200"
         ]
@@ -354,26 +349,31 @@
   "abdecken": {
     "mapping": {
       "s56879": "abdecken_c0",
-      "s57055": "abdecken_c0",
+      "s57055": "abdecken_c3",
       "s54178": "abdecken_c2",
       "s108653": "abdecken_c1"
     },
     "clusters": {
       "abdecken_c0": {
-        "label": null,
+        "label": "Abdeckung entfernen",
         "members": [
-          "s56879",
+          "s56879"
+        ]
+      },
+      "abdecken_c3": {
+        "label": "Bedecken",
+        "members": [
           "s57055"
         ]
       },
       "abdecken_c2": {
-        "label": null,
+        "label": "Bedarf decken",
         "members": [
           "s54178"
         ]
       },
       "abdecken_c1": {
-        "label": null,
+        "label": "Gegenspieler decken",
         "members": [
           "s108653"
         ]
@@ -389,25 +389,25 @@
     },
     "clusters": {
       "ausspannen_c3": {
-        "label": null,
+        "label": "Netze ausbreiten",
         "members": [
           "s109411"
         ]
       },
       "ausspannen_c1": {
-        "label": null,
+        "label": "Abkoppeln",
         "members": [
           "s109412"
         ]
       },
       "ausspannen_c2": {
-        "label": null,
+        "label": "Partner wegnehmen",
         "members": [
           "s52513"
         ]
       },
       "ausspannen_c0": {
-        "label": null,
+        "label": "Erholung",
         "members": [
           "s54617"
         ]
@@ -416,30 +416,35 @@
   },
   "verbauen": {
     "mapping": {
-      "s58902": "verbauen_c2",
+      "s58902": "verbauen_c1",
       "s97885": "verbauen_c1",
-      "s59921": "verbauen_c0",
-      "s66179": "verbauen_c0",
-      "s100861": "verbauen_c0"
+      "s59921": "verbauen_c3",
+      "s66179": "verbauen_c4",
+      "s100861": "verbauen_c5"
     },
     "clusters": {
-      "verbauen_c2": {
-        "label": null,
-        "members": [
-          "s58902"
-        ]
-      },
       "verbauen_c1": {
-        "label": null,
+        "label": "Flächen bebauen",
         "members": [
+          "s58902",
           "s97885"
         ]
       },
-      "verbauen_c0": {
-        "label": null,
+      "verbauen_c3": {
+        "label": "Zukunftschancen blockieren",
         "members": [
-          "s59921",
-          "s66179",
+          "s59921"
+        ]
+      },
+      "verbauen_c4": {
+        "label": "Baumaterial einbauen",
+        "members": [
+          "s66179"
+        ]
+      },
+      "verbauen_c5": {
+        "label": "Zugang versperren",
+        "members": [
           "s100861"
         ]
       }
@@ -447,19 +452,14 @@
   },
   "vergönnen": {
     "mapping": {
-      "s55493": "vergönnen_c1",
+      "s55493": "vergönnen_c0",
       "s52881": "vergönnen_c0"
     },
     "clusters": {
-      "vergönnen_c1": {
-        "label": null,
-        "members": [
-          "s55493"
-        ]
-      },
       "vergönnen_c0": {
-        "label": null,
+        "label": "Jemandem etwas gönnen",
         "members": [
+          "s55493",
           "s52881"
         ]
       }
@@ -472,13 +472,13 @@
     },
     "clusters": {
       "vorliegen_c1": {
-        "label": null,
+        "label": "Als Sachverhalt bestehen",
         "members": [
           "s54223"
         ]
       },
       "vorliegen_c0": {
-        "label": null,
+        "label": "Zur Prüfung verfügbar sein",
         "members": [
           "s54222"
         ]
@@ -487,19 +487,14 @@
   },
   "vorweisen": {
     "mapping": {
-      "s52373": "vorweisen_c1",
+      "s52373": "vorweisen_c0",
       "s58755": "vorweisen_c0"
     },
     "clusters": {
-      "vorweisen_c1": {
-        "label": null,
-        "members": [
-          "s52373"
-        ]
-      },
       "vorweisen_c0": {
-        "label": null,
+        "label": "Nachweis vorzeigen",
         "members": [
+          "s52373",
           "s58755"
         ]
       }
@@ -512,13 +507,13 @@
     },
     "clusters": {
       "zersetzen_c1": {
-        "label": null,
+        "label": "Stoffzersetzung",
         "members": [
           "s59522"
         ]
       },
       "zersetzen_c0": {
-        "label": null,
+        "label": "Autorität untergraben",
         "members": [
           "s100595"
         ]
@@ -533,19 +528,19 @@
     },
     "clusters": {
       "überspannen_c2": {
-        "label": null,
+        "label": "Überbrücken",
         "members": [
           "s65292"
         ]
       },
       "überspannen_c1": {
-        "label": null,
+        "label": "Mit Stoff beziehen",
         "members": [
           "s65293"
         ]
       },
       "überspannen_c0": {
-        "label": null,
+        "label": "Übermäßiges Spannen",
         "members": [
           "s65294"
         ]
