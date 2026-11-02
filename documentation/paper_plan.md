@@ -138,7 +138,15 @@ Empirical status flagged inline. C1 and C4 are still working hypotheses; C2 and 
 ### 5.6 DWUG DE evaluation (reviewer request, added 2026-10-27)
 - Reviewers want ARI vs. DWUG human clusters and Spearman of 2-period JSD vs. `change_graded`; XL-LEXEME / XL-DURel as baselines later.
 - Inventory done: `analysis/dwug/INVENTORY.md`. 50 targets, only 3 already in our set; 24 have a single GermaNet synset, so our method gives JSD = 0 by construction.
-- Open: single-synset handling, DWUG 3.0.0 vs. SemEval gold, ARI target, P1 input. Estimated 1.5–2 days to first numbers once decided.
+- **Steps 1–3 done (2026-10-31).** Decisions: `INVENTORY.md` („Entscheidungen“); cluster review of the 23 new words: `analysis/dwug/review_notes.md`; results: `analysis/dwug/RESULTS.md`.
+  - Words with one cluster after review (24 single-synset + 5 merged in review) enter with JSD = 0. Zusatz 2 = words with ≥ 2 clusters: 19 (SemEval), 21 (DWUG 3.0.0).
+  - **Change:** JSD vs. SemEval-2020 gold ρ = .68 (48 words, 95 % CI .48–.83), vs. DWUG 3.0.0 `change_graded` ρ = .64 (50). On Zusatz 2: ρ = .80 (19) and .72 (21).
+  - **Cluster-count baseline:** ρ = .61 on all words vs. SemEval, but .06 on Zusatz 2. Much of the headline number comes from the single-cluster words sitting at JSD = 0; Zusatz 2 is the real test of the assignment.
+  - **Noise is small here:** on Zusatz 2 the null JSD is 21 % of the observed (median); 19/21 words have p_perm < .05.
+  - **ARI** (words with ≥ 2 clusters): .30 vs. graph clusters, .34 vs. maj_2 sense labels; random .00.
+  - **Robust** to P1 = `context_normalized` (all values change by ≤ .07) and to dropping Seminar/vergönnen.
+  - **Largest errors** are single-synset words (abgebrüht, Knotenpunkt, artikulieren, Armenhaus, Sensation): missing inventory, not wrong assignment.
+- **Next:** XL-LEXEME / XL-DURel baselines.
 
 ---
 
@@ -158,7 +166,8 @@ Empirical status flagged inline. C1 and C4 are still working hypotheses; C2 and 
 | 2026-10-16 | Robustness pass: JSD null baseline, H2 partial correlation, survey split-half (.86), temporal-binning sensitivity. C3 falls, C5 added. `analysis/robustness/RESULTS.md` | ✅ |
 | 2026-10-27 | Binning sensitivity extended: 3/4 periods, frequency partials (Innovation survives), WSD accuracy by era (no deficit on older text) | ✅ |
 | 2026-10-27 | DWUG DE inventory for reviewer-requested evaluation (`analysis/dwug/INVENTORY.md`) | ✅ |
-| Pending | DWUG DE evaluation (ARI + Spearman vs. `change_graded`) | ⏳ blocked on plan decisions (§5.6) |
+| 2026-10-31 | DWUG DE evaluation steps 1–3: cluster review, predictions, ARI + Spearman vs. SemEval-2020 and `change_graded` (`analysis/dwug/RESULTS.md`, §5.6) | ✅ |
+| Pending | DWUG DE: XL-LEXEME / XL-DURel baselines (§5.6) | ⏳ |
 | Pending | Hamilton-extension analysis script + first plot — rescope first (§5.5), must run on periods not decades | ⏳ blocked on binning decision (recommendation: 3 periods) |
 | Pending | Amandine's English subjective-polysemy survey | ⏳ |
 | Pending | First full paper draft (Methods → Evaluation → Application → Intro) | ⏳ |

@@ -2,7 +2,7 @@
 
 A quick-reference document tracking what's done, what's in progress, and what's next.
 
-**Last updated:** 2026-10-27. Paper-level status and claims live in `documentation/paper_plan.md`; robustness numbers live in `analysis/robustness/RESULTS.md`.
+**Last updated:** 2026-11-02. Paper-level status and claims live in `documentation/paper_plan.md`; robustness numbers live in `analysis/robustness/RESULTS.md`; DWUG numbers live in `analysis/dwug/RESULTS.md`.
 
 ---
 
@@ -186,7 +186,7 @@ The JSD=1.0 artifact problem was resolved in v2 (re-fetch with --max-tokens 60, 
 | Sense granularity analysis | `notebooks/analysis/sense_granularity_analysis.ipynb` |
 | **Robustness analyses (ARR resubmission)** | **`analysis/robustness/RESULTS.md`** — JSD null baseline, H2 partial correlation, survey reliability, temporal-binning sensitivity. Read this before quoting any JSD-based number. |
 | Robustness scripts | `analysis/robustness/robustness_analyses.py` (§1–4), `analysis/robustness/binning_sensitivity.py` (§5–6) |
-| DWUG DE evaluation | `analysis/dwug/INVENTORY.md`; data in `data/external/dwug_de/` (gitignored, CC BY-ND 4.0) |
+| DWUG DE evaluation | `analysis/dwug/RESULTS.md` (results), `analysis/dwug/review_notes.md` (cluster review), `analysis/dwug/INVENTORY.md` (inventory + decisions); scripts in `scripts/dwug/`; data in `data/external/dwug_de/` (gitignored, CC BY-ND 4.0) |
 | Atemporal scripts | `scripts/atemporal/` |
 | Diachronic scripts | `scripts/diachronic/` |
 | Data prep scripts | `scripts/data/` |

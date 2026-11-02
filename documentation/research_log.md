@@ -1558,3 +1558,47 @@ timeout on retry. The key is never in URLs, logs or files.
 
 **Next:** Decide whether to drop the base-form filter (or make it accept inflected and old
 forms). Before any re-fetch, `DWDSClient` needs the API key header and an honest UA.
+
+---
+
+## 2026-10-31: DWUG DE — Cluster Review of the 23 New Words
+
+**Status**: Done (`205e4ce`)
+**Full write-up:** `analysis/dwug/review_notes.md`; decisions: `analysis/dwug/INVENTORY.md`.
+
+- Manual review of the 23 DWUG words with ≥ 2 GermaNet senses that are not in the 502
+  (70 synsets) in `review_app.py`, checked by a second reader. 55 → 54 clusters, 10 words changed.
+- 5 words now have one cluster (Entscheidung, Frechheit, Seminar, vergönnen, vorweisen) and
+  enter with JSD = 0, like the single-synset words.
+- **Decision:** Zusatz 2 counts words with ≥ 2 clusters after review (as in the paper):
+  19 vs. SemEval, 21 vs. DWUG 3.0.0.
+- 5 LLM text errors found (3 `core_gloss`, 2 `llm_definition`). Pattern: with little GermaNet
+  text the LLM picks the most frequent sense; negated examples can invert the meaning
+  (vergönnen). Not corrected for the evaluation (method as in the paper).
+
+---
+
+## 2026-10-31: DWUG DE — Predictions and Evaluation
+
+**Status**: Done (predictions `a2b4368`, evaluation `7a8dd3a`)
+**Full write-up:** `analysis/dwug/RESULTS.md`.
+
+- **Predictions:** paper pipeline unchanged (e5-large, `weighted`, cosine argmax, reviewed
+  clusters) on all 9,125 usages, no base-form filter, 60-token window around the target.
+  P1 also on `context_normalized`. Committed before any gold file was read. No sentence text
+  in the output (CC BY-ND).
+- **Change:** JSD vs. SemEval-2020 ρ = .68 (48 words), vs. DWUG 3.0.0 `change_graded`
+  ρ = .64 (50). On Zusatz 2: .80 (19) and .72 (21).
+- **Cluster-count baseline** reaches .61 on all words but .06 on Zusatz 2, so the headline
+  number is partly driven by the 29 single-cluster words at JSD = 0.
+- **Null baseline:** on Zusatz 2 the null JSD is 21 % of the observed (median), 19/21 words
+  p_perm < .05 (DWDS decades: ~90 % noise).
+- **ARI** (≥ 2 clusters): .30 vs. graph clusters, .34 vs. maj_2 sense labels; random .00.
+- **Robustness:** `context_normalized` changes all values by ≤ .07; dropping Seminar/vergönnen
+  changes nothing measurable.
+- **Errors:** the five largest rank deviations are all single-synset words (missing
+  inventory). Within Zusatz 2 the clearest assignment error is Fuß (body-part sense ≤ 1 %).
+- **Correction to INVENTORY.md:** no maj_2 label has majority „andere“ (was 184; every
+  `sense0` had been counted, but the „andere“ ID differs per word).
+
+**Next:** XL-LEXEME / XL-DURel baselines.

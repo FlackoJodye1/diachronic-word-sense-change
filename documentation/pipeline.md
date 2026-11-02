@@ -1,6 +1,6 @@
 # German WSD Pipeline Guide
 
-**Last updated:** 2026-03-23
+**Last updated:** 2026-11-02
 
 A practical guide to the pipeline from raw data through diachronic analysis.
 
@@ -272,6 +272,43 @@ embeddings = embed_with_representation(senses, embedder, "weighted")
 # → (n_senses, 1024) array; weighted = 0.5×llm_definition + 0.5×avg(llm_examples)
 # Note: embed_with_representation("weighted") expects columns llm_example_1..5 (1-indexed)
 ```
+
+---
+
+## DWUG DE Evaluation
+
+External check of the method on DWUG DE / SemEval-2020 Task 1 (German), requested by reviewers.
+Decisions: `analysis/dwug/INVENTORY.md`; results: `analysis/dwug/RESULTS.md`.
+Use the `de-wsd` conda env (Python 3.11); the base Python is too old for the scripts.
+
+**Inputs**
+- `data/external/dwug_de/` — DWUG DE 3.0.0 and DWUG DE Sense 1.0.1 (gitignored, CC BY-ND 4.0)
+- `data/external/semeval2020_ulscd_ger/` — SemEval-2020 gold (gitignored, non-commercial)
+- `data/processed/dwug/senses_dwug.jsonl`, `sense_clusters_dwug_reviewed.json` — senses and reviewed clusters for the 23 new words
+- `data/processed/germanet/senses_combined.jsonl`, `sense_clusters_reviewed.json` — Fuß, Mut, packen
+- `data/processed/dwug/lemma_map.csv` — DWUG lemma → GermaNet lemma and status
+
+**Steps**
+
+```bash
+# 1. Senses + automatic clusters for the new words (already done; then manual review in review_app.py)
+python scripts/dwug/prepare_dwug_senses.py --yes
+python scripts/clustering/compute_sense_clusters.py --threshold 0.10 \
+    --senses-file data/processed/dwug/senses_dwug.jsonl \
+    --output data/processed/dwug/sense_clusters_dwug_0.10.json \
+    --summary-dir data/processed/dwug/t010
+
+# 2. Predictions for all DWUG usages (paper method, no base-form filter, 60-token window)
+python scripts/dwug/predict_dwug.py
+
+# 3. ARI, JSD + permutation null, Spearman vs. SemEval / change_graded, robustness runs
+python scripts/dwug/evaluate_dwug.py
+```
+
+**Outputs**
+- `data/processed/dwug/predictions/dwug_predictions.csv` (+ `.meta.json`) — one row per usage and P1 variant (`context`, `normalized`); usage IDs and window positions only, no sentence text
+- `analysis/dwug/per_word.csv`, `ari.csv`, `spearman.csv`, `error_analysis.csv`, `evaluate_log.txt` (all gitignored)
+- `analysis/dwug/RESULTS.md` — tables and error analysis (written by hand from the outputs)
 
 ---
 
