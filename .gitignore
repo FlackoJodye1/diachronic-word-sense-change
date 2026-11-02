@@ -131,6 +131,8 @@ results/reports/
 analysis/**/*.csv
 analysis/**/*_log.txt
 analysis/robustness/run_log.txt
+# DWUG: per-word gold values stay local (public repo; DWUG CC BY-ND, SemEval non-commercial)
+analysis/dwug/local/
 
 notebooks/data/
 resources/

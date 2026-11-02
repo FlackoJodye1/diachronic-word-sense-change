@@ -102,60 +102,62 @@ Graph-Cluster und wäre ein naheliegendes zweites ARI-Ziel.
 „GN-Synsets“ zählt Synsets über `orthForm`/`orthVar`, bei „(alt)“ nur über `oldOrthForm`.
 „in 502“ heißt: steht in `sense_clusters_reviewed.json` und in `senses_combined.jsonl`.
 „Filter ok“ zählt die Usages pro Periode, die unseren DWDS-Filter bestehen (siehe §5).
-Rohdaten: `analysis/dwug/coverage.csv` (gitignored).
+Rohdaten: `analysis/dwug/coverage.csv` (gitignored). Gold-Werte pro Wort (`change_graded`, `binary`)
+stehen nicht hier, weil das Repo öffentlich ist; die vollständige Tabelle liegt lokal in
+`analysis/dwug/local/inventory_coverage_full.md` (gitignored).
 
-| Lemma | GN-Synsets | in 502 | DWUG Sense | Usages P1 / P2 | change_graded | binary | Filter ok P1 / P2 |
-|---|---|---|---|---|---|---|---|
-| abbauen | 5 | – | ja | 61 / 100 | 0.787 | 1 | 6 / 5 |
-| Fuß | 5 | ja | ja | 100 / 100 | 0.606 | 1 | 33 / 44 |
-| Dynamik | 5 | – | ja | 61 / 100 | 0.605 | 0 | 46 / 96 |
-| verbauen | 5 | – | – | 68 / 100 | 0.577 | 1 | 7 / 36 |
-| ausspannen | 4 | – | ja | 100 / 100 | 0.730 | 1 | 11 / 50 |
-| abdecken | 4 | – | ja | 52 / 100 | 0.627 | 1 | 5 / 12 |
-| packen | 4 | ja | ja | 100 / 100 | 0.480 | 1 | 19 / 19 |
-| Schmiere | 4 | – | ja | 100 / 100 | 0.415 | 1 | 40 / 78 |
-| Behandlung | 4 | – | – | 100 / 100 | 0.338 | 1 | 77 / 97 |
-| Spielball | 4 | – | ja | 59 / 100 | 0.271 | 0 | 41 / 93 |
-| Titel | 3 | – | ja | 100 / 100 | 0.360 | 0 | 83 / 88 |
-| Manschette | 3 | – | ja | 78 / 100 | 0.359 | 1 | 7 / 18 |
-| überspannen | 3 | – | ja | 100 / 100 | 0.357 | 1 | 19 / 25 |
-| Entscheidung | 3 | – | – | 100 / 100 | 0.287 | 0 | 78 / 69 |
-| Seminar | 3 | – | ja | 100 / 100 | 0.265 | 0 | 48 / 52 |
-| Mut | 3 | ja | – | 100 / 100 | 0.211 | 1 | 4 / 91 |
-| Engpaß | 2 (alt) | – | ja | 82 / 100 | 0.927 | 1 | 29 / 51 |
-| Ohrwurm | 2 | – | ja | 39 / 100 | 0.887 | 1 | 20 / 39 |
-| Abgesang | 2 | – | ja | 100 / 100 | 0.800 | 1 | 55 / 95 |
-| Eintagsfliege | 2 | – | ja | 59 / 100 | 0.691 | 0 | 21 / 73 |
-| Rezeption | 2 | – | ja | 100 / 100 | 0.513 | 1 | 12 / 98 |
-| zersetzen | 2 | – | ja | 100 / 100 | 0.502 | 0 | 12 / 49 |
-| vorliegen | 2 | – | – | 100 / 100 | 0.175 | 0 | 23 / 44 |
-| vergönnen | 2 | – | – | 100 / 100 | 0.124 | 0 | 15 / 1 |
-| vorweisen | 2 | – | – | 68 / 100 | 0.112 | 0 | 17 / 52 |
-| Frechheit | 2 | – | – | 100 / 100 | 0.100 | 0 | 78 / 89 |
-| abgebrüht | 1 | – | ja | 64 / 100 | 0.835 | 0 | 38 / 33 |
-| Armenhaus | 1 | – | ja | 100 / 100 | 0.716 | 1 | 25 / 88 |
-| artikulieren | 1 | – | ja | 59 / 100 | 0.709 | 1 | 0 / 36 |
-| Knotenpunkt | 1 | – | ja | 100 / 100 | 0.700 | 0 | 19 / 56 |
-| Mißklang | 1 (alt) | – | ja | 54 / 100 | 0.473 | 1 | 27 / 88 |
-| Sensation | 1 | – | ja | 100 / 100 | 0.468 | 1 | 63 / 74 |
-| Festspiel | 1 | – | – | 50 / 100 | 0.241 | 0 | 13 / 1 |
-| voranstellen | 1 | – | – | 100 / 100 | 0.226 | 0 | 12 / 7 |
-| aufrechterhalten | 1 | – | – | 40 / 100 | 0.188 | 0 | 22 / 52 |
-| beimischen | 1 | – | – | 100 / 100 | 0.182 | 0 | 11 / 11 |
-| Tragfähigkeit | 1 | – | – | 82 / 100 | 0.178 | 1 | 71 / 94 |
-| Naturschönheit | 1 | – | – | 98 / 100 | 0.159 | 0 | 48 / 16 |
-| Gesichtsausdruck | 1 | – | – | 100 / 100 | 0.151 | 0 | 86 / 96 |
-| Tier | 1 | – | – | 100 / 100 | 0.149 | 0 | 2 / 22 |
-| Lyzeum | 1 | – | – | 100 / 100 | 0.144 | 0 | 1 / 63 |
-| Mulatte | 1 | – | – | 100 / 100 | 0.143 | 0 | 10 / 44 |
-| Truppenteil | 1 | – | – | 100 / 100 | 0.142 | 0 | 3 / 23 |
-| Ausnahmegesetz | 1 | – | – | 59 / 100 | 0.093 | 0 | 7 / 26 |
-| Einreichung | 1 | – | – | 60 / 100 | 0.072 | 0 | 45 / 93 |
-| Ackergerät | 1 | – | – | 53 / 100 | 0.000 | 0 | 6 / 22 |
-| Kubikmeter | 1 | – | – | 100 / 100 | 0.000 | 0 | 28 / 86 |
-| Pachtzins | 1 | – | – | 39 / 100 | 0.000 | 0 | 23 / 61 |
-| Unentschlossenheit | 1 | – | – | 76 / 100 | 0.000 | 0 | 63 / 98 |
-| weitgreifend | 1 | – | – | 64 / 100 | 0.000 | 0 | 2 / 4 |
+| Lemma | GN-Synsets | in 502 | DWUG Sense | Usages P1 / P2 | Filter ok P1 / P2 |
+|---|---|---|---|---|---|
+| abbauen | 5 | – | ja | 61 / 100 | 6 / 5 |
+| Dynamik | 5 | – | ja | 61 / 100 | 46 / 96 |
+| Fuß | 5 | ja | ja | 100 / 100 | 33 / 44 |
+| verbauen | 5 | – | – | 68 / 100 | 7 / 36 |
+| abdecken | 4 | – | ja | 52 / 100 | 5 / 12 |
+| ausspannen | 4 | – | ja | 100 / 100 | 11 / 50 |
+| Behandlung | 4 | – | – | 100 / 100 | 77 / 97 |
+| packen | 4 | ja | ja | 100 / 100 | 19 / 19 |
+| Schmiere | 4 | – | ja | 100 / 100 | 40 / 78 |
+| Spielball | 4 | – | ja | 59 / 100 | 41 / 93 |
+| Entscheidung | 3 | – | – | 100 / 100 | 78 / 69 |
+| Manschette | 3 | – | ja | 78 / 100 | 7 / 18 |
+| Mut | 3 | ja | – | 100 / 100 | 4 / 91 |
+| Seminar | 3 | – | ja | 100 / 100 | 48 / 52 |
+| Titel | 3 | – | ja | 100 / 100 | 83 / 88 |
+| überspannen | 3 | – | ja | 100 / 100 | 19 / 25 |
+| Abgesang | 2 | – | ja | 100 / 100 | 55 / 95 |
+| Eintagsfliege | 2 | – | ja | 59 / 100 | 21 / 73 |
+| Engpaß | 2 (alt) | – | ja | 82 / 100 | 29 / 51 |
+| Frechheit | 2 | – | – | 100 / 100 | 78 / 89 |
+| Ohrwurm | 2 | – | ja | 39 / 100 | 20 / 39 |
+| Rezeption | 2 | – | ja | 100 / 100 | 12 / 98 |
+| vergönnen | 2 | – | – | 100 / 100 | 15 / 1 |
+| vorliegen | 2 | – | – | 100 / 100 | 23 / 44 |
+| vorweisen | 2 | – | – | 68 / 100 | 17 / 52 |
+| zersetzen | 2 | – | ja | 100 / 100 | 12 / 49 |
+| abgebrüht | 1 | – | ja | 64 / 100 | 38 / 33 |
+| Ackergerät | 1 | – | – | 53 / 100 | 6 / 22 |
+| Armenhaus | 1 | – | ja | 100 / 100 | 25 / 88 |
+| artikulieren | 1 | – | ja | 59 / 100 | 0 / 36 |
+| aufrechterhalten | 1 | – | – | 40 / 100 | 22 / 52 |
+| Ausnahmegesetz | 1 | – | – | 59 / 100 | 7 / 26 |
+| beimischen | 1 | – | – | 100 / 100 | 11 / 11 |
+| Einreichung | 1 | – | – | 60 / 100 | 45 / 93 |
+| Festspiel | 1 | – | – | 50 / 100 | 13 / 1 |
+| Gesichtsausdruck | 1 | – | – | 100 / 100 | 86 / 96 |
+| Knotenpunkt | 1 | – | ja | 100 / 100 | 19 / 56 |
+| Kubikmeter | 1 | – | – | 100 / 100 | 28 / 86 |
+| Lyzeum | 1 | – | – | 100 / 100 | 1 / 63 |
+| Mißklang | 1 (alt) | – | ja | 54 / 100 | 27 / 88 |
+| Mulatte | 1 | – | – | 100 / 100 | 10 / 44 |
+| Naturschönheit | 1 | – | – | 98 / 100 | 48 / 16 |
+| Pachtzins | 1 | – | – | 39 / 100 | 23 / 61 |
+| Sensation | 1 | – | ja | 100 / 100 | 63 / 74 |
+| Tier | 1 | – | – | 100 / 100 | 2 / 22 |
+| Tragfähigkeit | 1 | – | – | 82 / 100 | 71 / 94 |
+| Truppenteil | 1 | – | – | 100 / 100 | 3 / 23 |
+| Unentschlossenheit | 1 | – | – | 76 / 100 | 63 / 98 |
+| voranstellen | 1 | – | – | 100 / 100 | 12 / 7 |
+| weitgreifend | 1 | – | – | 64 / 100 | 2 / 4 |
 
 **Zusammenfassung:**
 

@@ -4,6 +4,9 @@ Stand 2026-10-31. Grundlage: die Entscheidungen in `INVENTORY.md` (27.10. und 31
 Skripte: `scripts/dwug/predict_dwug.py` (Vorhersagen), `scripts/dwug/evaluate_dwug.py`
 (Auswertung). Rohzahlen: `analysis/dwug/{per_word,ari,spearman,error_analysis}.csv`
 (gitignored wie in `analysis/robustness`), Log: `analysis/dwug/evaluate_log.txt`.
+Gold-Werte pro Wort stehen hier nur für die Beispielwörter der Fehleranalyse (Abschnitt D).
+Die vollständige Tabelle pro Wort (unsere Werte und Gold) erzeugt `evaluate_dwug.py` lokal in
+`analysis/dwug/local/per_word_full.md` (gitignored, Repo ist öffentlich).
 
 ## Kurzfassung
 

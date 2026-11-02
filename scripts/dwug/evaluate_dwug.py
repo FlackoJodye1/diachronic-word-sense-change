@@ -18,6 +18,8 @@ D) Rank deviations for the error analysis.
 
 Outputs (analysis/dwug/, CSVs gitignored like analysis/robustness):
   per_word.csv, ari.csv, spearman.csv, error_analysis.csv, evaluate_log.txt
+  local/per_word_full.md  full per-word table with gold values (gitignored; the repo is
+                          public, so per-word gold stays out of RESULTS.md)
 
 Usage:
     python scripts/dwug/evaluate_dwug.py [--perms 1000] [--boot 10000] [--seed 42]
@@ -235,6 +237,35 @@ def main() -> None:
                 on="dwug_lemma", how="left")
     m.reindex(m.rank_diff.abs().sort_values(ascending=False).index).to_csv(OUT / "error_analysis.csv", index=False)
     (OUT / "evaluate_log.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_local_table(pw, ari)
+
+
+def write_local_table(pw: pd.DataFrame, ari: pd.DataFrame) -> None:
+    """Full per-word table (main run, ours + gold) as Markdown in the gitignored local/ dir."""
+    m = pw[pw.variant == "main"].copy()
+    a = ari[ari.variant == "main"].pivot(index="dwug_lemma", columns="target", values="ari")
+    m = m.join(a[["graph_clusters", "sense_labels_maj2"]], on="dwug_lemma")
+    m["rank_ours_semeval"] = m.jsd_obs.where(m.semeval_graded.notna()).rank()
+    m["rank_gold_semeval"] = m.semeval_graded.rank()
+    m = m.sort_values(["n_clusters", "jsd_obs"], ascending=False)
+    cols = ["dwug_lemma", "status", "n_clusters", "n_p1", "n_p2", "jsd_obs", "jsd_null_mean", "jsd_excess",
+            "p_perm", "graph_clusters", "sense_labels_maj2", "semeval_graded", "change_graded",
+            "rank_ours_semeval", "rank_gold_semeval"]
+
+    def fmt(v):
+        if isinstance(v, float):
+            return "–" if np.isnan(v) else f"{v:.3f}"
+        return str(v)
+
+    rows = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
+    rows += ["| " + " | ".join(fmt(r[c]) for c in cols) + " |" for _, r in m.iterrows()]
+    local = OUT / "local"
+    local.mkdir(exist_ok=True)
+    (local / "per_word_full.md").write_text(
+        "# DWUG DE – Ergebnisse pro Wort mit Gold (lokal, nicht veröffentlichen)\n\n"
+        "Erzeugt von `scripts/dwug/evaluate_dwug.py` (Hauptlauf, P1 = `context`). "
+        "ARI-Spalten: graph_clusters, sense_labels_maj2. Ränge über die 48 SemEval-Wörter.\n\n"
+        + "\n".join(rows) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
